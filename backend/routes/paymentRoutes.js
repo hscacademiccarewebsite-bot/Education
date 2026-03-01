@@ -1,0 +1,33 @@
+const express = require("express");
+const PaymentController = require("../controllers/paymentController");
+const AuthMiddleware = require("../middlewares/authMiddleware");
+
+const router = express.Router();
+
+router.use(AuthMiddleware.requireAuth);
+
+router.get("/my", AuthMiddleware.requireRoles("student"), PaymentController.listMyPayments);
+
+router.get(
+  "/batch/:batchId",
+  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  PaymentController.listBatchPayments
+);
+
+router.get("/global", AuthMiddleware.requireRoles("admin"), PaymentController.listGlobalPayments);
+
+router.post("/generate-dues", AuthMiddleware.requireRoles("admin"), PaymentController.generateMonthlyDues);
+
+router.patch(
+  "/:paymentId/mark-offline-paid",
+  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  PaymentController.markPaymentOfflinePaid
+);
+
+router.patch(
+  "/:paymentId/mark-online-paid",
+  AuthMiddleware.requireRoles("admin", "student"),
+  PaymentController.markPaymentOnlinePaid
+);
+
+module.exports = router;

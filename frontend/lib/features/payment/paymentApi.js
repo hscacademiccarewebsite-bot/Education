@@ -1,0 +1,90 @@
+import { baseApi } from "@/lib/features/api/baseApi";
+
+export const paymentApi = baseApi.injectEndpoints({
+  overrideExisting: true,
+  endpoints: (builder) => ({
+    getMyPayments: builder.query({
+      query: () => ({
+        url: "/payments/my",
+        method: "GET",
+      }),
+      providesTags: [{ type: "Payment", id: "MY" }],
+    }),
+
+    getBatchPayments: builder.query({
+      query: ({ batchId, status, billingYear, billingMonth }) => {
+        const query = new URLSearchParams();
+        if (status) {
+          query.set("status", status);
+        }
+        if (billingYear) {
+          query.set("billingYear", String(billingYear));
+        }
+        if (billingMonth) {
+          query.set("billingMonth", String(billingMonth));
+        }
+        return {
+          url: `/payments/batch/${batchId}${query.toString() ? `?${query.toString()}` : ""}`,
+          method: "GET",
+        };
+      },
+      providesTags: (_, __, { batchId }) => [{ type: "Payment", id: `BATCH_${batchId}` }],
+    }),
+
+    getGlobalPayments: builder.query({
+      query: ({ status, billingYear, billingMonth } = {}) => {
+        const query = new URLSearchParams();
+        if (status) {
+          query.set("status", status);
+        }
+        if (billingYear) {
+          query.set("billingYear", String(billingYear));
+        }
+        if (billingMonth) {
+          query.set("billingMonth", String(billingMonth));
+        }
+        return {
+          url: `/payments/global${query.toString() ? `?${query.toString()}` : ""}`,
+          method: "GET",
+        };
+      },
+      providesTags: [{ type: "Payment", id: "GLOBAL" }],
+    }),
+
+    generateMonthlyDues: builder.mutation({
+      query: (payload) => ({
+        url: "/payments/generate-dues",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: [{ type: "Payment", id: "GLOBAL" }, { type: "Payment", id: "MY" }],
+    }),
+
+    markPaymentOfflinePaid: builder.mutation({
+      query: ({ paymentId, note }) => ({
+        url: `/payments/${paymentId}/mark-offline-paid`,
+        method: "PATCH",
+        body: { note },
+      }),
+      invalidatesTags: [{ type: "Payment", id: "GLOBAL" }, { type: "Payment", id: "MY" }],
+    }),
+
+    markPaymentOnlinePaid: builder.mutation({
+      query: ({ paymentId, ...payload }) => ({
+        url: `/payments/${paymentId}/mark-online-paid`,
+        method: "PATCH",
+        body: payload,
+      }),
+      invalidatesTags: [{ type: "Payment", id: "MY" }, { type: "Payment", id: "GLOBAL" }],
+    }),
+  }),
+});
+
+export const {
+  useGetMyPaymentsQuery,
+  useGetBatchPaymentsQuery,
+  useGetGlobalPaymentsQuery,
+  useGenerateMonthlyDuesMutation,
+  useMarkPaymentOfflinePaidMutation,
+  useMarkPaymentOnlinePaidMutation,
+} = paymentApi;
