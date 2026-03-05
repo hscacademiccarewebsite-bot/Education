@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton, ListSkeleton } from "@/components/loaders/AppLoader";
 import { VideoIcon } from "@/components/icons/PortalIcons";
 import {
   useCreateVideoMutation,
@@ -176,7 +176,7 @@ export default function ChapterDetailsPage() {
     return (
       <RequireAuth>
         <section className="container-page py-10">
-          <CardLoader label="Loading chapter..." />
+          <CardSkeleton />
         </section>
       </RequireAuth>
     );
@@ -292,7 +292,7 @@ export default function ChapterDetailsPage() {
           ) : null}
 
           {videosLoading ? (
-            <CardLoader label="Loading videos..." />
+            <ListSkeleton rows={3} />
           ) : videosIsError ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               {videosError?.data?.message || "Unable to load videos."}

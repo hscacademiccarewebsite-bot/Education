@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { onIdTokenChanged } from "firebase/auth";
 import { useDispatch } from "react-redux";
 import { auth } from "@/firebase.config";
-import { clearAuth, setAuth } from "@/lib/features/auth/authSlice";
+import { clearAuth, setAuth, setInitialized } from "@/lib/features/auth/authSlice";
 import { baseApi } from "@/lib/features/api/baseApi";
 import {
   useLazyGetCurrentUserQuery,
@@ -55,6 +55,7 @@ export default function AuthSync() {
         warnedNetworkRef.current = false;
         dispatch(clearAuth());
         dispatch(baseApi.util.resetApiState());
+        dispatch(setInitialized(true));
         return;
       }
 
@@ -77,9 +78,6 @@ export default function AuthSync() {
               firebaseUser.displayName ||
               firebaseUser.email?.split("@")[0] ||
               "Student User",
-            profilePhoto: firebaseUser.photoURL
-              ? { url: firebaseUser.photoURL }
-              : undefined,
           };
 
           try {
@@ -102,6 +100,7 @@ export default function AuthSync() {
 
         await triggerGetCurrentUser().unwrap();
         warnedNetworkRef.current = false;
+        dispatch(setInitialized(true));
       } catch (error) {
         const message = extractErrorMessage(error);
         if (isNetworkFetchError(message)) {
@@ -111,10 +110,12 @@ export default function AuthSync() {
               "Auth sync skipped: backend API is unreachable. Check NEXT_PUBLIC_API_BASE_URL and backend server."
             );
           }
+          dispatch(setInitialized(true));
           return;
         }
 
         console.error("Auth sync failed:", message, error);
+        dispatch(setInitialized(true));
       }
     });
 

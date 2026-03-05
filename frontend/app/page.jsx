@@ -1,22 +1,16 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSelector } from "react-redux";
 import Navbar from "@/components/Navbar";
-import { CardLoader } from "@/components/loaders/AppLoader";
-import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
-import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
-import { HOME_ABOUT_PILLARS, HOME_QUICK_LINKS } from "@/lib/features/home/homeData";
-import {
-  selectHomeFacultyMembers,
-  selectHomeRunningBatches,
-} from "@/lib/features/home/homeSelectors";
+import { CardLoader, CourseCardSkeleton } from "@/components/loaders/AppLoader";
+import { useGetPublicHomeQuery } from "@/lib/features/home/homeApi";
 
-const batchCoverImages = [
-  "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=70",
-  "https://images.unsplash.com/photo-1552581234-26160f608093?auto=format&fit=crop&w=900&q=70",
-  "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=70",
-  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=70",
+const coverFallbacks = [
+  "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1200&q=70",
+  "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=70",
+  "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=70",
+  "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=70",
 ];
 
 const statusStyles = {
@@ -26,114 +20,184 @@ const statusStyles = {
 };
 
 function formatCurrency(value, currency = "BDT") {
-  const amount = Number(value || 0);
-  return `${new Intl.NumberFormat("en-US").format(amount)} ${currency}`;
+  return `${new Intl.NumberFormat("en-US").format(Number(value || 0))} ${currency}`;
 }
 
-function resolveBatchLink(batchId, isAuthenticated) {
-  if (!isAuthenticated || String(batchId).startsWith("public-")) {
-    return "/courses";
-  }
-  return `/courses/${batchId}`;
-}
+function HeroSlider({ slides }) {
+  const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
-function HeroVisual() {
+  const total = slides?.length || 0;
+
+  const goTo = (idx) => setCurrent((idx + total) % total);
+  const goPrev = () => goTo(current - 1);
+  const goNext = () => goTo(current + 1);
+
+  useEffect(() => {
+    if (total < 2 || isPaused) return undefined;
+    const timer = setInterval(() => goTo(current + 1), 6000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, isPaused, total]);
+
+  if (!total) return null;
+
+  const slide = slides[current];
+  const caption = slide.caption || slide.description || "";
+  const buttonEnabled = slide.buttonEnabled !== false;
+  const buttonText = slide.buttonText || slide.ctaLabel || "Explore Courses";
+  const buttonHref = slide.buttonHref || slide.ctaHref || "/courses";
+
   return (
-    <div className="relative mx-auto w-full max-w-[430px]">
-      <div className="relative overflow-hidden rounded-[34px] border border-white/25 bg-white/10 p-4 shadow-[0_35px_70px_rgba(3,105,161,0.35)] backdrop-blur-md">
-        <div className="relative overflow-hidden rounded-[24px]">
-          <img
-            src="https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?auto=format&fit=crop&w=900&q=70"
-            alt="Learning student"
-            className="h-[300px] w-full object-cover"
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">
-              Live Learning
-            </p>
-            <p className="mt-1 text-lg font-black text-white">Structured Course Experience</p>
-          </div>
-        </div>
-      </div>
+    <section
+      className="relative pt-[64px] md:pt-[72px]"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="relative h-[480px] overflow-hidden bg-slate-950 md:h-[600px] xl:h-[680px]">
 
-      <div className="absolute -left-3 top-[12%] rounded-full bg-emerald-500 p-3 text-white shadow-lg">
-        🎓
-      </div>
-      <div className="absolute -right-4 top-[28%] rounded-full bg-orange-500 p-3 text-white shadow-lg">
-        📚
-      </div>
-      <div className="absolute -left-6 bottom-[16%] rounded-full bg-sky-500 p-3 text-white shadow-lg">
-        💡
-      </div>
-      <div className="absolute -right-2 bottom-[8%] rounded-full bg-cyan-500 p-3 text-white shadow-lg">
-        🧪
-      </div>
-    </div>
-  );
-}
-
-function HeroSection() {
-  return (
-    <section className="pt-[92px] md:pt-[102px]">
-      <div className="container-page py-8 md:py-10">
-        <div className="relative overflow-hidden rounded-[34px] bg-[linear-gradient(120deg,#0b3b91_0%,#0f5fb1_35%,#099a8b_72%,#0dbf8c_100%)] px-6 py-8 text-white md:px-10 md:py-10">
-          <div className="absolute -left-24 -top-20 h-64 w-64 rounded-full bg-cyan-300/30 blur-3xl" />
-          <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-emerald-300/25 blur-3xl" />
-
-          <div className="relative grid items-center gap-7 lg:grid-cols-[minmax(0,1fr)_430px]">
-            <div className="max-w-2xl">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-200">
-                HSC Academic & Admission Care
-              </p>
-              <h1 className="mt-3 text-3xl font-black leading-tight md:text-5xl [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                Your Learning,
-                <br />
-                Reimagined.
-              </h1>
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-100 md:text-base">
-                Master core concepts, prepare for admissions, and stay on track with mentor-led
-                course learning. From enrollment to chapter videos, everything runs in one place.
-              </p>
-
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link
-                  href="/courses"
-                  className="rounded-lg bg-emerald-400 px-5 py-3 text-sm font-black uppercase tracking-wide text-emerald-950 transition hover:bg-emerald-300"
-                >
-                  Explore Courses
-                </Link>
-                <Link
-                  href="#about-us"
-                  className="rounded-lg border border-white/50 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-white/10"
-                >
-                  Learn More
-                </Link>
-              </div>
+        {/* Images — crossfade + Ken Burns */}
+        {slides.map((s, idx) => {
+          const isActive = idx === current;
+          return (
+            <div
+              key={s.id || idx}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                isActive ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <img
+                src={s.imageUrl}
+                alt={s.title}
+                className={`h-full w-full object-cover transition-transform duration-[10000ms] ease-out ${
+                  isActive ? "scale-110" : "scale-100"
+                }`}
+                loading={idx === 0 ? "eager" : "lazy"}
+              />
             </div>
+          );
+        })}
 
-            <HeroVisual />
+        {/* Sophisticated Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900/90 via-slate-900/40 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950/80 to-transparent" />
+
+        {/* Text content — centered but slightly weighted */}
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 backdrop-blur-md">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">
+              {slide.eyebrow || "Excellence in Education"}
+            </p>
           </div>
+          
+          <h1
+            key={`ttl-${current}`}
+            className="mx-auto max-w-4xl text-4xl font-black leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]"
+            style={{ animation: "hsFadeUpPremium 0.8s cubic-bezier(0.16, 1, 0.3, 1) both" }}
+          >
+            {slide.title}
+          </h1>
+          
+          <p
+            key={`cap-${current}`}
+            className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-200/90 md:text-lg"
+            style={{ animation: "hsFadeUpPremium 0.8s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both" }}
+          >
+            {caption}
+          </p>
+          
+          {buttonEnabled && (
+            <div
+              key={`btn-${current}`}
+              className="mt-10"
+              style={{ animation: "hsFadeUpPremium 0.8s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both" }}
+            >
+              <Link
+                href={buttonHref}
+                className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full bg-emerald-500 px-8 py-4 text-sm font-black uppercase tracking-wider text-emerald-950 transition-all hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] active:scale-95"
+              >
+                <span className="relative z-10">{buttonText}</span>
+                <svg className="relative z-10 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+              </Link>
+            </div>
+          )}
         </div>
+
+        {/* Modern Nav Dots */}
+        {total > 1 && (
+          <div className="absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3">
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => goTo(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`h-1.5 transition-all duration-500 ${
+                  idx === current
+                    ? "w-10 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,1)]"
+                    : "w-3 bg-white/30 hover:bg-white/60"
+                } rounded-full`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Prev / Next arrows — sleek style */}
+        {total > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous slide"
+              className="absolute left-6 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-md transition-all hover:bg-white/20 hover:scale-110 active:scale-90"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next slide"
+              className="absolute right-6 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-md transition-all hover:bg-white/20 hover:scale-110 active:scale-90"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
+
+      <style>{`
+        @keyframes hsFadeUpPremium {
+          from { opacity: 0; transform: translateY(30px); filter: blur(10px); }
+          to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+      `}</style>
     </section>
   );
 }
 
 export default function HomePage() {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const runningBatches = useSelector(selectHomeRunningBatches);
-  const facultyMembers = useSelector(selectHomeFacultyMembers);
+  const { data, isLoading, isError } = useGetPublicHomeQuery();
 
-  const { isFetching: batchesFetching } = useListBatchesQuery(undefined, {
-    refetchOnFocus: true,
-    refetchOnReconnect: true,
-  });
+  const heroSlides = data?.data?.heroSlides || [];
+  const runningCourses = data?.data?.runningCourses || [];
+  const general = data?.data?.general || {};
+  const contact = data?.data?.contact || {};
+
+  const primaryCourses = useMemo(() => runningCourses.slice(0, 8), [runningCourses]);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f6fbff_0%,#f2f9f6_55%,#f9fbfd_100%)] text-slate-800">
       <Navbar />
 
-      <HeroSection />
+      <HeroSlider slides={heroSlides} />
 
       <section className="container-page pb-10 pt-4 md:pb-14">
         <div className="mb-6 flex items-end justify-between gap-4">
@@ -151,48 +215,60 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {batchesFetching ? (
-          <CardLoader label="Loading running courses..." />
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <CourseCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+            Failed to load homepage data from backend.
+          </div>
+        ) : primaryCourses.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+            <p className="text-lg font-bold text-slate-900">No courses available right now.</p>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {runningBatches.slice(0, 8).map((batch, index) => (
+            {primaryCourses.map((course, index) => (
               <article
-                key={batch._id}
+                key={course._id}
                 className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
               >
                 <img
-                  src={batchCoverImages[index % batchCoverImages.length]}
-                  alt={batch.name}
-                  className="h-36 w-full object-cover"
+                  src={course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length]}
+                  alt={course.name}
+                  className="h-40 w-full object-cover"
                   loading="lazy"
                 />
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-base font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                      {batch.name}
+                      {course.name}
                     </h3>
                     <span
                       className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
-                        statusStyles[batch.status] || statusStyles.archived
+                        statusStyles[course.status] || statusStyles.archived
                       }`}
                     >
-                      {batch.status}
+                      {course.status}
                     </span>
                   </div>
 
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">
-                    {batch.description || "Structured learning with chapter-based class progression."}
+                    {course.description || "Structured learning with chapter-based class progression."}
                   </p>
 
                   <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Monthly Fee</p>
                     <p className="mt-1 text-sm font-black text-slate-900">
-                      {formatCurrency(batch.monthlyFee, batch.currency || "BDT")}
+                      {formatCurrency(course.monthlyFee, course.currency || "BDT")}
                     </p>
                   </div>
 
                   <Link
-                    href={resolveBatchLink(batch._id, isAuthenticated)}
+                    href={`/courses/${course._id}`}
                     className="mt-3 inline-flex rounded-lg bg-gradient-to-r from-sky-600 to-cyan-500 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-105"
                   >
                     Open Course
@@ -204,150 +280,86 @@ export default function HomePage() {
         )}
       </section>
 
-      <section id="about-us" className="container-page pb-12 md:pb-16">
-        <div className="rounded-[28px] border border-cyan-100 bg-white/90 p-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-10">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">About Us</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-4xl">
-                A complete learning ecosystem for HSC and admission care.
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-700">
-                We organize learning with strong academic structure and operational clarity.
-                Students move from Course to Subject to Chapter to Video while faculty handles review,
-                monitoring, and consistency.
-              </p>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {HOME_ABOUT_PILLARS.map((pillar) => (
-                  <article key={pillar.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-sm font-black text-slate-900">{pillar.title}</h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{pillar.description}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-[linear-gradient(145deg,#082f49_0%,#0f766e_55%,#10b981_100%)] p-6 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Special Section</p>
-              <h3 className="mt-3 text-2xl font-black [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                Learning Paths
-              </h3>
-              <p className="mt-3 text-sm text-slate-100">
-                Built for school-level consistency, admission-level practice, and measurable monthly
-                progression with faculty guidance.
-              </p>
-
-              <div className="mt-5 space-y-2.5">
-                <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm">
-                  Board Mastery Track
-                </div>
-                <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm">
-                  Engineering Admission Track
-                </div>
-                <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm">
-                  Medical Admission Track
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="teacher-panel" className="container-page pb-12 md:pb-16">
-        <div className="mb-6 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Faculty</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-3xl">
-              Teacher Panel
-            </h2>
-          </div>
+      <section className="container-page pb-12 md:pb-16">
+        <div className="grid gap-4 md:grid-cols-3">
           <Link
-            href={isAuthenticated ? "/dashboard" : "/courses"}
-            className="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+            href="/about-us"
+            className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
           >
-            {isAuthenticated ? "Open Dashboard" : "Browse Courses"}
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">About Us</p>
+            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Who We Are</h3>
+            <p className="mt-2 text-sm text-slate-600">Learn about our mission, structure, and academic approach.</p>
+          </Link>
+
+          <Link
+            href="/faculty"
+            className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Faculty</p>
+            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Meet the Team</h3>
+            <p className="mt-2 text-sm text-slate-600">View teachers and moderators guiding the platform.</p>
+          </Link>
+
+          <Link
+            href="/contact-us"
+            className="rounded-2xl border border-sky-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Contact Us</p>
+            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Get Support</h3>
+            <p className="mt-2 text-sm text-slate-600">Reach out for enrollment, payment, or academic support.</p>
           </Link>
         </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {facultyMembers.map((member) => (
-            <article
-              key={member.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                    {member.fullName}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {member.email !== "not-provided" ? member.email : "Email not listed"}
-                  </p>
-                </div>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black uppercase text-emerald-700">
-                  {member.role}
-                </span>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Expertise</p>
-                <p className="mt-1 text-sm text-slate-700">{member.expertise}</p>
-              </div>
-            </article>
-          ))}
-        </div>
       </section>
 
-      <footer id="contact-footer" className="border-t border-cyan-100 bg-white">
-        <div className="container-page py-12 md:py-14">
-          <div className="grid gap-7 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <img src="/logo.png" alt="HSC Academic & Admission Care" className="h-10 w-auto" />
-                <h3 className="text-base font-black text-slate-900">HSC Academic Care</h3>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                Enterprise-style educational management platform for enrollment, content, and payment flow.
-              </p>
-            </div>
+      <footer className="border-t border-slate-200 bg-white/80">
+        <div className="container-page grid gap-5 py-8 md:grid-cols-3">
+          <div>
+            <p className="text-sm font-black text-slate-900">
+              {general.siteName || "HSC Academic & Admission Care"}
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              {general.footerText ||
+                general.siteTagline ||
+                "A focused learning ecosystem for HSC and admission preparation."}
+            </p>
+          </div>
 
-            <div>
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-900">Quick Links</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-700">
-                {HOME_QUICK_LINKS.map((item) => (
-                  <li key={item.label}>
-                    <Link href={item.href} className="transition hover:text-emerald-700">
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-900">Services</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-700">
-                <li>Enrollment Approval Workflow</li>
-                <li>Chapter-Wise Learning Delivery</li>
-                <li>Monthly Due Management</li>
-                <li>Faculty Progress Oversight</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-900">Contact</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-700">
-                <li>Email: support@hscacademic.care</li>
-                <li>Phone: +880 1700-000000</li>
-                <li>Dhaka, Bangladesh</li>
-                <li>Sat - Thu, 9AM - 9PM</li>
-              </ul>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Support</p>
+            <div className="mt-2 space-y-1 text-sm text-slate-700">
+              {contact.email ? <p>{contact.email}</p> : null}
+              {contact.phone ? <p>{contact.phone}</p> : null}
+              {contact.address ? <p>{contact.address}</p> : null}
             </div>
           </div>
 
-          <div className="mt-8 border-t border-slate-200 pt-4 text-xs font-semibold text-slate-500">
-            © 2026 HSC Academic & Admission Care. All rights reserved.
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Connect</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {contact.facebookPage ? (
+                <a
+                  href={contact.facebookPage}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Facebook
+                </a>
+              ) : null}
+              {contact.whatsapp ? (
+                <a
+                  href={contact.whatsapp}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  WhatsApp
+                </a>
+              ) : null}
+            </div>
+            {contact.officeHours ? (
+              <p className="mt-2 text-xs text-slate-600">Office: {contact.officeHours}</p>
+            ) : null}
           </div>
         </div>
       </footer>

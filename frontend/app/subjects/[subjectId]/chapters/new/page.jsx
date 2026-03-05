@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton } from "@/components/loaders/AppLoader";
 import {
   useCreateChapterMutation,
   useGetSubjectByIdQuery,
@@ -69,7 +69,7 @@ export default function NewChapterPage() {
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
           {subjectLoading ? (
-            <CardLoader label="Loading subject info..." />
+            <CardSkeleton />
           ) : (
             <>
               <p className="text-sm text-slate-600">

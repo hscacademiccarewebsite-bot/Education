@@ -2,11 +2,42 @@ const Batch = require("../model/batchSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
 const { canAccessBatch, getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
+const { normalizeCloudinaryAsset } = require("../utils/cloudinaryAsset");
+
+const parseBoolean = (value, fallbackValue = false) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "n", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return fallbackValue;
+};
 
 class EnrollmentRequestController {
   static async createEnrollmentRequest(req, res) {
     try {
-      const { batchId, applicantName, applicantFacebookId, applicantPhoto, applicantPhone, note } = req.body;
+      const {
+        batchId,
+        applicantName,
+        applicantFacebookId,
+        applicantPhoto,
+        applicantPhone,
+        note,
+        facebookGroupJoinRequested,
+      } = req.body;
 
       if (!batchId || !isValidObjectId(batchId)) {
         return res.status(400).json({
@@ -30,14 +61,96 @@ class EnrollmentRequestController {
         });
       }
 
+      const resolvedApplicantName = String(applicantName || req.user.fullName || "").trim();
+      const resolvedFacebookId = String(
+        applicantFacebookId || req.user.facebookProfileId || ""
+      ).trim();
+      const resolvedPhone = String(applicantPhone || req.user.phone || "").trim();
+      const resolvedPhoto = normalizeCloudinaryAsset(applicantPhoto || req.user.profilePhoto);
+      const resolvedNote = String(note || "").trim();
+      const resolvedJoinRequested = parseBoolean(facebookGroupJoinRequested, false);
+
+      if (!resolvedApplicantName) {
+        return res.status(400).json({
+          success: false,
+          message: "Applicant name is required.",
+        });
+      }
+
+      if (!resolvedFacebookId) {
+        return res.status(400).json({
+          success: false,
+          message: "Facebook ID is required.",
+        });
+      }
+
+      if (!resolvedPhoto?.url) {
+        return res.status(400).json({
+          success: false,
+          message: "Applicant photo is required.",
+        });
+      }
+
+      if (!resolvedJoinRequested) {
+        return res.status(400).json({
+          success: false,
+          message: "You must send a join request to the private Facebook group before applying.",
+        });
+      }
+
+      const existingRequest = await EnrollmentRequest.findOne({
+        student: req.user._id,
+        batch: batchId,
+      });
+
+      if (existingRequest) {
+        if (existingRequest.status === "approved") {
+          return res.status(409).json({
+            success: false,
+            message: "You are already approved in this batch.",
+          });
+        }
+
+        if (existingRequest.status === "pending") {
+          return res.status(409).json({
+            success: false,
+            message: "Your enrollment request is already pending review.",
+          });
+        }
+
+        // Re-submit previously rejected request with updated form snapshot.
+        existingRequest.applicantName = resolvedApplicantName;
+        existingRequest.applicantFacebookId = resolvedFacebookId;
+        existingRequest.applicantPhoto = resolvedPhoto;
+        existingRequest.applicantPhone = resolvedPhone;
+        existingRequest.note = resolvedNote;
+        existingRequest.facebookGroupJoinRequested = resolvedJoinRequested;
+
+        existingRequest.status = "pending";
+        existingRequest.reviewedBy = undefined;
+        existingRequest.reviewedAt = undefined;
+        existingRequest.approvedAt = undefined;
+        existingRequest.rejectedAt = undefined;
+        existingRequest.rejectionReason = undefined;
+
+        await existingRequest.save();
+
+        return res.status(200).json({
+          success: true,
+          message: "Enrollment request re-submitted successfully.",
+          data: existingRequest,
+        });
+      }
+
       const enrollmentRequest = await EnrollmentRequest.create({
         student: req.user._id,
         batch: batchId,
-        applicantName: applicantName || req.user.fullName,
-        applicantFacebookId: applicantFacebookId || req.user.facebookProfileId,
-        applicantPhoto: applicantPhoto || req.user.profilePhoto,
-        applicantPhone: applicantPhone || req.user.phone,
-        note,
+        applicantName: resolvedApplicantName,
+        applicantFacebookId: resolvedFacebookId,
+        applicantPhoto: resolvedPhoto,
+        applicantPhone: resolvedPhone,
+        note: resolvedNote,
+        facebookGroupJoinRequested: resolvedJoinRequested,
       });
 
       return res.status(201).json({
@@ -71,7 +184,7 @@ class EnrollmentRequestController {
   static async getMyEnrollmentRequests(req, res) {
     try {
       const requests = await EnrollmentRequest.find({ student: req.user._id })
-        .populate("batch", "name slug monthlyFee currency status")
+        .populate("batch", "name slug monthlyFee currency status facebookGroupUrl")
         .populate("reviewedBy", "fullName role")
         .sort({ createdAt: -1 });
 
@@ -122,7 +235,7 @@ class EnrollmentRequestController {
 
       const requests = await EnrollmentRequest.find(query)
         .populate("student", "fullName email phone profilePhoto facebookProfileId role")
-        .populate("batch", "name slug monthlyFee currency status")
+        .populate("batch", "name slug monthlyFee currency status facebookGroupUrl")
         .populate("reviewedBy", "fullName role")
         .sort({ createdAt: -1 });
 

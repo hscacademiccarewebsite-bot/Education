@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton, ListSkeleton } from "@/components/loaders/AppLoader";
 import { SubjectIcon } from "@/components/icons/PortalIcons";
 import { useGetBatchByIdQuery } from "@/lib/features/batch/batchApi";
+import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import {
   useCreateSubjectMutation,
   useDeleteSubjectMutation,
@@ -14,7 +15,7 @@ import {
   useUpdateSubjectMutation,
 } from "@/lib/features/content/contentApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
-import { canManageContent } from "@/lib/utils/roleUtils";
+import { canManageContent, isStudent } from "@/lib/utils/roleUtils";
 
 const initialSubjectForm = {
   title: "",
@@ -30,6 +31,7 @@ export default function BatchDetailsPage() {
 
   const role = useSelector(selectCurrentUserRole);
   const canManage = canManageContent(role);
+  const studentRole = isStudent(role);
 
   const { data: batchData, isLoading: batchLoading } = useGetBatchByIdQuery(batchId, {
     skip: !batchId,
@@ -46,6 +48,9 @@ export default function BatchDetailsPage() {
   const [createSubject, { isLoading: creatingSubject }] = useCreateSubjectMutation();
   const [updateSubject, { isLoading: updatingSubject }] = useUpdateSubjectMutation();
   const [deleteSubject, { isLoading: deletingSubject }] = useDeleteSubjectMutation();
+  const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, {
+    skip: !studentRole,
+  });
 
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm);
@@ -56,6 +61,9 @@ export default function BatchDetailsPage() {
 
   const batch = batchData?.data;
   const subjects = subjectsData?.data || [];
+  const myBatchEnrollment = (myEnrollmentsData?.data || []).find(
+    (request) => String(request.batch?._id || request.batch) === String(batchId)
+  );
 
   const handleCreateSubject = async (event) => {
     event.preventDefault();
@@ -146,7 +154,7 @@ export default function BatchDetailsPage() {
   if (batchLoading) {
     return (
       <section className="container-page py-10">
-        <CardLoader label="Loading course workspace..." />
+        <CardSkeleton />
       </section>
     );
   }
@@ -170,6 +178,28 @@ export default function BatchDetailsPage() {
         >
           Back to Courses
         </Link>
+        {studentRole ? (
+          myBatchEnrollment ? (
+            <span
+              className={`rounded-lg px-3.5 py-2 text-xs font-black uppercase tracking-wide ${
+                myBatchEnrollment.status === "approved"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : myBatchEnrollment.status === "rejected"
+                  ? "bg-rose-100 text-rose-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              Enrollment: {myBatchEnrollment.status}
+            </span>
+          ) : (
+            <Link
+              href={`/enrollments?batchId=${batchId}`}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-100"
+            >
+              Apply for This Batch
+            </Link>
+          )
+        ) : null}
         {batch.facebookGroupUrl ? (
           <a
             href={batch.facebookGroupUrl}
@@ -267,7 +297,7 @@ export default function BatchDetailsPage() {
         ) : null}
 
         {subjectsLoading ? (
-          <CardLoader label="Loading subjects..." />
+          <ListSkeleton rows={3} />
         ) : subjectsIsError ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             {subjectsError?.data?.message ||

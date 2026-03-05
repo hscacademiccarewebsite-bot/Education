@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardLoader, InlineLoader } from "@/components/loaders/AppLoader";
+import { ListSkeleton, InlineLoader } from "@/components/loaders/AppLoader";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import {
   useGenerateMonthlyDuesMutation,
@@ -62,7 +62,7 @@ function StudentPayments() {
       ) : null}
 
       {isLoading ? (
-        <CardLoader label="Loading payments..." />
+        <ListSkeleton rows={3} />
       ) : payments.length === 0 ? (
         <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
           No payment records yet.
@@ -225,7 +225,7 @@ function StaffAdminPayments({ role }) {
 
       <div className="space-y-3">
         {batchPaymentsLoading ? (
-          <CardLoader label="Loading batch payments..." />
+          <ListSkeleton rows={3} />
         ) : selectedBatchId && batchPayments.length === 0 ? (
           <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
             No payment records for selected batch.

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton, ListSkeleton } from "@/components/loaders/AppLoader";
 import { ChapterIcon } from "@/components/icons/PortalIcons";
 import {
   useCreateChapterMutation,
@@ -152,7 +152,7 @@ export default function SubjectDetailsPage() {
     return (
       <RequireAuth>
         <section className="container-page py-10">
-          <CardLoader label="Loading subject..." />
+          <CardSkeleton />
         </section>
       </RequireAuth>
     );
@@ -245,7 +245,7 @@ export default function SubjectDetailsPage() {
           ) : null}
 
           {chaptersLoading ? (
-            <CardLoader label="Loading chapters..." />
+            <ListSkeleton rows={3} />
           ) : chaptersIsError ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               {chaptersError?.data?.message || "Unable to load chapters."}

@@ -9,6 +9,8 @@ const batchRoutes = require("./routes/batchRoutes");
 const subjectRoutes = require("./routes/subjectRoutes");
 const chapterRoutes = require("./routes/chapterRoutes");
 const videoRoutes = require("./routes/videoRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 const enrollmentRequestRoutes = require("./routes/enrollmentRequestRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 
@@ -39,6 +41,8 @@ app.use("/api/courses", batchRoutes); // Alias for course-focused frontend namin
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/videos", videoRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/public", publicRoutes);
 app.use("/api/enrollments", enrollmentRequestRoutes);
 app.use("/api/payments", paymentRoutes);
 

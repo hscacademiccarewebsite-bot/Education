@@ -39,6 +39,14 @@ const userSlice = createSlice({
           state.error = null;
           state.lastSyncedAt = Date.now();
         }
+      })
+      .addMatcher(authApi.endpoints.updateCurrentUser.matchFulfilled, (state, action) => {
+        if (action.payload?.data) {
+          state.profile = action.payload.data;
+          state.status = "succeeded";
+          state.error = null;
+          state.lastSyncedAt = Date.now();
+        }
       });
   },
 });
@@ -58,6 +66,11 @@ export const selectCurrentUserDisplayName = createSelector(
     firebaseUser?.email ||
     currentUser?.email ||
     ""
+);
+
+export const selectCurrentUserPhotoUrl = createSelector(
+  [selectCurrentUser, (state) => state.auth.firebaseUser],
+  (currentUser, firebaseUser) => currentUser?.profilePhoto?.url || firebaseUser?.photoURL || ""
 );
 
 export default userSlice.reducer;

@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton } from "@/components/loaders/AppLoader";
 import { useGetBatchByIdQuery } from "@/lib/features/batch/batchApi";
 import { useCreateSubjectMutation } from "@/lib/features/content/contentApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
@@ -62,7 +62,7 @@ export default function NewSubjectPage() {
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
           {batchLoading ? (
-            <CardLoader label="Loading batch info..." />
+            <CardSkeleton />
           ) : (
             <>
               <p className="text-sm text-slate-600">

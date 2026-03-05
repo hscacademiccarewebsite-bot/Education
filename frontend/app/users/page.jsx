@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { ListSkeleton } from "@/components/loaders/AppLoader";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { useAssignBatchesToStaffMutation, useListUsersQuery, useUpdateUserRoleMutation } from "@/lib/features/user/userApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
@@ -106,7 +106,7 @@ export default function UsersPage() {
         ) : null}
 
         {isLoading ? (
-          <CardLoader label="Loading users..." />
+          <ListSkeleton rows={5} />
         ) : (
           <div className="space-y-4">
             {users.map((user) => (

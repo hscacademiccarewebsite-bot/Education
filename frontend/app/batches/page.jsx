@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { CardLoader, InlineLoader } from "@/components/loaders/AppLoader";
+import { CourseCardSkeleton } from "@/components/loaders/AppLoader";
 import {
   useCreateBatchMutation,
   useDeleteBatchMutation,
@@ -13,8 +13,8 @@ import {
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
-import { isCloudinaryUploadConfigured, uploadImageToCloudinary } from "@/lib/utils/cloudinaryUpload";
 import { CourseIcon, FeeIcon } from "@/components/icons/PortalIcons";
+import ImageUploadField from "@/components/uploads/ImageUploadField";
 
 const initialCourseForm = {
   name: "",
@@ -112,12 +112,8 @@ export default function CoursesPage() {
   const [createForm, setCreateForm] = useState(initialCourseForm);
   const [editCourseId, setEditCourseId] = useState(null);
   const [editForm, setEditForm] = useState(initialCourseForm);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-
-  const [createBannerFile, setCreateBannerFile] = useState(null);
-  const [editBannerFile, setEditBannerFile] = useState(null);
-  const [uploadingCreateBanner, setUploadingCreateBanner] = useState(false);
-  const [uploadingEditBanner, setUploadingEditBanner] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -147,7 +143,6 @@ export default function CoursesPage() {
   const openEditForm = (course) => {
     setEditCourseId(course._id);
     setEditForm(mapCourseToForm(course));
-    setEditBannerFile(null);
     setMessage("");
     setError("");
   };
@@ -155,54 +150,37 @@ export default function CoursesPage() {
   const closeEditForm = () => {
     setEditCourseId(null);
     setEditForm(initialCourseForm);
-    setEditBannerFile(null);
   };
 
-  const handleCreateBannerUpload = async () => {
-    if (!createBannerFile) {
-      setError("Select a banner image first.");
+  const openCreateModal = () => {
+    setShowCreateModal(true);
+    setMessage("");
+    setError("");
+  };
+
+  const closeCreateModal = () => {
+    if (creatingCourse) {
       return;
     }
-
-    setError("");
-    setUploadingCreateBanner(true);
-    try {
-      const uploaded = await uploadImageToCloudinary(createBannerFile);
-      setCreateForm((prev) => ({
-        ...prev,
-        bannerUrl: uploaded.url,
-        bannerPublicId: uploaded.publicId,
-      }));
-      setMessage("Course banner uploaded successfully.");
-    } catch (uploadError) {
-      setError(uploadError?.message || "Failed to upload course banner.");
-    } finally {
-      setUploadingCreateBanner(false);
-    }
+    setShowCreateModal(false);
   };
 
-  const handleEditBannerUpload = async () => {
-    if (!editBannerFile) {
-      setError("Select a banner image first.");
-      return;
+  useEffect(() => {
+    if (!showCreateModal) {
+      return undefined;
     }
 
-    setError("");
-    setUploadingEditBanner(true);
-    try {
-      const uploaded = await uploadImageToCloudinary(editBannerFile);
-      setEditForm((prev) => ({
-        ...prev,
-        bannerUrl: uploaded.url,
-        bannerPublicId: uploaded.publicId,
-      }));
-      setMessage("Course banner uploaded successfully.");
-    } catch (uploadError) {
-      setError(uploadError?.message || "Failed to upload course banner.");
-    } finally {
-      setUploadingEditBanner(false);
-    }
-  };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeCreateModal();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showCreateModal, creatingCourse]);
 
   const handleCreateCourse = async (event) => {
     event.preventDefault();
@@ -218,7 +196,7 @@ export default function CoursesPage() {
       await createCourse(toCoursePayload(createForm)).unwrap();
       setMessage("Course created successfully.");
       setCreateForm(initialCourseForm);
-      setCreateBannerFile(null);
+      setShowCreateModal(false);
     } catch (createError) {
       setError(createError?.data?.message || "Failed to create course.");
     }
@@ -267,435 +245,474 @@ export default function CoursesPage() {
     }
   };
 
-  const cloudinaryReady = isCloudinaryUploadConfigured();
-
   return (
-    <section className="container-page py-8">
-      <div className="relative overflow-hidden rounded-[30px] bg-[linear-gradient(125deg,#0b3b91_0%,#0f5fb1_45%,#099a8b_100%)] px-6 py-7 text-white shadow-[0_20px_60px_rgba(15,23,42,0.22)] md:px-8 md:py-8">
-        <div className="pointer-events-none absolute -left-14 -top-10 h-52 w-52 rounded-full bg-cyan-300/30 blur-3xl" />
-        <div className="pointer-events-none absolute -right-10 bottom-0 h-48 w-48 rounded-full bg-emerald-300/25 blur-3xl" />
+    <main className="min-h-screen bg-slate-50/50 pb-20">
+      {/* ── Premium Hero Section ── */}
+      <section className="relative overflow-hidden bg-slate-900 py-6 lg:py-8">
+        {/* Animated Background Blobs */}
+        <div className="absolute -left-20 -top-20 h-96 w-96 animate-pulse rounded-full bg-cyan-500/20 blur-[120px]" />
+        <div className="absolute -right-20 bottom-0 h-96 w-96 animate-pulse rounded-full bg-emerald-500/20 blur-[120px]" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
 
-        <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-100">Course Management</p>
-            <h1 className="mt-2 text-3xl font-black [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-4xl">
-              Courses Workspace
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-100">
-              Create, update, and organize courses with banner media, fee configuration, and structured content flow.
-            </p>
-          </div>
+        <div className="container-page relative z-10">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="max-w-4xl">
+              <nav className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400/80">
+                <Link href="/" className="transition hover:text-cyan-300">Home</Link>
+                <span className="text-slate-600">/</span>
+                <span>Courses</span>
+              </nav>
+              
+              <h1 className="text-2xl font-black tracking-tight text-white [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-3xl lg:leading-[1.1]">
+                Unlock Your <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Academic Potential</span>
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300 md:text-base">
+                Join thousands of students in our structured, high-impact courses designed for excellence in HSC and Admission.
+              </p>
 
-          <div className="flex gap-2 rounded-full border border-white/25 bg-white/10 px-2 py-1 backdrop-blur-sm">
-            {["all", "active", "upcoming", "archived"].map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition ${
-                  statusFilter === status
-                    ? "bg-white text-slate-900"
-                    : "text-white/85 hover:bg-white/20"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {message ? (
-        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {message}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          {error}
-        </div>
-      ) : null}
-
-      {adminRole && editCourseId ? (
-        <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_15px_35px_rgba(15,23,42,0.08)]">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">Edit Course</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">
-                {selectedEditCourse?.name || "Selected Course"}
-              </h2>
-            </div>
-
-            <button
-              type="button"
-              onClick={closeEditForm}
-              className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-            >
-              Close
-            </button>
-          </div>
-
-          <form onSubmit={handleUpdateCourse} className="grid gap-3 md:grid-cols-2">
-            <input
-              required
-              value={editForm.name}
-              onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
-              placeholder="Course name"
-              className={fieldClass()}
-            />
-            <div className="flex gap-2">
-              <input
-                required
-                value={editForm.slug}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, slug: event.target.value }))}
-                placeholder="Slug"
-                className={fieldClass()}
-              />
-              <button
-                type="button"
-                onClick={() => setEditForm((prev) => ({ ...prev, slug: toSlug(prev.name) }))}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-              >
-                Auto
-              </button>
-            </div>
-
-            <input
-              required
-              type="url"
-              value={editForm.facebookGroupUrl}
-              onChange={(event) =>
-                setEditForm((prev) => ({ ...prev, facebookGroupUrl: event.target.value }))
-              }
-              placeholder="Facebook Group URL"
-              className={fieldClass()}
-            />
-            <input
-              required
-              type="number"
-              min="0"
-              value={editForm.monthlyFee}
-              onChange={(event) => setEditForm((prev) => ({ ...prev, monthlyFee: event.target.value }))}
-              placeholder="Monthly Fee"
-              className={fieldClass()}
-            />
-
-            <select
-              value={editForm.status}
-              onChange={(event) => setEditForm((prev) => ({ ...prev, status: event.target.value }))}
-              className={fieldClass()}
-            >
-              <option value="active">Active</option>
-              <option value="upcoming">Upcoming</option>
-              <option value="archived">Archived</option>
-            </select>
-
-            <textarea
-              value={editForm.description}
-              onChange={(event) => setEditForm((prev) => ({ ...prev, description: event.target.value }))}
-              placeholder="Course description"
-              className={`${fieldClass()} md:col-span-2`}
-              rows={3}
-            />
-
-            <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Banner Upload</p>
-              {cloudinaryReady ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setEditBannerFile(event.target.files?.[0] || null)}
-                    className="text-xs text-slate-600"
-                  />
+              {adminRole && (
+                <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={handleEditBannerUpload}
-                    disabled={uploadingEditBanner}
-                    className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-cyan-400"
+                    onClick={openCreateModal}
+                    className="group relative flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-900 shadow-xl transition hover:-translate-y-1 hover:bg-slate-50"
                   >
-                    {uploadingEditBanner ? "Uploading..." : "Upload Banner"}
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 transition group-hover:bg-emerald-600 group-hover:text-white">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </span>
+                    Create New Course
                   </button>
                 </div>
-              ) : (
-                <p className="mt-2 text-xs text-slate-600">
-                  Cloudinary upload is not configured. Set `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and
-                  `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`.
-                </p>
               )}
-
-              {editForm.bannerUrl ? (
-                <img
-                  src={editForm.bannerUrl}
-                  alt="Course banner preview"
-                  className="mt-3 h-28 w-full rounded-xl object-cover"
-                />
-              ) : null}
             </div>
-
-            <div className="md:col-span-2 flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={updatingCourse}
-                className="rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-cyan-400"
-              >
-                {updatingCourse ? "Saving..." : "Save Changes"}
-              </button>
-              <button
-                type="button"
-                onClick={closeEditForm}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
-      ) : null}
+      </section>
 
-      <div className={`mt-6 grid gap-6 ${adminRole ? "xl:grid-cols-[minmax(0,1fr)_390px]" : ""}`}>
-        <div>
-          {isLoading ? (
-            <CardLoader label="Loading courses..." />
-          ) : filteredCourses.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-              <p className="text-lg font-bold text-slate-900">No courses found</p>
-              <p className="mt-2 text-sm text-slate-600">Try another status filter.</p>
+      {/* ── Management Bar (Filters & Search) ── */}
+      <section className="sticky top-[64px] z-40 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
+        <div className="container-page py-3">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar md:pb-0">
+              {["all", "active", "upcoming", "archived"].map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
+                    statusFilter === status
+                      ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {filteredCourses.map((course, index) => {
-                const enrollment = enrollmentMap.get(course._id);
-                const meta = statusMeta[course.status] || statusMeta.archived;
-                const bannerUrl = course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length];
 
-                return (
-                  <article
-                    key={course._id}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(15,23,42,0.1)]"
-                  >
-                    <img src={bannerUrl} alt={course.name} className="h-44 w-full object-cover" loading="lazy" />
-
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-100 to-emerald-100 text-cyan-700">
-                            <CourseIcon className="h-5 w-5" />
-                          </span>
-                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-700">
-                            Course {String(index + 1).padStart(2, "0")}
-                          </p>
-                          <h2 className="mt-1 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                            {course.name}
-                          </h2>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${meta.pillClass}`}>
-                          {meta.label}
-                        </span>
-                      </div>
-
-                      <p className="mt-3 min-h-[42px] text-sm text-slate-600">
-                        {course.description || "Structured learning with chapter-wise content progression."}
-                      </p>
-
-                      <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Monthly Fee</p>
-                        <div className="mt-1 flex items-center gap-2 text-sm font-black text-slate-900">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
-                            <FeeIcon className="h-4 w-4" />
-                          </span>
-                          <span>{formatCurrency(course.monthlyFee, course.currency || "BDT")}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Link
-                          href={`/courses/${course._id}`}
-                          className="rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-slate-800"
-                        >
-                          Open Course
-                        </Link>
-
-                        {course.facebookGroupUrl ? (
-                          <a
-                            href={course.facebookGroupUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-100"
-                          >
-                            Group
-                          </a>
-                        ) : null}
-
-                        {studentRole ? (
-                          enrollment ? (
-                            <span className="rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-sky-700">
-                              {enrollment.status}
-                            </span>
-                          ) : (
-                            <Link
-                              href="/enrollments"
-                              className="rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-sky-700 transition hover:bg-sky-100"
-                            >
-                              Apply
-                            </Link>
-                          )
-                        ) : null}
-
-                        {adminRole ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openEditForm(course)}
-                              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-cyan-700 transition hover:bg-cyan-100"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCourse(course)}
-                              disabled={deletingCourse}
-                              className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="relative flex-1 min-w-[280px] max-w-md">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search courses..."
+                className="w-full rounded-2xl bg-slate-100 px-11 py-3 text-sm font-medium text-slate-700 outline-none transition focus:bg-white focus:ring-2 focus:ring-cyan-500/20"
+              />
             </div>
-          )}
+          </div>
         </div>
+      </section>
 
-        {adminRole ? (
-          <aside className="xl:sticky xl:top-24 xl:self-start">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Admin Control</p>
-              <h2 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                Create Course
-              </h2>
+      <div className="container-page mt-12">
+        {message && (
+          <div className="mb-8 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-2">
+            <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="mb-8 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-800 shadow-sm animate-in fade-in slide-in-from-top-2">
+            <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-              <form onSubmit={handleCreateCourse} className="mt-4 space-y-2.5">
-                <input
-                  required
-                  value={createForm.name}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="Course name"
-                  className={fieldClass()}
-                />
-
-                <div className="flex gap-2">
+        {adminRole && editCourseId && (
+          <div className="mb-12 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="border-b border-slate-100 bg-slate-50/50 px-8 py-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Modify Course</h2>
+                  <p className="text-sm text-slate-500">Update essential details for {selectedEditCourse?.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditForm}
+                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <form onSubmit={handleUpdateCourse} className="p-8">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Course Name</label>
                   <input
                     required
-                    value={createForm.slug}
-                    onChange={(event) => setCreateForm((prev) => ({ ...prev, slug: event.target.value }))}
-                    placeholder="Slug"
+                    value={editForm.name}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="e.g., HSC Physics Premium"
                     className={fieldClass()}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setCreateForm((prev) => ({ ...prev, slug: toSlug(prev.name) }))}
-                    className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Auto
-                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">URL Slug</label>
+                  <div className="flex gap-2">
+                    <input
+                      required
+                      value={editForm.slug}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, slug: event.target.value }))}
+                      className={fieldClass()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev, slug: toSlug(prev.name) }))}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Generate
+                    </button>
+                  </div>
                 </div>
 
-                <input
-                  required
-                  type="url"
-                  value={createForm.facebookGroupUrl}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, facebookGroupUrl: event.target.value }))
-                  }
-                  placeholder="Facebook Group URL"
-                  className={fieldClass()}
-                />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Facebook Group</label>
+                  <input
+                    required
+                    type="url"
+                    value={editForm.facebookGroupUrl}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, facebookGroupUrl: event.target.value }))}
+                    placeholder="https://facebook.com/groups/..."
+                    className={fieldClass()}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Monthly Fee (BDT)</label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={editForm.monthlyFee}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, monthlyFee: event.target.value }))}
+                    className={fieldClass()}
+                  />
+                </div>
 
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  value={createForm.monthlyFee}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, monthlyFee: event.target.value }))}
-                  placeholder="Monthly Fee"
-                  className={fieldClass()}
-                />
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Visibility Status</label>
+                  <div className="flex flex-wrap gap-3">
+                    {["active", "upcoming", "archived"].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setEditForm((prev) => ({ ...prev, status: s }))}
+                        className={`rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${
+                          editForm.status === s
+                            ? "bg-slate-900 text-white shadow-lg"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                <select
-                  value={createForm.status}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, status: event.target.value }))}
-                  className={fieldClass()}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Marketing Description</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, description: event.target.value }))}
+                    rows={4}
+                    className={fieldClass()}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <ImageUploadField
+                    label="Course Cover Image"
+                    folder="hsc-academic/courses"
+                    asset={editForm.bannerUrl ? { url: editForm.bannerUrl, publicId: editForm.bannerPublicId } : null}
+                    onChange={(asset) => {
+                      setEditForm((prev) => ({
+                        ...prev,
+                        bannerUrl: asset?.url || "",
+                        bannerPublicId: asset?.publicId || "",
+                      }));
+                      setError("");
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-10 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-8">
+                <button
+                  type="submit"
+                  disabled={updatingCourse}
+                  className="rounded-2xl bg-cyan-600 px-8 py-4 text-sm font-black uppercase tracking-wider text-white shadow-lg shadow-cyan-200 transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
                 >
-                  <option value="active">Active</option>
-                  <option value="upcoming">Upcoming</option>
-                  <option value="archived">Archived</option>
-                </select>
+                  {updatingCourse ? "Updating..." : "Save All Changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCourse(selectedEditCourse)}
+                  disabled={deletingCourse}
+                  className="rounded-2xl border border-rose-200 bg-rose-50 px-8 py-4 text-sm font-black uppercase tracking-wider text-rose-700 transition hover:bg-rose-100"
+                >
+                  Delete Permanently
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
-                <textarea
-                  value={createForm.description}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
-                  placeholder="Course description"
-                  className={fieldClass()}
-                  rows={3}
-                />
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <CourseCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-[40px] border border-slate-200 bg-white py-20 text-center shadow-sm">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-50 text-slate-300">
+              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900">No courses found</h3>
+            <p className="mt-2 text-slate-500">We couldn't find any courses matching your filter.</p>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black uppercase tracking-wider text-white transition hover:bg-slate-800"
+            >
+              Show all courses
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredCourses.map((course, index) => {
+              const enrollment = enrollmentMap.get(course._id);
+              const meta = statusMeta[course.status] || statusMeta.archived;
+              const bannerUrl = course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length];
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Banner Upload</p>
-                  {cloudinaryReady ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+              return (
+                <article
+                  key={course._id}
+                  className="group relative flex flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.02)] transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
+                >
+                  <div className="relative aspect-[16/9] overflow-hidden">
+                    <img
+                      src={bannerUrl}
+                      alt={course.name}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                    <div className="absolute right-4 top-4">
+                      <span className={`rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-xl backdrop-blur-md ${meta.pillClass.replace('bg-', 'bg-')}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-600">
+                        <span>Course</span>
+                        <div className="h-0.5 w-0.5 rounded-full bg-slate-300" />
+                        <span>Featured</span>
+                      </div>
+                      <h2 className="mt-2 text-lg font-black leading-tight text-slate-900 group-hover:text-cyan-700 transition line-clamp-1">
+                        {course.name}
+                      </h2>
+                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                        {course.description || "Specialized academic modules for success."}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Monthly Fee</p>
+                        <p className="text-base font-black text-slate-900">
+                          {formatCurrency(course.monthlyFee, course.currency || "BDT")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <Link
+                        href={`/courses/${course._id}`}
+                        className="flex items-center justify-center rounded-xl bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-cyan-700 hover:shadow-lg hover:shadow-cyan-200"
+                      >
+                        Explore
+                      </Link>
+
+                      {studentRole ? (
+                        enrollment ? (
+                          <span className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            {enrollment.status}
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/enrollments?batchId=${course._id}`}
+                            className="flex items-center justify-center rounded-xl border-2 border-emerald-500 bg-white text-[10px] font-black uppercase tracking-widest text-emerald-600 transition hover:bg-emerald-50"
+                          >
+                            Apply
+                          </Link>
+                        )
+                      ) : adminRole ? (
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(course)}
+                          className="flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 shadow-sm"
+                        >
+                          Modify
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-300">
+                           Student Only
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Create Modal ── */}
+      {adminRole && showCreateModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in" onClick={closeCreateModal} />
+          
+          <div className="relative z-10 w-full max-w-4xl max-h-[90svh] overflow-y-auto rounded-[40px] border border-white/20 bg-white p-1 shadow-2xl animate-in zoom-in-95 duration-300 no-scrollbar">
+            <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-8 py-6 backdrop-blur-sm">
+               <div>
+                  <h2 className="text-3xl font-black text-slate-900">New Expedition</h2>
+                  <p className="text-sm text-slate-500">Initiate a new high-impact academic course module.</p>
+               </div>
+               <button onClick={closeCreateModal} className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+               </button>
+            </div>
+
+            <form onSubmit={handleCreateCourse} className="p-8">
+               <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Title</label>
+                    <input
+                      required
+                      value={createForm.name}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g., Higher Math - Integration Special"
+                      className={fieldClass()}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Slug</label>
+                    <div className="flex gap-2">
                       <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => setCreateBannerFile(event.target.files?.[0] || null)}
-                        className="text-xs text-slate-600"
+                        required
+                        value={createForm.slug}
+                        onChange={(e) => setCreateForm(prev => ({ ...prev, slug: e.target.value }))}
+                        className={fieldClass()}
                       />
                       <button
                         type="button"
-                        onClick={handleCreateBannerUpload}
-                        disabled={uploadingCreateBanner}
-                        className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-cyan-400"
+                        onClick={() => setCreateForm(prev => ({ ...prev, slug: toSlug(prev.name) }))}
+                        className="rounded-xl bg-slate-100 px-4 text-xs font-black uppercase text-slate-700 transition hover:bg-slate-200"
                       >
-                        {uploadingCreateBanner ? "Uploading..." : "Upload Banner"}
+                        Auto
                       </button>
                     </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-slate-600">
-                      Cloudinary upload is not configured. Set `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and
-                      `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`.
-                    </p>
-                  )}
+                  </div>
 
-                  {createForm.bannerUrl ? (
-                    <img
-                      src={createForm.bannerUrl}
-                      alt="Course banner preview"
-                      className="mt-3 h-28 w-full rounded-xl object-cover"
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Description</label>
+                    <textarea
+                      required
+                      value={createForm.description}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Briefly describe what this course covers..."
+                      rows={3}
+                      className={fieldClass()}
                     />
-                  ) : null}
-                </div>
+                  </div>
 
-                <button
-                  type="submit"
-                  disabled={creatingCourse}
-                  className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
-                >
-                  {creatingCourse ? "Creating..." : "Create Course"}
-                </button>
-              </form>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">FB Community Link</label>
+                    <input
+                      required
+                      type="url"
+                      value={createForm.facebookGroupUrl}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, facebookGroupUrl: e.target.value }))}
+                      className={fieldClass()}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 ml-1">Fee (BDT)</label>
+                    <input
+                      required
+                      type="number"
+                      value={createForm.monthlyFee}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, monthlyFee: e.target.value }))}
+                      className={fieldClass()}
+                    />
+                  </div>
 
-              {(creatingCourse || updatingCourse || deletingCourse) && (
-                <div className="mt-3">
-                  <InlineLoader label="Saving course changes..." />
-                </div>
-              )}
-            </div>
-          </aside>
-        ) : null}
-      </div>
-    </section>
+                  <div className="md:col-span-2">
+                    <ImageUploadField
+                      label="Visual Banner"
+                      folder="hsc-academic/courses"
+                      asset={createForm.bannerUrl ? { url: createForm.bannerUrl, publicId: createForm.bannerPublicId } : null}
+                      onChange={(asset) => {
+                        setCreateForm(prev => ({ ...prev, bannerUrl: asset?.url || "", bannerPublicId: asset?.publicId || "" }));
+                        setError("");
+                      }}
+                    />
+                  </div>
+               </div>
+
+               <div className="mt-10 flex border-t border-slate-100 pt-8">
+                  <button
+                    type="submit"
+                    disabled={creatingCourse}
+                    className="w-full rounded-[20px] bg-slate-900 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-slate-200 transition hover:-translate-y-1 hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {creatingCourse ? "Forging Course..." : "Launch Course Module"}
+                  </button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

@@ -20,8 +20,20 @@ export const authApi = baseApi.injectEndpoints({
       keepUnusedDataFor: 300,
       providesTags: ["User"],
     }),
+    updateCurrentUser: builder.mutation({
+      query: (payload) => ({
+        url: "/users/me",
+        method: "PATCH",
+        body: payload,
+      }),
+      invalidatesTags: ["User"],
+    }),
   }),
 });
 
-export const { useRegisterUserMutation, useGetCurrentUserQuery, useLazyGetCurrentUserQuery } =
-  authApi;
+export const {
+  useRegisterUserMutation,
+  useGetCurrentUserQuery,
+  useLazyGetCurrentUserQuery,
+  useUpdateCurrentUserMutation,
+} = authApi;

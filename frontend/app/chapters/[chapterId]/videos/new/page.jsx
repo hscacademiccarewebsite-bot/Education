@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton } from "@/components/loaders/AppLoader";
 import { useGetBatchByIdQuery } from "@/lib/features/batch/batchApi";
 import {
   useCreateVideoMutation,
@@ -84,7 +84,7 @@ export default function NewVideoPage() {
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
           {chapterLoading ? (
-            <CardLoader label="Loading chapter info..." />
+            <CardSkeleton />
           ) : (
             <>
               <p className="text-sm text-slate-600">

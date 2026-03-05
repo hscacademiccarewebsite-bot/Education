@@ -46,6 +46,13 @@ const enrollmentRequestSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Student confirms they already sent a join request to private course group.
+    facebookGroupJoinRequested: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+
     status: {
       type: String,
       enum: ENROLLMENT_STATUSES,
