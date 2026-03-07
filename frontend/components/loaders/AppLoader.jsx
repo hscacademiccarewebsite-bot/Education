@@ -16,7 +16,7 @@ export function Skeleton({ className = "" }) {
 
 export function CourseCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-[14px] border border-slate-300 bg-white shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
       <Skeleton className="h-36 w-full" />
       <div className="p-5">
         <div className="flex justify-between gap-4">
@@ -53,7 +53,7 @@ export function ListSkeleton({ rows = 5 }) {
 
 export function CardSkeleton({ className = "" }) {
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}>
+    <div className={`rounded-[14px] border border-slate-300 bg-white p-6 shadow-[0_6px_14px_rgba(15,23,42,0.11)] ${className}`}>
       <Skeleton className="h-5 w-1/3 rounded-full" />
       <div className="mt-4 space-y-2">
         <Skeleton className="h-3 w-full rounded-full" />

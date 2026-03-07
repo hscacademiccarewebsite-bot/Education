@@ -1,16 +1,7 @@
 "use client";
 
-import { Provider } from "react-redux";
-import { store } from "@/lib/store";
-import AuthSync from "@/components/AuthSync";
-import GlobalRouteLoader from "@/components/loaders/GlobalRouteLoader";
+import AppProviders from "@/src/app/providers/AppProviders";
 
 export default function Providers({ children }) {
-  return (
-    <Provider store={store}>
-      <AuthSync />
-      <GlobalRouteLoader />
-      {children}
-    </Provider>
-  );
+  return <AppProviders>{children}</AppProviders>;
 }

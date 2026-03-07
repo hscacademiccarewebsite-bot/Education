@@ -16,6 +16,7 @@ import {
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isStudent } from "@/lib/utils/roleUtils";
+import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 
 const STATUS_PILL = {
   pending: "bg-amber-100 text-amber-700",
@@ -25,25 +26,6 @@ const STATUS_PILL = {
 
 function fieldClass() {
   return "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100";
-}
-
-function parseErrorMessage(error) {
-  if (!error) {
-    return "Request failed.";
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error?.data?.message) {
-    return error.data.message;
-  }
-  if (error?.error) {
-    return error.error;
-  }
-  if (error?.message) {
-    return error.message;
-  }
-  return "Request failed.";
 }
 
 function resolveFacebookProfileUrl(rawValue) {
@@ -208,7 +190,7 @@ export default function EnrollmentsPage() {
 
       setMessage(response?.message || "Enrollment request submitted.");
     } catch (applyError) {
-      setError(parseErrorMessage(applyError));
+      setError(normalizeApiError(applyError));
     }
   };
 
@@ -227,7 +209,7 @@ export default function EnrollmentsPage() {
       }).unwrap();
       setMessage(`Request ${nextStatus}.`);
     } catch (reviewError) {
-      setError(parseErrorMessage(reviewError));
+      setError(normalizeApiError(reviewError));
     }
   };
 

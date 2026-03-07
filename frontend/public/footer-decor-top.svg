@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="180" viewBox="0 0 1920 180" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="960" y1="0" x2="960" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E7ECF5"/>
+      <stop offset="1" stop-color="#D7E2EF"/>
+    </linearGradient>
+    <linearGradient id="grassBase" x1="960" y1="96" x2="960" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2A9A55"/>
+      <stop offset="1" stop-color="#146B3B"/>
+    </linearGradient>
+    <linearGradient id="rock" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#EFE2BC"/>
+      <stop offset="1" stop-color="#B59D72"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="180" fill="url(#bg)"/>
+
+  <ellipse cx="260" cy="172" rx="390" ry="90" fill="#1B7B44"/>
+  <ellipse cx="700" cy="176" rx="420" ry="94" fill="#1A7041"/>
+  <ellipse cx="1180" cy="174" rx="430" ry="92" fill="#1B7A46"/>
+  <ellipse cx="1660" cy="170" rx="370" ry="88" fill="#1A6F40"/>
+
+  <g stroke-linecap="round">
+    <path d="M120 180 L132 86" stroke="#0F6A3E" stroke-width="8"/>
+    <path d="M145 180 L138 70" stroke="#16814D" stroke-width="8"/>
+    <path d="M172 180 L190 98" stroke="#0C5C35" stroke-width="7"/>
+    <path d="M520 180 L530 74" stroke="#0F6A3E" stroke-width="8"/>
+    <path d="M555 180 L545 64" stroke="#16814D" stroke-width="8"/>
+    <path d="M588 180 L605 104" stroke="#0C5C35" stroke-width="7"/>
+    <path d="M920 180 L930 72" stroke="#0F6A3E" stroke-width="8"/>
+    <path d="M955 180 L942 58" stroke="#16814D" stroke-width="9"/>
+    <path d="M988 180 L1006 100" stroke="#0C5C35" stroke-width="7"/>
+    <path d="M1320 180 L1332 76" stroke="#0F6A3E" stroke-width="8"/>
+    <path d="M1352 180 L1343 60" stroke="#16814D" stroke-width="9"/>
+    <path d="M1382 180 L1400 102" stroke="#0C5C35" stroke-width="7"/>
+    <path d="M1720 180 L1732 82" stroke="#0F6A3E" stroke-width="8"/>
+    <path d="M1752 180 L1743 68" stroke="#16814D" stroke-width="8"/>
+    <path d="M1780 180 L1796 106" stroke="#0C5C35" stroke-width="7"/>
+  </g>
+
+  <g fill="url(#rock)" stroke="#DCCCA3" stroke-width="2.5">
+    <ellipse cx="248" cy="164" rx="84" ry="28" transform="rotate(-6 248 164)"/>
+    <ellipse cx="352" cy="168" rx="56" ry="22" transform="rotate(8 352 168)"/>
+    <ellipse cx="1390" cy="166" rx="98" ry="30" transform="rotate(-8 1390 166)"/>
+    <ellipse cx="1530" cy="162" rx="124" ry="36" transform="rotate(-11 1530 162)"/>
+    <ellipse cx="1706" cy="166" rx="72" ry="24" transform="rotate(6 1706 166)"/>
+  </g>
+</svg>

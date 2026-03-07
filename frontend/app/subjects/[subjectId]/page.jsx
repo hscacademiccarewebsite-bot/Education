@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import { CardSkeleton, ListSkeleton } from "@/components/loaders/AppLoader";
-import { ChapterIcon } from "@/components/icons/PortalIcons";
+import PageHero from "@/components/layouts/PageHero";
+import { ChapterIcon, SubjectIcon } from "@/components/icons/PortalIcons";
 import {
   useCreateChapterMutation,
   useDeleteChapterMutation,
@@ -16,13 +17,29 @@ import {
 } from "@/lib/features/content/contentApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { canManageContent } from "@/lib/utils/roleUtils";
+import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 
 const initialChapterForm = {
   title: "",
 };
 
 function fieldClass() {
-  return "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200";
+  return "w-full rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+}
+
+function MessageBanner({ tone, children }) {
+  const classes =
+    tone === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : tone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${classes}`}>
+      {children}
+    </div>
+  );
 }
 
 export default function SubjectDetailsPage() {
@@ -38,7 +55,6 @@ export default function SubjectDetailsPage() {
   } = useGetSubjectByIdQuery(subjectId, {
     skip: !subjectId,
   });
-
   const {
     data: chaptersData,
     isLoading: chaptersLoading,
@@ -61,6 +77,30 @@ export default function SubjectDetailsPage() {
 
   const subject = subjectData?.data;
   const chapters = chaptersData?.data || [];
+  const managementOpen = canManage && (showChapterForm || Boolean(editingChapterId));
+
+  const openCreatePanel = () => {
+    setEditingChapterId("");
+    setEditingChapterTitle("");
+    setChapterForm(initialChapterForm);
+    setShowChapterForm((prev) => !prev || Boolean(editingChapterId));
+    setChapterMessage("");
+    setChapterError("");
+  };
+
+  const openEditChapter = (chapter) => {
+    setEditingChapterId(chapter._id);
+    setEditingChapterTitle(chapter.title || "");
+    setShowChapterForm(false);
+    setChapterMessage("");
+    setChapterError("");
+  };
+
+  const closeManagementPanel = () => {
+    setShowChapterForm(false);
+    setEditingChapterId("");
+    setEditingChapterTitle("");
+  };
 
   const handleCreateChapter = async (event) => {
     event.preventDefault();
@@ -82,20 +122,8 @@ export default function SubjectDetailsPage() {
       setChapterForm(initialChapterForm);
       setShowChapterForm(false);
     } catch (createError) {
-      setChapterError(createError?.data?.message || "Failed to create chapter.");
+      setChapterError(normalizeApiError(createError, "Failed to create chapter."));
     }
-  };
-
-  const openEditChapter = (chapter) => {
-    setEditingChapterId(chapter._id);
-    setEditingChapterTitle(chapter.title || "");
-    setChapterMessage("");
-    setChapterError("");
-  };
-
-  const closeEditChapter = () => {
-    setEditingChapterId("");
-    setEditingChapterTitle("");
   };
 
   const handleUpdateChapter = async (event) => {
@@ -116,9 +144,9 @@ export default function SubjectDetailsPage() {
       }).unwrap();
 
       setChapterMessage("Chapter updated successfully.");
-      closeEditChapter();
+      closeManagementPanel();
     } catch (updateError) {
-      setChapterError(updateError?.data?.message || "Failed to update chapter.");
+      setChapterError(normalizeApiError(updateError, "Failed to update chapter."));
     }
   };
 
@@ -141,10 +169,10 @@ export default function SubjectDetailsPage() {
 
       setChapterMessage("Chapter deleted successfully.");
       if (editingChapterId === chapter._id) {
-        closeEditChapter();
+        closeManagementPanel();
       }
     } catch (deleteError) {
-      setChapterError(deleteError?.data?.message || "Failed to delete chapter.");
+      setChapterError(normalizeApiError(deleteError, "Failed to delete chapter."));
     }
   };
 
@@ -162,9 +190,9 @@ export default function SubjectDetailsPage() {
     return (
       <RequireAuth>
         <section className="container-page py-10">
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          <MessageBanner tone="error">
             {subjectError?.data?.message || "Subject not found or access denied."}
-          </div>
+          </MessageBanner>
         </section>
       </RequireAuth>
     );
@@ -172,167 +200,222 @@ export default function SubjectDetailsPage() {
 
   return (
     <RequireAuth>
-      <section className="container-page py-8">
-        <div className="mb-5">
-          <Link
-            href={subject?.batch ? `/courses/${subject.batch}` : "/courses"}
-            className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-          >
-            Back to Course
-          </Link>
+      <section className="container-page py-8 md:py-10">
+        <PageHero
+          eyebrow="Subject Operations"
+          title={subject.title}
+          description="Manage chapter structure with cleaner operational controls and a sequence-ready content directory."
+          actions={
+            <>
+              <Link
+                href={subject?.batch ? `/courses/${subject.batch}` : "/courses"}
+                className="site-button-secondary"
+              >
+                Back To Course
+              </Link>
+              {canManage ? (
+                <button type="button" onClick={openCreatePanel} className="site-button-primary">
+                  {showChapterForm && !editingChapterId ? "Close Panel" : "Create Chapter"}
+                </button>
+              ) : null}
+            </>
+          }
+          aside={
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Chapters</p>
+                <p className="mt-2 text-3xl font-black text-white">{chapters.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Course Reference</p>
+                <p className="mt-2 text-sm font-semibold text-white">{subject?.batchName || "Mapped course"}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Delivery Layer</p>
+                <p className="mt-2 text-sm font-semibold text-white">Subject -&gt; Chapter -&gt; Video</p>
+              </div>
+            </div>
+          }
+          className="overflow-hidden"
+        />
+
+        <div className="site-panel-muted mt-6 rounded-[28px] p-4 md:p-5">
+          <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+            <span className="rounded-full bg-slate-900 px-3 py-1.5 text-white">Workflow</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Course</span>
+            <span className="text-slate-300">/</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Subject</span>
+            <span className="text-slate-300">/</span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700">
+              Chapter
+            </span>
+            <span className="text-slate-300">/</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Video</span>
+          </div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                Chapters
-              </h2>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                {subject.title}
+
+        <div className="mt-6 space-y-4">
+          {chapterMessage ? <MessageBanner tone="success">{chapterMessage}</MessageBanner> : null}
+          {chapterError ? <MessageBanner tone="error">{chapterError}</MessageBanner> : null}
+          {chaptersIsError ? (
+            <MessageBanner tone="warning">
+              {chaptersError?.data?.message || "Unable to load chapters."}
+            </MessageBanner>
+          ) : null}
+        </div>
+
+        <div className={`mt-8 grid gap-6 ${managementOpen ? "xl:grid-cols-[minmax(0,1fr)_390px]" : ""}`}>
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="site-kicker">Chapter Directory</p>
+                <h2 className="font-display mt-4 text-3xl font-black text-slate-950">Academic structure register</h2>
+              </div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                Enterprise content indexing
               </p>
             </div>
 
-            {canManage ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowChapterForm((prev) => !prev);
-                  setChapterMessage("");
-                  setChapterError("");
-                }}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-emerald-700"
-              >
-                {showChapterForm ? "Close Form" : "Create Chapter"}
-              </button>
-            ) : null}
-          </div>
+            <div className="site-panel overflow-hidden rounded-[30px]">
+              <div className="hidden border-b border-slate-200/80 bg-slate-50/80 px-5 py-3 md:grid md:grid-cols-[56px_minmax(0,1.3fr)_minmax(0,0.9fr)_auto] md:gap-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">No</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Chapter</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Scope</p>
+                <p className="text-right text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Actions</p>
+              </div>
 
-          {chapterMessage ? (
-            <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-              {chapterMessage}
-            </p>
-          ) : null}
-          {chapterError ? (
-            <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
-              {chapterError}
-            </p>
-          ) : null}
-
-          {canManage && showChapterForm ? (
-            <form
-              onSubmit={handleCreateChapter}
-              className="mb-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-emerald-50 p-4"
-            >
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                Chapter Title
-              </label>
-              <input
-                required
-                value={chapterForm.title}
-                onChange={(event) => setChapterForm({ title: event.target.value })}
-                placeholder="Vector"
-                className={fieldClass()}
-              />
-
-              <button
-                type="submit"
-                disabled={creatingChapter}
-                className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
-              >
-                {creatingChapter ? "Creating..." : "Create Chapter"}
-              </button>
-            </form>
-          ) : null}
-
-          {chaptersLoading ? (
-            <ListSkeleton rows={3} />
-          ) : chaptersIsError ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              {chaptersError?.data?.message || "Unable to load chapters."}
-            </div>
-          ) : chapters.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-              No chapters yet.
-            </div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {chapters.map((chapter, index) => (
-                <article
-                  key={chapter._id}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)]"
-                >
-                  <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-100/70 blur-2xl" />
-
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-700">
-                    <ChapterIcon className="h-5 w-5" />
+              {chaptersLoading ? (
+                <div className="p-5">
+                  <ListSkeleton rows={3} />
+                </div>
+              ) : chapters.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <SubjectIcon className="h-6 w-6" />
                   </span>
-
-                  <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                    Chapter {String(index + 1).padStart(2, "0")}
+                  <p className="font-display mt-4 text-2xl font-black text-slate-950">No chapters yet</p>
+                  <p className="mt-3 text-sm text-slate-600">
+                    Create the first chapter to continue the subject structure.
                   </p>
-                  <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                    {chapter.title}
-                  </h3>
-
-                  {editingChapterId === chapter._id && canManage ? (
-                    <form onSubmit={handleUpdateChapter} className="mt-4 space-y-2">
-                      <input
-                        required
-                        value={editingChapterTitle}
-                        onChange={(event) => setEditingChapterTitle(event.target.value)}
-                        className={fieldClass()}
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="submit"
-                          disabled={updatingChapter}
-                          className="rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
-                        >
-                          {updatingChapter ? "Saving..." : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={closeEditChapter}
-                          className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
+                </div>
+              ) : (
+                chapters.map((chapter, index) => (
+                  <article
+                    key={chapter._id}
+                    className="border-b border-slate-200/70 px-4 py-4 last:border-b-0 md:px-5"
+                  >
+                    <div className="grid gap-3 md:grid-cols-[56px_minmax(0,1.3fr)_minmax(0,0.9fr)_auto] md:items-center md:gap-4">
+                      <div className="flex items-center gap-3 md:gap-0">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 md:ml-2">
+                          <ChapterIcon className="h-5 w-5" />
+                        </span>
                       </div>
-                    </form>
-                  ) : (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Link
-                        href={`/chapters/${chapter._id}`}
-                        className="inline-flex rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-slate-700 transition group-hover:bg-slate-50"
-                      >
-                        Open Chapter
-                      </Link>
 
-                      {canManage ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => openEditChapter(chapter)}
-                            className="rounded-lg border border-cyan-200 bg-cyan-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-cyan-700 transition hover:bg-cyan-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteChapter(chapter)}
-                            disabled={deletingChapter}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      ) : null}
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Chapter</p>
+                        <h3 className="mt-1 truncate text-lg font-black text-slate-950">{chapter.title}</h3>
+                        <p className="mt-1 text-xs text-slate-500">ID: {chapter._id}</p>
+                      </div>
+
+                      <p className="text-sm leading-6 text-slate-600">
+                        Sequence this chapter as a delivery block and manage lecture videos inside it.
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 md:justify-end">
+                        <Link href={`/chapters/${chapter._id}`} className="site-button-primary px-4 py-2 text-xs">
+                          Open Chapter
+                        </Link>
+                        {canManage ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEditChapter(chapter)}
+                              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteChapter(chapter)}
+                              disabled={deletingChapter}
+                              className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                  )}
-                </article>
-              ))}
+                  </article>
+                ))
+              )}
             </div>
-          )}
+          </section>
+
+          {managementOpen ? (
+            <aside className="site-panel h-fit rounded-[30px] border border-slate-200 p-5 md:p-6 xl:sticky xl:top-28">
+              <p className="site-kicker">{editingChapterId ? "Update Chapter" : "Create Chapter"}</p>
+              <h2 className="font-display mt-4 text-3xl font-black text-slate-950">
+                {editingChapterId ? "Edit chapter metadata" : "Register new chapter"}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Keep chapter naming direct and progression-friendly so students can navigate without ambiguity.
+              </p>
+
+              <form
+                onSubmit={editingChapterId ? handleUpdateChapter : handleCreateChapter}
+                className="mt-6 space-y-4"
+              >
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                    Chapter Title
+                  </label>
+                  <input
+                    required
+                    value={editingChapterId ? editingChapterTitle : chapterForm.title}
+                    onChange={(event) =>
+                      editingChapterId
+                        ? setEditingChapterTitle(event.target.value)
+                        : setChapterForm({ title: event.target.value })
+                    }
+                    placeholder="Vector"
+                    className={fieldClass()}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                    Structure Tip
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Examples: Vector, Work and Power, Thermodynamics, Human Physiology.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={creatingChapter || updatingChapter}
+                    className="site-button-primary"
+                  >
+                    {editingChapterId
+                      ? updatingChapter
+                        ? "Saving..."
+                        : "Save Chapter"
+                      : creatingChapter
+                      ? "Creating..."
+                      : "Create Chapter"}
+                  </button>
+                  <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
+                    Close
+                  </button>
+                </div>
+              </form>
+            </aside>
+          ) : null}
         </div>
       </section>
     </RequireAuth>

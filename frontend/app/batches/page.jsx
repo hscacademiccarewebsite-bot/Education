@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
+import PageHero from "@/components/layouts/PageHero";
 import { CourseCardSkeleton } from "@/components/loaders/AppLoader";
 import {
   useCreateBatchMutation,
@@ -119,6 +120,9 @@ export default function CoursesPage() {
   const [error, setError] = useState("");
 
   const courses = coursesData?.data || [];
+  const liveCourseCount = courses.filter(
+    (course) => course.status === "active" || course.status === "upcoming"
+  ).length;
 
   const enrollmentMap = useMemo(() => {
     const map = new Map();
@@ -246,84 +250,61 @@ export default function CoursesPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50/50 pb-20">
-      {/* ── Premium Hero Section ── */}
-      <section className="relative overflow-hidden bg-slate-900 py-6 lg:py-8">
-        {/* Animated Background Blobs */}
-        <div className="absolute -left-20 -top-20 h-96 w-96 animate-pulse rounded-full bg-cyan-500/20 blur-[120px]" />
-        <div className="absolute -right-20 bottom-0 h-96 w-96 animate-pulse rounded-full bg-emerald-500/20 blur-[120px]" />
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-
-        <div className="container-page relative z-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="max-w-4xl">
-              <nav className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400/80">
-                <Link href="/" className="transition hover:text-cyan-300">Home</Link>
-                <span className="text-slate-600">/</span>
-                <span>Courses</span>
-              </nav>
-              
-              <h1 className="text-2xl font-black tracking-tight text-white [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-3xl lg:leading-[1.1]">
-                Unlock Your <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Academic Potential</span>
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300 md:text-base">
-                Join thousands of students in our structured, high-impact courses designed for excellence in HSC and Admission.
+    <main className="site-shell min-h-screen pb-20">
+      <section className="container-page py-8 md:py-10">
+        <PageHero
+          eyebrow="Course Directory"
+          title="Structured batches for HSC and admission preparation."
+          description="Browse live and upcoming courses, review enrollment status, and manage course creation from a cleaner operational interface."
+          actions={
+            <>
+              <Link href="/" className="site-button-secondary">
+                Back Home
+              </Link>
+              {adminRole ? (
+                <button type="button" onClick={openCreateModal} className="site-button-primary">
+                  Create Course
+                </button>
+              ) : null}
+            </>
+          }
+          aside={
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200/80">
+                Directory Summary
               </p>
-
-              {adminRole && (
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={openCreateModal}
-                    className="group relative flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-900 shadow-xl transition hover:-translate-y-1 hover:bg-slate-50"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 transition group-hover:bg-emerald-600 group-hover:text-white">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                      </svg>
-                    </span>
-                    Create New Course
-                  </button>
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Total Courses</p>
+                  <p className="mt-2 text-3xl font-black">{courses.length}</p>
                 </div>
-              )}
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Live / Upcoming</p>
+                  <p className="mt-2 text-3xl font-black">{liveCourseCount}</p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          }
+        />
       </section>
 
-      {/* ── Management Bar (Filters & Search) ── */}
-      <section className="sticky top-[64px] z-40 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
-        <div className="container-page py-3">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar md:pb-0">
-              {["all", "active", "upcoming", "archived"].map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => setStatusFilter(status)}
-                  className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
-                    statusFilter === status
-                      ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative flex-1 min-w-[280px] max-w-md">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search courses..."
-                className="w-full rounded-2xl bg-slate-100 px-11 py-3 text-sm font-medium text-slate-700 outline-none transition focus:bg-white focus:ring-2 focus:ring-cyan-500/20"
-              />
-            </div>
+      <section className="sticky top-[64px] z-40">
+        <div className="container-page">
+          <div className="site-panel-muted flex flex-wrap items-center gap-2 rounded-[28px] px-4 py-3">
+            {["all", "active", "upcoming", "archived"].map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                  statusFilter === status
+                    ? "bg-slate-950 text-white shadow-[0_14px_24px_rgba(15,23,42,0.15)]"
+                    : "bg-white text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -562,7 +543,11 @@ export default function CoursesPage() {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-2 gap-2">
+                    <div
+                      className={`mt-5 grid gap-2 ${
+                        studentRole || adminRole ? "grid-cols-2" : "grid-cols-1"
+                      }`}
+                    >
                       <Link
                         href={`/courses/${course._id}`}
                         className="flex items-center justify-center rounded-xl bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-cyan-700 hover:shadow-lg hover:shadow-cyan-200"
@@ -591,11 +576,7 @@ export default function CoursesPage() {
                         >
                           Modify
                         </button>
-                      ) : (
-                        <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-300">
-                           Student Only
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </article>

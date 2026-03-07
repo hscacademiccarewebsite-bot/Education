@@ -1,0 +1,11 @@
+export const API_TAG_TYPES = Object.freeze([
+  "User",
+  "Batch",
+  "Subject",
+  "Chapter",
+  "Video",
+  "Enrollment",
+  "Payment",
+  "Public",
+]);
+

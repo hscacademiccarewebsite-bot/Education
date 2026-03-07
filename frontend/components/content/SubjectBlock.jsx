@@ -75,7 +75,7 @@ export default function SubjectBlock({ subject, canManage }) {
   };
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+    <article className="rounded-[14px] border border-slate-300 bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-[220px] flex-1">
           {canManage ? (
@@ -125,7 +125,7 @@ export default function SubjectBlock({ subject, canManage }) {
       {error ? <p className="mt-3 text-xs font-semibold text-rose-700">{error}</p> : null}
 
       {canManage && showChapterComposer ? (
-        <form onSubmit={handleCreateChapter} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <form onSubmit={handleCreateChapter} className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">New Chapter</p>
 
           <div className="mt-3 grid gap-2">

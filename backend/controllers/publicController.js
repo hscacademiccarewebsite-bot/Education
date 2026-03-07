@@ -57,6 +57,31 @@ const parseStringArray = (value) => {
   return [];
 };
 
+const normalizeFooterLinks = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const raw = item?.toObject ? item.toObject() : item || {};
+      const label = String(raw.label || "").trim();
+      const href = String(raw.href || "").trim();
+
+      if (!label || !href || !href.startsWith("/")) {
+        return null;
+      }
+
+      return {
+        label,
+        href,
+        requiresAuth: parseBoolean(raw.requiresAuth, false),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+};
+
 class PublicController {
   static async getOrCreateSiteContent() {
     let content = await SiteContent.findOne({ key: "default" });
@@ -70,34 +95,15 @@ class PublicController {
 
   static normalizeHeroSlide(slide, fallbackPriority = 0) {
     const raw = slide?.toObject ? slide.toObject() : slide || {};
-
-    const title = String(raw.title || "").trim();
-    const caption = String(raw.caption ?? raw.description ?? "").trim();
     const imageAsset = normalizeCloudinaryAsset(raw.image || raw.imageUrl);
 
-    const resolvedPriority =
-      raw.priority !== undefined
-        ? parsePriority(raw.priority, fallbackPriority)
-        : parsePriority(raw.displayOrder, fallbackPriority);
-
-    const resolvedButtonText = String(raw.buttonText || raw.ctaLabel || "Explore Courses").trim();
-    const resolvedButtonHref = String(raw.buttonHref || raw.ctaHref || "/courses").trim();
-    const buttonEnabled =
-      raw.buttonEnabled !== undefined
-        ? parseBoolean(raw.buttonEnabled, true)
-        : Boolean(resolvedButtonText || resolvedButtonHref);
+    const resolvedPriority = parsePriority(raw.priority, fallbackPriority);
 
     return {
       id: raw._id ? String(raw._id) : "",
-      title,
-      caption,
       image: imageAsset || undefined,
       imageUrl: imageAsset?.url || "",
-      buttonEnabled,
-      buttonText: resolvedButtonText || "Explore Courses",
-      buttonHref: resolvedButtonHref || "/courses",
       priority: resolvedPriority,
-      isActive: raw.isActive !== false,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     };
@@ -106,11 +112,14 @@ class PublicController {
   static normalizeGeneralSection(general) {
     const raw = general?.toObject ? general.toObject() : general || {};
     const logoAsset = normalizeCloudinaryAsset(raw.logo || raw.logoUrl);
+    const footerLinks = normalizeFooterLinks(raw.footerLinks);
 
     return {
       siteName: String(raw.siteName || "").trim(),
       siteTagline: String(raw.siteTagline || "").trim(),
       footerText: String(raw.footerText || "").trim(),
+      footerCopyright: String(raw.footerCopyright || "").trim(),
+      footerLinks,
       logo: logoAsset || undefined,
       logoUrl: logoAsset?.url || "",
     };
@@ -133,16 +142,15 @@ class PublicController {
 
     const normalizedSlides = slides.map((slide, index) => {
       const raw = slide?.toObject ? slide.toObject() : slide;
-      if (raw?._id) {
-        return raw;
+      const resolvedPriority = parsePriority(raw?.priority, index);
+      if (!raw?._id || raw?.priority !== resolvedPriority) {
+        hasChanges = true;
       }
 
-      hasChanges = true;
       return {
         ...raw,
-        _id: new mongoose.Types.ObjectId(),
-        priority: parsePriority(raw?.priority ?? raw?.displayOrder, index),
-        displayOrder: parsePriority(raw?.priority ?? raw?.displayOrder, index),
+        _id: raw?._id || new mongoose.Types.ObjectId(),
+        priority: resolvedPriority,
       };
     });
 
@@ -192,7 +200,7 @@ class PublicController {
       const heroSlides = PublicController.sortHeroSlides(
         (siteContent.heroSlides || [])
           .map((slide, index) => PublicController.normalizeHeroSlide(slide, index))
-          .filter((slide) => slide.isActive && slide.imageUrl)
+          .filter((slide) => slide.imageUrl)
       );
 
       return res.status(200).json({
@@ -245,24 +253,8 @@ class PublicController {
       const siteContent = await PublicController.getOrCreateSiteContent();
       await PublicController.ensureHeroSlideIds(siteContent);
 
-      const title = String(req.body.title || "").trim();
-      const caption = String(req.body.caption ?? req.body.description ?? "").trim();
       const imageAsset = normalizeCloudinaryAsset(req.body.image || req.body.imageUrl);
-      const buttonEnabled = parseBoolean(req.body.buttonEnabled, true);
-      const buttonText = String(req.body.buttonText || req.body.ctaLabel || "Explore Courses").trim();
-      const buttonHref = String(req.body.buttonHref || req.body.ctaHref || "/courses").trim();
-      const isActive = parseBoolean(req.body.isActive, true);
-      const priority = parsePriority(
-        req.body.priority ?? req.body.displayOrder,
-        siteContent.heroSlides.length
-      );
-
-      if (!title) {
-        return res.status(400).json({
-          success: false,
-          message: "title is required.",
-        });
-      }
+      const priority = parsePriority(req.body.priority, siteContent.heroSlides.length);
 
       if (!imageAsset?.url) {
         return res.status(400).json({
@@ -271,23 +263,10 @@ class PublicController {
         });
       }
 
-      const resolvedButtonText = buttonEnabled ? buttonText || "Explore Courses" : "";
-      const resolvedButtonHref = buttonEnabled ? buttonHref || "/courses" : "";
-
       siteContent.heroSlides.push({
-        title,
-        caption,
-        description: caption,
         image: imageAsset,
         imageUrl: imageAsset.url,
-        buttonEnabled,
-        buttonText: resolvedButtonText,
-        buttonHref: resolvedButtonHref,
-        ctaLabel: resolvedButtonText,
-        ctaHref: resolvedButtonHref,
         priority,
-        displayOrder: priority,
-        isActive,
       });
       siteContent.updatedBy = req.user?._id;
       await siteContent.save();
@@ -328,96 +307,49 @@ class PublicController {
         });
       }
 
-      const previousPublicId = slide?.image?.publicId;
+      const previousPublicId = slide?.image?.publicId || "";
 
-      if (req.body.title !== undefined) {
-        const title = String(req.body.title || "").trim();
-        if (!title) {
-          return res.status(400).json({
-            success: false,
-            message: "title cannot be empty.",
-          });
-        }
-        slide.title = title;
-      }
-
-      if (req.body.caption !== undefined || req.body.description !== undefined) {
-        const caption = String(req.body.caption ?? req.body.description ?? "").trim();
-        slide.caption = caption;
-        slide.description = caption;
-      }
-
-      if (req.body.isActive !== undefined) {
-        slide.isActive = parseBoolean(req.body.isActive, slide.isActive !== false);
-      }
-
-      if (req.body.priority !== undefined || req.body.displayOrder !== undefined) {
-        const nextPriority = parsePriority(
-          req.body.priority ?? req.body.displayOrder,
-          slide.priority ?? slide.displayOrder ?? 0
-        );
+      if (req.body.priority !== undefined) {
+        const nextPriority = parsePriority(req.body.priority, slide.priority ?? 0);
         slide.priority = nextPriority;
-        slide.displayOrder = nextPriority;
-      }
-
-      if (req.body.buttonEnabled !== undefined) {
-        slide.buttonEnabled = parseBoolean(req.body.buttonEnabled, slide.buttonEnabled !== false);
-      }
-
-      if (req.body.buttonText !== undefined || req.body.ctaLabel !== undefined) {
-        const nextButtonText = String(req.body.buttonText ?? req.body.ctaLabel ?? "").trim();
-        slide.buttonText = nextButtonText;
-        slide.ctaLabel = nextButtonText;
-      }
-
-      if (req.body.buttonHref !== undefined || req.body.ctaHref !== undefined) {
-        const nextButtonHref = String(req.body.buttonHref ?? req.body.ctaHref ?? "").trim();
-        slide.buttonHref = nextButtonHref;
-        slide.ctaHref = nextButtonHref;
       }
 
       const removeImage = parseBoolean(req.body.removeImage, false);
       const hasImagePayload = req.body.image !== undefined || req.body.imageUrl !== undefined;
-      if (removeImage || hasImagePayload) {
-        if (removeImage) {
-          slide.image = undefined;
-          slide.imageUrl = "";
-          if (previousPublicId) {
-            await deleteCloudinaryAssetByPublicId(previousPublicId);
-          }
-        } else {
-          const nextAsset = normalizeCloudinaryAsset(req.body.image || req.body.imageUrl);
-          if (!nextAsset?.url) {
-            return res.status(400).json({
-              success: false,
-              message: "image is invalid.",
-            });
-          }
 
-          slide.image = nextAsset;
-          slide.imageUrl = nextAsset.url;
-          const nextPublicId = nextAsset.publicId;
-          if (previousPublicId && previousPublicId !== nextPublicId) {
-            await deleteCloudinaryAssetByPublicId(previousPublicId);
-          }
+      if (removeImage && !hasImagePayload) {
+        return res.status(400).json({
+          success: false,
+          message: "image is required. Use delete endpoint to remove a slide.",
+        });
+      }
+
+      if (hasImagePayload) {
+        const nextAsset = normalizeCloudinaryAsset(req.body.image || req.body.imageUrl);
+        if (!nextAsset?.url) {
+          return res.status(400).json({
+            success: false,
+            message: "image is invalid.",
+          });
+        }
+
+        slide.image = nextAsset;
+        slide.imageUrl = nextAsset.url;
+        const nextPublicId = nextAsset.publicId || "";
+        if (previousPublicId && previousPublicId !== nextPublicId) {
+          await deleteCloudinaryAssetByPublicId(previousPublicId);
         }
       }
 
-      const isButtonEnabled = parseBoolean(slide.buttonEnabled, true);
-      slide.buttonEnabled = isButtonEnabled;
-      if (!isButtonEnabled) {
-        slide.buttonText = "";
-        slide.buttonHref = "";
-        slide.ctaLabel = "";
-        slide.ctaHref = "";
-      } else {
-        const resolvedButtonText = String(slide.buttonText || slide.ctaLabel || "Explore Courses").trim();
-        const resolvedButtonHref = String(slide.buttonHref || slide.ctaHref || "/courses").trim();
-        slide.buttonText = resolvedButtonText || "Explore Courses";
-        slide.buttonHref = resolvedButtonHref || "/courses";
-        slide.ctaLabel = slide.buttonText;
-        slide.ctaHref = slide.buttonHref;
+      const normalizedAsset = normalizeCloudinaryAsset(slide.image || slide.imageUrl);
+      if (!normalizedAsset?.url) {
+        return res.status(400).json({
+          success: false,
+          message: "image is required.",
+        });
       }
+      slide.image = normalizedAsset;
+      slide.imageUrl = normalizedAsset.url;
 
       siteContent.updatedBy = req.user?._id;
       await siteContent.save();
@@ -463,9 +395,8 @@ class PublicController {
         const nextPriority =
           mappedPriority !== undefined
             ? mappedPriority
-            : parsePriority(slide.priority ?? slide.displayOrder, index);
+            : parsePriority(slide.priority, index);
         slide.priority = nextPriority;
-        slide.displayOrder = nextPriority;
       });
 
       siteContent.updatedBy = req.user?._id;
@@ -614,6 +545,14 @@ class PublicController {
 
         if (general.footerText !== undefined) {
           siteContent.general.footerText = String(general.footerText || "").trim();
+        }
+
+        if (general.footerCopyright !== undefined) {
+          siteContent.general.footerCopyright = String(general.footerCopyright || "").trim();
+        }
+
+        if (general.footerLinks !== undefined) {
+          siteContent.general.footerLinks = normalizeFooterLinks(general.footerLinks);
         }
 
         if (

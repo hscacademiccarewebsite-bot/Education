@@ -1,71 +1,71 @@
 "use client";
 
-import { useGetPublicContactQuery } from "@/lib/features/home/homeApi";
+import PageHero from "@/components/layouts/PageHero";
 import { CardSkeleton } from "@/components/loaders/AppLoader";
+import { useGetPublicContactQuery } from "@/lib/features/home/homeApi";
+
+function ContactTile({ label, value, href = "" }) {
+  const content = value || "Not available";
+
+  return (
+    <article className="site-panel-muted rounded-[14px] p-5">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {href && value ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-sm font-semibold leading-7 text-teal-800 underline"
+        >
+          {content}
+        </a>
+      ) : (
+        <p className="mt-3 text-sm leading-7 text-slate-700">{content}</p>
+      )}
+    </article>
+  );
+}
 
 export default function ContactUsPage() {
   const { data, isLoading, isError } = useGetPublicContactQuery();
   const contact = data?.data;
 
   return (
-    <section className="container-page py-10">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,23,42,0.08)] md:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Contact Us</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-          We are here to help
-        </h1>
-
-        {isLoading ? (
-          <div className="mt-5">
-            <CardSkeleton />
+    <section className="container-page py-8 md:py-10">
+      <PageHero
+        eyebrow="Reach The Team"
+        title="Support, enrollment, and academic guidance."
+        description="Whether you need help with admissions, batch enrollment, payment follow-up, or course navigation, this is the operational contact layer of the platform."
+        aside={
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200/80">
+              Response Window
+            </p>
+            <p className="mt-4 text-3xl font-black text-white">
+              {contact?.officeHours || "Daily Support"}
+            </p>
+            <p className="mt-3 text-sm leading-7 text-white/70">
+              Keep official support channels updated here so every page reflects the same information.
+            </p>
           </div>
+        }
+      />
+
+      <div className="mt-6">
+        {isLoading ? (
+          <CardSkeleton />
         ) : isError ? (
-          <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
             Failed to load contact data from backend.
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Email</p>
-              <p className="mt-2 text-sm font-semibold text-slate-700">{contact?.email || "Not available"}</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Phone</p>
-              <p className="mt-2 text-sm font-semibold text-slate-700">{contact?.phone || "Not available"}</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Address</p>
-              <p className="mt-2 text-sm font-semibold text-slate-700">{contact?.address || "Not available"}</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Office Hours</p>
-              <p className="mt-2 text-sm font-semibold text-slate-700">{contact?.officeHours || "Not available"}</p>
-            </div>
-
-            {contact?.facebookPage ? (
-              <a
-                href={contact.facebookPage}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm font-semibold text-sky-700 transition hover:bg-sky-100"
-              >
-                Visit Facebook Page
-              </a>
-            ) : null}
-
-            {contact?.whatsapp ? (
-              <a
-                href={contact.whatsapp}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-              >
-                Open WhatsApp
-              </a>
-            ) : null}
+          <div className="site-grid md:grid-cols-2 xl:grid-cols-3">
+            <ContactTile label="Email" value={contact?.email} href={contact?.email ? `mailto:${contact.email}` : ""} />
+            <ContactTile label="Phone" value={contact?.phone} href={contact?.phone ? `tel:${contact.phone}` : ""} />
+            <ContactTile label="Address" value={contact?.address} />
+            <ContactTile label="Office Hours" value={contact?.officeHours} />
+            <ContactTile label="Facebook Page" value={contact?.facebookPage} href={contact?.facebookPage} />
+            <ContactTile label="WhatsApp" value={contact?.whatsapp} href={contact?.whatsapp} />
           </div>
         )}
       </div>

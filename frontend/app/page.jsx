@@ -1,368 +1,677 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import { CardLoader, CourseCardSkeleton } from "@/components/loaders/AppLoader";
+import SiteFooter from "@/components/layouts/SiteFooter";
+import { CourseCardSkeleton } from "@/components/loaders/AppLoader";
 import { useGetPublicHomeQuery } from "@/lib/features/home/homeApi";
 
-const coverFallbacks = [
-  "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1200&q=70",
-  "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=70",
-  "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=70",
-  "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=70",
-];
+/* ───────── constants ───────── */
 
-const statusStyles = {
-  active: "bg-emerald-100 text-emerald-700",
-  upcoming: "bg-orange-100 text-orange-700",
-  archived: "bg-slate-200 text-slate-700",
+const statusBadge = {
+  active: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+  upcoming: "border border-amber-200 bg-amber-50 text-amber-700",
+  archived: "border border-slate-200 bg-slate-100 text-slate-700",
 };
 
 function formatCurrency(value, currency = "BDT") {
   return `${new Intl.NumberFormat("en-US").format(Number(value || 0))} ${currency}`;
 }
 
-function HeroSlider({ slides }) {
+/* ───────── useScrollReveal hook ───────── */
+
+function useScrollReveal() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add("revealed");
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
+function RevealSection({ children, className = "", delay = 0 }) {
+  const ref = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      className={`reveal-on-scroll ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   HERO (AUTO SLIDER)
+   ═══════════════════════════════════════════════════════════ */
+
+const HOME_HERO_CONTENT = {
+  accent: "Learn Smarter,",
+  title: "prepare with confidence for every academic goal.",
+  description:
+    "One focused learning ecosystem for SSC, HSC, and admission preparation with guided classes, structured practice, and dependable support.",
+  highlights: [
+    "Live classes with experienced faculty",
+    "Online and offline enrollment support",
+    "Practice-first routine with progress tracking",
+  ],
+};
+
+const ABOUT_FALLBACK = {
+  heading: "A Complete Learning Ecosystem",
+  description:
+    "We deliver structured academic preparation for SSC, HSC, and admission with strong faculty guidance and operational clarity.",
+  mission:
+    "Build a consistent, accountable, and result-oriented learning system for every committed student.",
+  highlights: [
+    "Structured curriculum flow from course to chapter",
+    "Faculty-led delivery and academic review",
+    "Transparent enrollment and monthly payment process",
+    "Continuous student support with measurable progress",
+  ],
+};
+
+function HomeHeroSlider({ slides }) {
   const [current, setCurrent] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
+  const [progress, setProgress] = useState(0);
   const total = slides?.length || 0;
-
-  const goTo = (idx) => setCurrent((idx + total) % total);
-  const goPrev = () => goTo(current - 1);
-  const goNext = () => goTo(current + 1);
+  const slideDuration = 6500;
 
   useEffect(() => {
-    if (total < 2 || isPaused) return undefined;
-    const timer = setInterval(() => goTo(current + 1), 6000);
+    if (total < 2) return;
+
+    const tickInterval = 100;
+    const step = (tickInterval / slideDuration) * 100;
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        const next = prev + step;
+        if (next >= 100) {
+          setCurrent((prevIndex) => (prevIndex + 1) % total);
+          return 0;
+        }
+        return next;
+      });
+    }, tickInterval);
+
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, isPaused, total]);
+  }, [total]);
+
+  useEffect(() => {
+    setProgress(0);
+  }, [current]);
 
   if (!total) return null;
 
-  const slide = slides[current];
-  const caption = slide.caption || slide.description || "";
-  const buttonEnabled = slide.buttonEnabled !== false;
-  const buttonText = slide.buttonText || slide.ctaLabel || "Explore Courses";
-  const buttonHref = slide.buttonHref || slide.ctaHref || "/courses";
+  const goTo = (target) => {
+    setCurrent((target + total) % total);
+    setProgress(0);
+  };
 
   return (
-    <section
-      className="relative pt-[64px] md:pt-[72px]"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <div className="relative h-[480px] overflow-hidden bg-slate-950 md:h-[600px] xl:h-[680px]">
-
-        {/* Images — crossfade + Ken Burns */}
-        {slides.map((s, idx) => {
-          const isActive = idx === current;
-          return (
-            <div
-              key={s.id || idx}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                isActive ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <img
-                src={s.imageUrl}
-                alt={s.title}
-                className={`h-full w-full object-cover transition-transform duration-[10000ms] ease-out ${
-                  isActive ? "scale-110" : "scale-100"
-                }`}
-                loading={idx === 0 ? "eager" : "lazy"}
-              />
-            </div>
-          );
-        })}
-
-        {/* Sophisticated Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900/90 via-slate-900/40 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950/80 to-transparent" />
-
-        {/* Text content — centered but slightly weighted */}
-        <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 backdrop-blur-md">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">
-              {slide.eyebrow || "Excellence in Education"}
+    <section className="container-page py-8 md:py-12">
+      <div className="relative overflow-hidden rounded-[16px] border border-slate-300 bg-[#eceeee] px-5 py-8 shadow-[0_8px_20px_rgba(15,23,42,0.12)] md:px-10 md:py-10">
+        <div className="relative grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+          <div>
+            <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+              Academic Care
             </p>
-          </div>
-          
-          <h1
-            key={`ttl-${current}`}
-            className="mx-auto max-w-4xl text-4xl font-black leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]"
-            style={{ animation: "hsFadeUpPremium 0.8s cubic-bezier(0.16, 1, 0.3, 1) both" }}
-          >
-            {slide.title}
-          </h1>
-          
-          <p
-            key={`cap-${current}`}
-            className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-200/90 md:text-lg"
-            style={{ animation: "hsFadeUpPremium 0.8s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both" }}
-          >
-            {caption}
-          </p>
-          
-          {buttonEnabled && (
-            <div
-              key={`btn-${current}`}
-              className="mt-10"
-              style={{ animation: "hsFadeUpPremium 0.8s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both" }}
-            >
-              <Link
-                href={buttonHref}
-                className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full bg-emerald-500 px-8 py-4 text-sm font-black uppercase tracking-wider text-emerald-950 transition-all hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] active:scale-95"
-              >
-                <span className="relative z-10">{buttonText}</span>
-                <svg className="relative z-10 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-              </Link>
+            <h1 className="text-3xl font-black leading-[1.12] tracking-tight text-slate-800 sm:text-4xl lg:text-[52px]">
+              <span className="text-emerald-600">{HOME_HERO_CONTENT.accent}</span>{" "}
+              {HOME_HERO_CONTENT.title}
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-700">
+              {HOME_HERO_CONTENT.description}
+            </p>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {HOME_HERO_CONTENT.highlights.map((item, idx) => (
+                <article
+                  key={idx}
+                  className="rounded-[14px] border border-slate-300 bg-white p-4 shadow-[0_4px_10px_rgba(15,23,42,0.08)]"
+                >
+                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold leading-snug text-slate-700">{item}</p>
+                </article>
+              ))}
             </div>
-          )}
-        </div>
 
-        {/* Modern Nav Dots */}
-        {total > 1 && (
-          <div className="absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3">
-            {slides.map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => goTo(idx)}
-                aria-label={`Go to slide ${idx + 1}`}
-                className={`h-1.5 transition-all duration-500 ${
-                  idx === current
-                    ? "w-10 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,1)]"
-                    : "w-3 bg-white/30 hover:bg-white/60"
-                } rounded-full`}
-              />
-            ))}
+            {total > 1 && (
+              <div className="mt-6 flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => goTo(current - 1)}
+                  aria-label="Previous slide"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <div className="h-2 w-36 overflow-hidden rounded-full bg-emerald-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-100 ease-linear"
+                    style={{ width: `${Math.min(progress, 100)}%` }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goTo(current + 1)}
+                  aria-label="Next slide"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Prev / Next arrows — sleek style */}
-        {total > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous slide"
-              className="absolute left-6 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-md transition-all hover:bg-white/20 hover:scale-110 active:scale-90"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next slide"
-              className="absolute right-6 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-md transition-all hover:bg-white/20 hover:scale-110 active:scale-90"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          </>
-        )}
+          <div>
+            <div className="relative overflow-hidden rounded-[14px] border border-slate-300 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]">
+              {slides.map((slide, idx) => (
+                slide.imageUrl ? (
+                  <img
+                    key={idx}
+                    src={slide.imageUrl}
+                    alt={`Hero slide ${idx + 1}`}
+                    className={`absolute inset-0 h-[300px] w-full object-cover transition-opacity duration-700 sm:h-[360px] lg:h-[500px] ${
+                      idx === current ? "opacity-100" : "pointer-events-none opacity-0"
+                    }`}
+                    loading={idx === 0 ? "eager" : "lazy"}
+                  />
+                ) : null
+              ))}
+              <div
+                className={`h-[300px] sm:h-[360px] lg:h-[500px] ${
+                  slides[current]?.imageUrl
+                    ? ""
+                    : "bg-gradient-to-br from-emerald-100 via-teal-50 to-slate-100"
+                }`}
+              />
+              {total > 1 && (
+                <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                  <span className="text-emerald-700">{String(current + 1).padStart(2, "0")}</span>
+                  <span className="text-slate-400">/</span>
+                  <span>{String(total).padStart(2, "0")}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
-      <style>{`
-        @keyframes hsFadeUpPremium {
-          from { opacity: 0; transform: translateY(30px); filter: blur(10px); }
-          to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
-      `}</style>
     </section>
   );
 }
+
+function AboutHomeSection({ about, isLoading, isError, metrics }) {
+  const heading = about?.heading || ABOUT_FALLBACK.heading;
+  const description = about?.description || ABOUT_FALLBACK.description;
+  const mission = about?.mission || ABOUT_FALLBACK.mission;
+  const highlights = (about?.highlights || []).length
+    ? about.highlights
+    : ABOUT_FALLBACK.highlights;
+  const aboutMetrics = [
+    {
+      label: "Active Courses",
+      value: String(metrics?.courseCount || 0).padStart(2, "0"),
+      note: "Live programs",
+    },
+    {
+      label: "Faculty & Support",
+      value: String(metrics?.facultyCount || 0).padStart(2, "0"),
+      note: "Academic team",
+    },
+    {
+      label: "Delivery Modes",
+      value: "02",
+      note: "Online and offline",
+    },
+  ];
+
+  return (
+    <section id="about" className="container-page scroll-mt-24 py-14 md:py-18">
+      <RevealSection>
+        <div className="mb-8">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
+            About Us
+          </span>
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+            {heading}
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+            {description}
+          </p>
+        </div>
+      </RevealSection>
+
+      <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
+        <RevealSection>
+          <article className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_8px_20px_rgba(15,23,42,0.12)] md:p-7">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
+              Our Mission
+            </p>
+            <p className="mt-3 text-sm leading-8 text-slate-700 md:text-[15px]">{mission}</p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {aboutMetrics.map((item) => (
+                <article
+                  key={item.label}
+                  className="rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{item.value}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.note}</p>
+                </article>
+              ))}
+            </div>
+          </article>
+        </RevealSection>
+
+        <RevealSection delay={100}>
+          <article className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_8px_20px_rgba(15,23,42,0.12)] md:p-7">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+              Core Highlights
+            </p>
+            {isError ? (
+              <div className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                Live data is unavailable right now. Showing default overview.
+              </div>
+            ) : null}
+            {isLoading ? (
+              <div className="mt-4 space-y-3">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="h-14 animate-pulse rounded-[12px] bg-slate-100" />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 divide-y divide-slate-200 rounded-[12px] border border-slate-200 bg-white">
+                {highlights.map((item, idx) => (
+                  <div key={`${item}-${idx}`} className="flex items-start gap-3 px-4 py-4">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-black text-emerald-700">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <p className="text-sm leading-7 text-slate-700">{item}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </RevealSection>
+      </div>
+    </section>
+  );
+}
+
+function memberInitials(name) {
+  return String(name || "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function FacultyHomeSection({ faculty, isLoading, isError }) {
+  const totalAssignments = faculty.reduce(
+    (count, member) => count + (member.assignedBatches?.length || 0),
+    0
+  );
+
+  return (
+    <section id="faculty" className="container-page scroll-mt-24 pb-14 md:pb-20">
+      <RevealSection>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
+              Faculty
+            </span>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+              Faculty and Support Team
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+              A coordinated team of teachers, mentors, and support staff ensuring quality
+              delivery and consistent learner support.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-right shadow-[0_4px_10px_rgba(15,23,42,0.1)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                Team Members
+              </p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{faculty.length}</p>
+            </div>
+            <div className="rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-right shadow-[0_4px_10px_rgba(15,23,42,0.1)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                Course Assignments
+              </p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{totalAssignments}</p>
+            </div>
+          </div>
+        </div>
+      </RevealSection>
+
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="h-[250px] animate-pulse rounded-[14px] border border-slate-300 bg-white/80 shadow-[0_4px_10px_rgba(15,23,42,0.1)]"
+            />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-[12px] border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          Failed to load faculty data from backend.
+        </div>
+      ) : faculty.length === 0 ? (
+        <div className="rounded-[14px] border border-slate-300 bg-white px-6 py-10 text-center shadow-[0_4px_10px_rgba(15,23,42,0.1)]">
+          <p className="font-display text-2xl font-black text-slate-950">
+            No faculty members available.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {faculty.map((member, index) => (
+            <RevealSection key={member.id} delay={index * 80}>
+              <article className="group relative overflow-hidden rounded-[14px] border border-slate-300 bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.11)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(15,23,42,0.14)]">
+                <div className="relative flex items-start gap-4">
+                  {member.profilePhotoUrl ? (
+                    <img
+                      src={member.profilePhotoUrl}
+                      alt={member.fullName}
+                      className="h-16 w-16 rounded-[12px] object-cover ring-1 ring-slate-200"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-gradient-to-br from-slate-900 via-emerald-800 to-teal-600 text-sm font-black text-white">
+                      {memberInitials(member.fullName) || "NA"}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-lg font-black text-slate-900">{member.fullName}</h3>
+                    <span className="mt-2 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                      {member.role}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2 text-sm text-slate-600">
+                  {member.email ? (
+                    <p className="inline-flex items-center gap-2">
+                      <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                      <span className="truncate">{member.email}</span>
+                    </p>
+                  ) : null}
+                  {member.phone ? (
+                    <p className="inline-flex items-center gap-2">
+                      <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 4.5l5.159 1.29a2.25 2.25 0 011.591 1.591l.868 3.47a2.25 2.25 0 01-.641 2.121l-1.455 1.455a16.5 16.5 0 007.348 7.348l1.455-1.455a2.25 2.25 0 012.121-.641l3.47.868a2.25 2.25 0 011.591 1.591l1.29 5.159A2.25 2.25 0 0122.5 22.5h-1.5C10.73 22.5 1.5 13.27 1.5 2.999v-1.5A2.25 2.25 0 013.749 0z" />
+                      </svg>
+                      <span>{member.phone}</span>
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                    Assigned Courses
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(member.assignedBatches || []).length ? (
+                      member.assignedBatches.map((batch) => (
+                        <span
+                          key={batch.id}
+                          className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                        >
+                          {batch.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No course assignment</span>
+                    )}
+                  </div>
+                </div>
+              </article>
+            </RevealSection>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COURSE CARD
+   ═══════════════════════════════════════════════════════════ */
+
+function CourseCard({ course }) {
+  const courseImage = course?.banner?.url || course?.thumbnail?.url || "";
+
+  return (
+    <article className="group relative overflow-hidden rounded-[14px] border border-slate-300 bg-[#eceeee] shadow-[0_6px_14px_rgba(15,23,42,0.11)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(15,23,42,0.15)]">
+      {/* Image */}
+      <div className="relative h-44 overflow-hidden rounded-[10px] bg-slate-200">
+        {courseImage ? (
+          <>
+            <img
+              src={courseImage}
+              alt={course.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center bg-slate-100">
+            <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600">
+              No course image
+            </div>
+          </div>
+        )}
+
+        {/* Status badge */}
+        <span
+          className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.13em] ${
+            statusBadge[course.status] || statusBadge.archived
+          }`}
+        >
+          {course.status}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="p-5">
+        <h3 className="text-base font-black text-slate-900 leading-snug line-clamp-2 transition-colors group-hover:text-emerald-700">
+          {course.name}
+        </h3>
+
+        <p className="mt-2 text-sm leading-relaxed text-slate-500 line-clamp-2">
+          {course.description || "Structured learning with chapter-based class progression."}
+        </p>
+
+        {/* Price section */}
+        <div className="mt-4 flex items-center justify-between rounded-[10px] bg-white px-3.5 py-2.5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Monthly Fee</p>
+            <p className="text-sm font-extrabold text-slate-900">
+              {formatCurrency(course.monthlyFee, course.currency || "BDT")}
+            </p>
+          </div>
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <Link
+          href={`/courses/${course._id}`}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)] transition-all duration-300 hover:shadow-[0_6px_16px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 active:scale-95"
+        >
+          Open Course
+          <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════════════ */
 
 export default function HomePage() {
   const { data, isLoading, isError } = useGetPublicHomeQuery();
 
   const heroSlides = data?.data?.heroSlides || [];
   const runningCourses = data?.data?.runningCourses || [];
-  const general = data?.data?.general || {};
-  const contact = data?.data?.contact || {};
+  const about = data?.data?.about || {};
+  const faculty = data?.data?.faculty || [];
 
   const primaryCourses = useMemo(() => runningCourses.slice(0, 8), [runningCourses]);
+  const homeHeroSlides = useMemo(() => {
+    const prepared = (heroSlides || [])
+      .filter((slide) => slide?.imageUrl)
+      .sort((a, b) => Number(a?.priority || 0) - Number(b?.priority || 0));
+
+    if (!prepared.length) {
+      return [{ imageUrl: "" }];
+    }
+
+    return prepared.map((slide, index) => ({
+      id: slide.id,
+      priority: Number(slide.priority || index),
+      imageUrl: slide.imageUrl,
+    }));
+  }, [heroSlides]);
+
+  const courseCards = useMemo(
+    () =>
+      primaryCourses.map((course, index) => (
+        <RevealSection key={course._id} delay={index * 80}>
+          <CourseCard course={course} />
+        </RevealSection>
+      )),
+    [primaryCourses]
+  );
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f6fbff_0%,#f2f9f6_55%,#f9fbfd_100%)] text-slate-800">
+    <main className="site-shell site-nav-offset min-h-screen text-slate-800">
       <Navbar />
 
-      <HeroSlider slides={heroSlides} />
+      {/* Hero */}
+      <HomeHeroSlider slides={homeHeroSlides} />
 
-      <section className="container-page pb-10 pt-4 md:pb-14">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Featured Courses</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-3xl">
-              Running Courses
-            </h2>
+      {/* Courses Section */}
+      <section className="container-page pt-12 pb-12 md:pt-16 md:pb-16">
+        <RevealSection>
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+                </svg>
+                Popular Courses
+              </span>
+              <h2 className="mt-3 text-3xl font-extrabold text-slate-900 md:text-4xl">
+                Popular Courses
+              </h2>
+              <p className="mt-2 max-w-lg text-sm text-slate-500">
+                Explore active programs designed for strong academic outcomes and focused preparation.
+              </p>
+            </div>
+            <Link
+              href="/courses"
+              className="group hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-md sm:inline-flex"
+            >
+              View All
+              <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
           </div>
-          <Link
-            href="/courses"
-            className="rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
-          >
-            View All
-          </Link>
-        </div>
+        </RevealSection>
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <CourseCardSkeleton key={i} />
             ))}
           </div>
         ) : isError ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-            Failed to load homepage data from backend.
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
+            <svg className="mx-auto h-10 w-10 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <p className="mt-3 text-sm font-semibold text-rose-700">Failed to load homepage data from backend.</p>
+            <p className="mt-1 text-xs text-rose-500">Please check your connection or try again.</p>
           </div>
         ) : primaryCourses.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-            <p className="text-lg font-bold text-slate-900">No courses available right now.</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+            <svg className="mx-auto h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+            </svg>
+            <p className="mt-3 text-lg font-bold text-slate-900">No courses available right now.</p>
+            <p className="mt-1 text-sm text-slate-500">Check back soon for upcoming courses.</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {primaryCourses.map((course, index) => (
-              <article
-                key={course._id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">{courseCards}</div>
+            {/* Mobile view all */}
+            <div className="mt-6 text-center sm:hidden">
+              <Link
+                href="/courses"
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
               >
-                <img
-                  src={course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length]}
-                  alt={course.name}
-                  className="h-40 w-full object-cover"
-                  loading="lazy"
-                />
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-base font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                      {course.name}
-                    </h3>
-                    <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
-                        statusStyles[course.status] || statusStyles.archived
-                      }`}
-                    >
-                      {course.status}
-                    </span>
-                  </div>
-
-                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">
-                    {course.description || "Structured learning with chapter-based class progression."}
-                  </p>
-
-                  <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Monthly Fee</p>
-                    <p className="mt-1 text-sm font-black text-slate-900">
-                      {formatCurrency(course.monthlyFee, course.currency || "BDT")}
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/courses/${course._id}`}
-                    className="mt-3 inline-flex rounded-lg bg-gradient-to-r from-sky-600 to-cyan-500 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-105"
-                  >
-                    Open Course
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
+                View All Courses
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+            </div>
+          </>
         )}
       </section>
 
-      <section className="container-page pb-12 md:pb-16">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link
-            href="/about-us"
-            className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">About Us</p>
-            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Who We Are</h3>
-            <p className="mt-2 text-sm text-slate-600">Learn about our mission, structure, and academic approach.</p>
-          </Link>
+      {/* About Section */}
+      <AboutHomeSection
+        about={about}
+        isLoading={isLoading}
+        isError={isError}
+        metrics={{ courseCount: runningCourses.length, facultyCount: faculty.length }}
+      />
 
-          <Link
-            href="/faculty"
-            className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Faculty</p>
-            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Meet the Team</h3>
-            <p className="mt-2 text-sm text-slate-600">View teachers and moderators guiding the platform.</p>
-          </Link>
+      {/* Faculty Section */}
+      <FacultyHomeSection faculty={faculty} isLoading={isLoading} isError={isError} />
 
-          <Link
-            href="/contact-us"
-            className="rounded-2xl border border-sky-100 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Contact Us</p>
-            <h3 className="mt-2 text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">Get Support</h3>
-            <p className="mt-2 text-sm text-slate-600">Reach out for enrollment, payment, or academic support.</p>
-          </Link>
-        </div>
-      </section>
-
-      <footer className="border-t border-slate-200 bg-white/80">
-        <div className="container-page grid gap-5 py-8 md:grid-cols-3">
-          <div>
-            <p className="text-sm font-black text-slate-900">
-              {general.siteName || "HSC Academic & Admission Care"}
-            </p>
-            <p className="mt-2 text-sm text-slate-600">
-              {general.footerText ||
-                general.siteTagline ||
-                "A focused learning ecosystem for HSC and admission preparation."}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Support</p>
-            <div className="mt-2 space-y-1 text-sm text-slate-700">
-              {contact.email ? <p>{contact.email}</p> : null}
-              {contact.phone ? <p>{contact.phone}</p> : null}
-              {contact.address ? <p>{contact.address}</p> : null}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Connect</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {contact.facebookPage ? (
-                <a
-                  href={contact.facebookPage}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Facebook
-                </a>
-              ) : null}
-              {contact.whatsapp ? (
-                <a
-                  href={contact.whatsapp}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-                >
-                  WhatsApp
-                </a>
-              ) : null}
-            </div>
-            {contact.officeHours ? (
-              <p className="mt-2 text-xs text-slate-600">Office: {contact.officeHours}</p>
-            ) : null}
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <SiteFooter />
     </main>
   );
 }

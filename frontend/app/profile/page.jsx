@@ -457,7 +457,7 @@ export default function ProfilePage() {
 
   return (
     <RequireAuth>
-      <section className="min-h-screen bg-slate-50">
+      <section className="min-h-screen">
         {/* ── Hero Banner ── */}
         <div className="relative overflow-hidden bg-slate-900">
           <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${theme.gradient}`} />

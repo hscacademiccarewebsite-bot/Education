@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import PageHero from "@/components/layouts/PageHero";
 import RequireAuth from "@/components/RequireAuth";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
-import { ListSkeleton, InlineLoader } from "@/components/loaders/AppLoader";
+import { InlineLoader, ListSkeleton } from "@/components/loaders/AppLoader";
 import {
   useCreateHeroSlideMutation,
   useDeleteHeroSlideMutation,
@@ -12,50 +13,20 @@ import {
   useReorderHeroSlidesMutation,
   useUpdateHeroSlideMutation,
 } from "@/lib/features/home/homeApi";
+import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 
-const EMPTY_FORM = {
-  title: "",
-  caption: "",
-  priority: 0,
-  isActive: true,
-  buttonEnabled: true,
-  buttonText: "Explore Courses",
-  buttonHref: "/courses",
+const makeEmptyForm = (priority = 0) => ({
+  priority,
   imageAsset: null,
-};
+});
 
 function fieldClass() {
-  return "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100";
-}
-
-function parseErrorMessage(error) {
-  if (!error) {
-    return "Request failed.";
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error?.data?.message) {
-    return error.data.message;
-  }
-  if (error?.error) {
-    return error.error;
-  }
-  if (error?.message) {
-    return error.message;
-  }
-  return "Request failed.";
+  return "w-full rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 }
 
 function formFromSlide(slide) {
   return {
-    title: slide?.title || "",
-    caption: slide?.caption || "",
     priority: Number(slide?.priority || 0),
-    isActive: slide?.isActive !== false,
-    buttonEnabled: slide?.buttonEnabled !== false,
-    buttonText: slide?.buttonText || "Explore Courses",
-    buttonHref: slide?.buttonHref || "/courses",
     imageAsset: slide?.imageUrl
       ? {
           url: slide.imageUrl,
@@ -65,6 +36,42 @@ function formFromSlide(slide) {
   };
 }
 
+function MessageBanner({ tone, children }) {
+  const classes =
+    tone === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${classes}`}>
+      {children}
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint = "" }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">{label}</p>
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-white/70">{hint}</p> : null}
+    </div>
+  );
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export default function SliderControlPage() {
   const {
     data: sliderData,
@@ -72,6 +79,7 @@ export default function SliderControlPage() {
     isError: sliderError,
     refetch,
   } = useGetAdminHeroSlidesQuery();
+
   const [createHeroSlide, { isLoading: creating }] = useCreateHeroSlideMutation();
   const [updateHeroSlide, { isLoading: updating }] = useUpdateHeroSlideMutation();
   const [deleteHeroSlide, { isLoading: deleting }] = useDeleteHeroSlideMutation();
@@ -79,20 +87,32 @@ export default function SliderControlPage() {
 
   const slides = sliderData?.data || [];
   const [editingSlideId, setEditingSlideId] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(() => makeEmptyForm(0));
   const [imageTouched, setImageTouched] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const submitting = creating || updating;
-
   const editingSlide = useMemo(
     () => slides.find((slide) => slide.id === editingSlideId) || null,
     [slides, editingSlideId]
   );
 
+  const maxPriority = useMemo(
+    () => slides.reduce((max, slide) => Math.max(max, Number(slide.priority) || 0), 0),
+    [slides]
+  );
+
+  const nextPriority = maxPriority + 1;
+
+  useEffect(() => {
+    if (!editingSlideId && slides.length > 0 && form.priority === 0 && !form.imageAsset?.url) {
+      setForm(makeEmptyForm(nextPriority));
+    }
+  }, [editingSlideId, form.imageAsset?.url, form.priority, nextPriority, slides.length]);
+
   const resetForm = () => {
-    setForm(EMPTY_FORM);
+    setForm(makeEmptyForm(nextPriority));
     setEditingSlideId("");
     setImageTouched(false);
     setError("");
@@ -111,25 +131,8 @@ export default function SliderControlPage() {
     event.preventDefault();
 
     const payload = {
-      title: form.title.trim(),
-      caption: form.caption.trim(),
-      priority: Number(form.priority) || 0,
-      isActive: Boolean(form.isActive),
-      buttonEnabled: Boolean(form.buttonEnabled),
+      priority: Math.max(0, Number(form.priority) || 0),
     };
-
-    if (!payload.title) {
-      setError("Slider title is required.");
-      return;
-    }
-
-    if (payload.buttonEnabled) {
-      payload.buttonText = form.buttonText.trim() || "Explore Courses";
-      payload.buttonHref = form.buttonHref.trim() || "/courses";
-    } else {
-      payload.buttonText = "";
-      payload.buttonHref = "";
-    }
 
     setError("");
     setSuccess("");
@@ -137,59 +140,63 @@ export default function SliderControlPage() {
     try {
       if (editingSlideId) {
         if (imageTouched) {
-          if (form.imageAsset?.url) {
-            payload.image = {
-              url: form.imageAsset.url,
-              publicId: form.imageAsset.publicId || "",
-            };
-          } else if (editingSlide?.imageUrl) {
-            payload.removeImage = true;
+          if (!form.imageAsset?.url) {
+            setError("Slider image is required.");
+            return;
           }
+          payload.image = {
+            url: form.imageAsset.url,
+            publicId: form.imageAsset.publicId || "",
+          };
         }
 
         await updateHeroSlide({
           slideId: editingSlideId,
           ...payload,
         }).unwrap();
-        setSuccess("Slider updated successfully.");
+        setSuccess("Slide updated successfully.");
       } else {
         if (!form.imageAsset?.url) {
           setError("Upload a slider image before creating.");
           return;
         }
+
         payload.image = {
           url: form.imageAsset.url,
           publicId: form.imageAsset.publicId || "",
         };
 
         await createHeroSlide(payload).unwrap();
-        setSuccess("Slider created successfully.");
+        setSuccess("Slide created successfully.");
       }
 
       setEditingSlideId("");
       setImageTouched(false);
-      setForm(EMPTY_FORM);
+      setForm(makeEmptyForm(nextPriority));
     } catch (submitError) {
-      setError(parseErrorMessage(submitError));
+      setError(normalizeApiError(submitError));
     }
   };
 
   const handleDelete = async (slideId) => {
-    const confirmed = window.confirm("Delete this slider?");
+    const confirmed = window.confirm("Delete this slider image?");
     if (!confirmed) {
       return;
     }
 
     setError("");
     setSuccess("");
+
     try {
       await deleteHeroSlide(slideId).unwrap();
       if (editingSlideId === slideId) {
-        resetForm();
+        setForm(makeEmptyForm(nextPriority));
+        setEditingSlideId("");
+        setImageTouched(false);
       }
-      setSuccess("Slider deleted successfully.");
+      setSuccess("Slide deleted successfully.");
     } catch (deleteError) {
-      setError(parseErrorMessage(deleteError));
+      setError(normalizeApiError(deleteError));
     }
   };
 
@@ -212,321 +219,230 @@ export default function SliderControlPage() {
 
     setError("");
     setSuccess("");
+
     try {
       await reorderHeroSlides(orderedIds).unwrap();
-      setSuccess("Slider priority updated.");
+      setSuccess("Slider order updated.");
     } catch (moveError) {
-      setError(parseErrorMessage(moveError));
+      setError(normalizeApiError(moveError));
     }
   };
 
   return (
     <RequireAuth allowedRoles={["admin"]}>
       <section className="container-page py-8 md:py-10">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-700">
-                Admin Panel
+        <PageHero
+          eyebrow="Homepage Experience"
+          title="Slider Studio"
+          description="Maintain homepage slider visuals with clean operational control. Only image and priority are supported."
+          actions={
+            <>
+              <button type="button" onClick={() => refetch()} className="site-button-secondary">
+                Refresh Data
+              </button>
+              <Link href="/dashboard/site-settings" className="site-button-secondary">
+                Site Settings
+              </Link>
+              <Link href="/dashboard" className="site-button-primary">
+                Back To Dashboard
+              </Link>
+            </>
+          }
+          aside={
+            <div className="space-y-3">
+              <StatCard label="Total Slides" value={slides.length} />
+              <StatCard label="Next Priority" value={nextPriority} hint="Suggested for new slide" />
+              <StatCard
+                label="Queue Mode"
+                value={reordering ? "LIVE" : "READY"}
+                hint={reordering ? "Reordering in progress..." : "Manual controls available"}
+              />
+            </div>
+          }
+        />
+
+        <div className="mt-6 space-y-4">
+          {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
+          {success ? <MessageBanner tone="success">{success}</MessageBanner> : null}
+        </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <article className="site-panel h-fit rounded-[34px] p-5 md:sticky md:top-24 md:p-6">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                {editingSlideId ? "Edit Mode" : "Create Mode"}
               </p>
-              <h1 className="mt-2 text-3xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                Homepage Slider Control
-              </h1>
-              <p className="mt-2 text-sm text-slate-600">
-                Manage hero slides with image, title, caption, dynamic button settings, and priority
-                order.
+              <p className="mt-2 text-sm font-semibold text-slate-700">
+                {editingSlideId
+                  ? "Update priority or replace image for this slide."
+                  : "Upload an image and set priority to insert a new slide."}
               </p>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-
-          <div className="mt-6 grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-            <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-black text-slate-900">
-                  {editingSlideId ? "Edit Slider" : "Create Slider"}
-                </h2>
-                {editingSlideId ? (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Cancel
-                  </button>
-                ) : null}
-              </div>
-
-              <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
-                <div>
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Title
-                  </label>
-                  <input
-                    required
-                    value={form.title}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, title: event.target.value }))
-                    }
-                    placeholder="Slider title"
-                    className={fieldClass()}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Caption
-                  </label>
-                  <textarea
-                    value={form.caption}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, caption: event.target.value }))
-                    }
-                    placeholder="Slider caption text"
-                    className={fieldClass()}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                      Priority
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={form.priority}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, priority: Number(event.target.value) || 0 }))
-                      }
-                      className={fieldClass()}
-                    />
-                  </div>
-                  <label className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={form.isActive}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                      }
-                    />
-                    Active
-                  </label>
-                </div>
-
-                <label className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={form.buttonEnabled}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, buttonEnabled: event.target.checked }))
-                    }
-                  />
-                  Button Needed
+            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                  Priority
                 </label>
-
-                {form.buttonEnabled ? (
-                  <div className="grid gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                        Button Text
-                      </label>
-                      <input
-                        value={form.buttonText}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, buttonText: event.target.value }))
-                        }
-                        placeholder="Explore Courses"
-                        className={fieldClass()}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                        Button Link
-                      </label>
-                      <input
-                        value={form.buttonHref}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, buttonHref: event.target.value }))
-                        }
-                        placeholder="/courses"
-                        className={fieldClass()}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                <ImageUploadField
-                  label="Slider Image Upload"
-                  folder="hsc-academic/sliders"
-                  asset={form.imageAsset}
-                  previewAlt="Slider image preview"
-                  className="border-slate-200 bg-white"
-                  onChange={(asset) => {
-                    setForm((prev) => ({
-                      ...prev,
-                      imageAsset: asset?.url
-                        ? { url: asset.url, publicId: asset.publicId || "" }
-                        : null,
-                    }));
-                    setImageTouched(true);
-                  }}
+                <input
+                  type="number"
+                  min="0"
+                  value={form.priority}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, priority: Number(event.target.value) || 0 }))
+                  }
+                  className={fieldClass()}
                 />
-
-                {error ? (
-                  <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-                    {error}
-                  </p>
-                ) : null}
-                {success ? (
-                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-                    {success}
-                  </p>
-                ) : null}
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-400"
-                  >
-                    {submitting
-                      ? editingSlideId
-                        ? "Saving..."
-                        : "Creating..."
-                      : editingSlideId
-                      ? "Save Slider"
-                      : "Create Slider"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    disabled={submitting}
-                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </form>
-            </article>
-
-            <article className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-black text-slate-900">Slider List</h2>
-                {reordering ? <InlineLoader label="Updating priority..." /> : null}
+                <p className="mt-2 text-xs text-slate-500">
+                  Lower number appears first in homepage slider order.
+                </p>
               </div>
 
-              {sliderLoading ? (
+              <ImageUploadField
+                label="Slider Image Upload"
+                folder="hsc-academic/sliders"
+                asset={form.imageAsset}
+                previewAlt="Slider image preview"
+                className="border-slate-200 bg-white"
+                onChange={(asset) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    imageAsset: asset?.url
+                      ? { url: asset.url, publicId: asset.publicId || "" }
+                      : null,
+                  }));
+                  setImageTouched(true);
+                }}
+              />
+
+              <div className="flex flex-wrap gap-3 pt-1">
+                <button type="submit" disabled={submitting} className="site-button-primary">
+                  {submitting
+                    ? editingSlideId
+                      ? "Saving..."
+                      : "Creating..."
+                    : editingSlideId
+                    ? "Save Slide"
+                    : "Create Slide"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={submitting}
+                  className="site-button-secondary"
+                >
+                  {editingSlideId ? "Cancel Edit" : "Reset Form"}
+                </button>
+              </div>
+            </form>
+          </article>
+
+          <article className="site-panel rounded-[34px] p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  Queue Manager
+                </p>
+                <h2 className="font-display mt-3 text-2xl font-black text-slate-950">
+                  Current Slider Sequence
+                </h2>
+              </div>
+              {reordering ? <InlineLoader label="Reordering slides..." /> : null}
+            </div>
+
+            {sliderLoading ? (
+              <div className="mt-6">
                 <ListSkeleton rows={4} />
-              ) : sliderError ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-                  Failed to load sliders.
-                  <button
-                    type="button"
-                    onClick={() => refetch()}
-                    className="ml-2 underline"
-                  >
+              </div>
+            ) : sliderError ? (
+              <div className="mt-6">
+                <MessageBanner tone="error">
+                  Failed to load sliders.{" "}
+                  <button type="button" onClick={() => refetch()} className="underline">
                     Retry
                   </button>
-                </div>
-              ) : slides.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-600">
-                  No slider created yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {slides.map((slide, index) => (
-                    <div
-                      key={slide.id}
-                      className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[150px_minmax(0,1fr)]"
-                    >
+                </MessageBanner>
+              </div>
+            ) : slides.length === 0 ? (
+              <div className="mt-6 rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm font-semibold text-slate-600">
+                No slider images found. Create your first slide from the form.
+              </div>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {slides.map((slide, index) => (
+                  <div
+                    key={slide.id}
+                    className="site-panel-muted grid gap-4 rounded-[28px] p-4 md:grid-cols-[240px_minmax(0,1fr)]"
+                  >
+                    <div className="relative overflow-hidden rounded-[20px] border border-slate-200">
                       <img
                         src={slide.imageUrl}
-                        alt={slide.title}
-                        className="h-28 w-full rounded-xl object-cover md:h-full"
+                        alt={`Slider ${index + 1}`}
+                        className="h-44 w-full object-cover"
                       />
-
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">
-                            Priority {slide.priority}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                              slide.isActive
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {slide.isActive ? "Active" : "Inactive"}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                              slide.buttonEnabled
-                                ? "bg-cyan-100 text-cyan-700"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {slide.buttonEnabled ? "Button On" : "Button Off"}
-                          </span>
-                        </div>
-
-                        <h3 className="mt-2 text-base font-black text-slate-900">{slide.title}</h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-600">{slide.caption || "No caption"}</p>
-                        {slide.buttonEnabled ? (
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
-                            CTA: {slide.buttonText || "Explore Courses"} {"->"}{" "}
-                            {slide.buttonHref || "/courses"}
-                          </p>
-                        ) : null}
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleMove(slide.id, "up")}
-                            disabled={reordering || index === 0}
-                            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Move Up
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleMove(slide.id, "down")}
-                            disabled={reordering || index === slides.length - 1}
-                            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Move Down
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(slide)}
-                            className="rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-bold text-cyan-700 transition hover:bg-cyan-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(slide.id)}
-                            disabled={deleting}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 to-transparent px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+                          Priority {slide.priority}
+                        </p>
+                        <p className="mt-1 text-sm font-black text-white">
+                          Slide {String(index + 1).padStart(2, "0")}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </article>
-          </div>
+
+                    <div className="flex min-w-0 flex-col justify-between">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                          Slot {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="rounded-full bg-slate-200 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-700">
+                          Priority {slide.priority}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
+                          Updated {formatUpdatedAt(slide.updatedAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleMove(slide.id, "up")}
+                          disabled={reordering || index === 0}
+                          className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Move Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMove(slide.id, "down")}
+                          disabled={reordering || index === slides.length - 1}
+                          className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Move Down
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(slide)}
+                          className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(slide.id)}
+                          disabled={deleting}
+                          className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
         </div>
       </section>
     </RequireAuth>

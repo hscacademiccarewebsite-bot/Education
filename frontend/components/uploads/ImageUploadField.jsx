@@ -52,7 +52,7 @@ export default function ImageUploadField({
   };
 
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${className}`}>
+    <div className={`rounded-[14px] border border-slate-300 bg-slate-50 p-3 shadow-[0_4px_10px_rgba(15,23,42,0.08)] ${className}`}>
       <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{label}</p>
 
       {!isConfigured ? (

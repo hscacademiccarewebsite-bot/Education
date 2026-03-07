@@ -1,9 +1,282 @@
 @import "tailwindcss";
 
+:root {
+  --page-ivory: #f8f5ef;
+  --page-mist: #eef4f2;
+  --page-line: rgba(15, 23, 42, 0.08);
+  --page-ink: #0f172a;
+  --page-deep: #102033;
+  --page-teal: #0f766e;
+  --page-gold: #d4a85c;
+  --panel-shadow: 0 6px 14px rgba(15, 23, 42, 0.11);
+  --panel-shadow-soft: 0 4px 10px rgba(15, 23, 42, 0.1);
+  --card-radius: 14px;
+  --card-border: #cbd5e1;
+  --site-navbar-height-mobile: 64px;
+  --site-navbar-height-desktop: 74px;
+}
+
+html {
+  background: #ececee;
+}
+
 body {
   min-height: 100vh;
+  color: var(--page-ink);
+  background-color: #ececee;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.14) 1px, transparent 0);
+  background-size: 14px 14px;
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.18);
+  color: var(--page-ink);
 }
 
 .container-page {
   @apply w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-14;
+}
+
+.font-display {
+  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.site-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.site-nav-offset {
+  padding-top: var(--site-navbar-height-mobile);
+}
+
+@media (min-width: 768px) {
+  .site-nav-offset {
+    padding-top: var(--site-navbar-height-desktop);
+  }
+}
+
+.site-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: none;
+  opacity: 0;
+}
+
+.site-shell > *:not(header) {
+  position: relative;
+  z-index: 1;
+}
+
+.site-panel {
+  border-radius: var(--card-radius);
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--panel-shadow);
+}
+
+.site-panel-muted {
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--panel-shadow-soft);
+}
+
+.site-panel-dark {
+  background:
+    linear-gradient(180deg, rgba(20, 37, 58, 0.96), rgba(13, 24, 39, 0.94));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.24);
+}
+
+.card-ref {
+  border-radius: var(--card-radius);
+  border: 1px solid var(--card-border);
+  background: #ffffff;
+  box-shadow: var(--panel-shadow);
+}
+
+.card-ref-soft {
+  border-radius: 12px;
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  box-shadow: var(--panel-shadow-soft);
+}
+
+/* Remove section-level card shells; keep cards only where needed */
+.container-page > .site-panel,
+.container-page > .site-panel-muted {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.site-kicker {
+  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em];
+  color: var(--page-teal);
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.14);
+}
+
+.site-title {
+  @apply text-3xl font-black tracking-tight text-slate-950 md:text-4xl;
+  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.site-lead {
+  @apply max-w-3xl text-sm leading-7 text-slate-600 md:text-base;
+}
+
+.site-button-primary {
+  @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-white transition;
+  background: linear-gradient(135deg, #0f766e 0%, #164e63 100%);
+  box-shadow: 0 16px 34px rgba(15, 118, 110, 0.22);
+}
+
+.site-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 38px rgba(15, 118, 110, 0.28);
+}
+
+.site-button-secondary {
+  @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-bold transition;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--page-ink);
+}
+
+.site-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.site-grid {
+  @apply grid gap-4 md:gap-5;
+}
+
+.site-stat-tile {
+  @apply rounded-[14px] p-5;
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--panel-shadow-soft);
+}
+
+.site-stat-label {
+  @apply text-[11px] font-black uppercase tracking-[0.18em] text-slate-500;
+}
+
+.site-stat-value {
+  @apply mt-3 text-3xl font-black text-slate-950;
+}
+
+.site-stat-hint {
+  @apply mt-2 text-xs text-slate-500;
+}
+
+/* ─── Homepage Animations ───────────────────────────────── */
+
+@keyframes fadeUpReveal {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+  50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(16, 185, 129, 0.15); }
+  50% { border-color: rgba(16, 185, 129, 0.4); }
+}
+
+.animate-fade-up {
+  animation: fadeUpReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-up-delay-1 {
+  animation: fadeUpReveal 0.7s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fadeUpReveal 0.7s 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-up-delay-3 {
+  animation: fadeUpReveal 0.7s 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-float {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 8s ease infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Intersection Observer reveal */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Glass card utility */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }

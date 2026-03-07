@@ -3,19 +3,9 @@ const { cloudinaryAssetSchema } = require("./subSchemas");
 
 const heroSlideSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true },
-    caption: { type: String, trim: true },
-    description: { type: String, trim: true },
     image: { type: cloudinaryAssetSchema, default: undefined },
     imageUrl: { type: String, trim: true },
-    buttonEnabled: { type: Boolean, default: true },
-    buttonText: { type: String, trim: true },
-    buttonHref: { type: String, trim: true },
-    ctaLabel: { type: String, trim: true },
-    ctaHref: { type: String, trim: true },
     priority: { type: Number, default: 0, min: 0 },
-    displayOrder: { type: Number, default: 0, min: 0 },
-    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -36,11 +26,22 @@ const aboutSectionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const footerLinkSchema = new mongoose.Schema(
+  {
+    label: { type: String, trim: true },
+    href: { type: String, trim: true },
+    requiresAuth: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const generalSectionSchema = new mongoose.Schema(
   {
     siteName: { type: String, trim: true },
     siteTagline: { type: String, trim: true },
     footerText: { type: String, trim: true },
+    footerCopyright: { type: String, trim: true },
+    footerLinks: { type: [footerLinkSchema], default: () => [] },
     logo: { type: cloudinaryAssetSchema, default: undefined },
     logoUrl: { type: String, trim: true },
   },

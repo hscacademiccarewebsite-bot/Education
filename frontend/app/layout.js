@@ -12,7 +12,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-slate-50 text-slate-900 antialiased" suppressHydrationWarning>
+      <body className="text-slate-900 antialiased" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
