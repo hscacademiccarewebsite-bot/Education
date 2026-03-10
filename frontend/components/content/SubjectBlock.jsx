@@ -3,15 +3,13 @@
 import { useState } from "react";
 import ChapterBlock from "@/components/content/ChapterBlock";
 import { InlineLoader } from "@/components/loaders/AppLoader";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { FloatingInput, FloatingTextarea } from "@/components/forms/FloatingField";
 import {
   useCreateChapterMutation,
   useListChaptersQuery,
   useUpdateSubjectMutation,
 } from "@/lib/features/content/contentApi";
-
-function inputClass() {
-  return "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200";
-}
 
 export default function SubjectBlock({ subject, canManage }) {
   const { data, isLoading } = useListChaptersQuery(subject._id);
@@ -24,6 +22,7 @@ export default function SubjectBlock({ subject, canManage }) {
   const [chapterDescription, setChapterDescription] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const { showSuccess, showError, popupNode } = useActionPopup();
 
   const chapters = data?.data || [];
 
@@ -42,8 +41,11 @@ export default function SubjectBlock({ subject, canManage }) {
       }).unwrap();
 
       setMessage("Subject updated.");
+      showSuccess("Subject updated.");
     } catch (updateError) {
-      setError(updateError?.data?.message || "Failed to update subject.");
+      const resolvedError = updateError?.data?.message || "Failed to update subject.";
+      setError(resolvedError);
+      showError(resolvedError);
       setEditingTitle(subject.title);
     }
   };
@@ -54,7 +56,9 @@ export default function SubjectBlock({ subject, canManage }) {
     setError("");
 
     if (!chapterTitle.trim()) {
-      setError("Chapter title is required.");
+      const validationMessage = "Chapter title is required.";
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
@@ -66,31 +70,34 @@ export default function SubjectBlock({ subject, canManage }) {
       }).unwrap();
 
       setMessage("Chapter added.");
+      showSuccess("Chapter added.");
       setChapterTitle("");
       setChapterDescription("");
       setShowChapterComposer(false);
     } catch (createError) {
-      setError(createError?.data?.message || "Failed to create chapter.");
+      const resolvedError = createError?.data?.message || "Failed to create chapter.";
+      setError(resolvedError);
+      showError(resolvedError);
     }
   };
 
   return (
-    <article className="rounded-[14px] border border-slate-300 bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
+    <article className="rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-[220px] flex-1">
           {canManage ? (
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <input
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <FloatingInput
+                label="Subject title"
                 value={editingTitle}
                 onChange={(event) => setEditingTitle(event.target.value)}
-                className={inputClass()}
-                placeholder="Subject title"
+                className="min-w-0"
               />
               <button
                 type="button"
                 disabled={updatingSubject}
                 onClick={handleSubjectRename}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+                className="site-button-primary h-[52px] self-start rounded-lg px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 {updatingSubject ? "Saving..." : "Save"}
               </button>
@@ -114,7 +121,7 @@ export default function SubjectBlock({ subject, canManage }) {
               setMessage("");
               setError("");
             }}
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-100"
+            className="site-button-secondary self-start rounded-lg px-3.5 py-2 text-xs sm:self-end"
           >
             {showChapterComposer ? "Close Composer" : "Add Chapter"}
           </button>
@@ -125,22 +132,20 @@ export default function SubjectBlock({ subject, canManage }) {
       {error ? <p className="mt-3 text-xs font-semibold text-rose-700">{error}</p> : null}
 
       {canManage && showChapterComposer ? (
-        <form onSubmit={handleCreateChapter} className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-4">
+        <form onSubmit={handleCreateChapter} className="mt-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">New Chapter</p>
 
           <div className="mt-3 grid gap-2">
-            <input
+            <FloatingInput
               required
+              label="Chapter title"
               value={chapterTitle}
               onChange={(event) => setChapterTitle(event.target.value)}
-              placeholder="Chapter title"
-              className={inputClass()}
             />
-            <textarea
+            <FloatingTextarea
+              label="Chapter description"
               value={chapterDescription}
               onChange={(event) => setChapterDescription(event.target.value)}
-              placeholder="Chapter description"
-              className={inputClass()}
               rows={3}
             />
           </div>
@@ -149,14 +154,14 @@ export default function SubjectBlock({ subject, canManage }) {
             <button
               type="submit"
               disabled={creatingChapter}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
+              className="site-button-primary rounded-lg px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {creatingChapter ? "Creating..." : "Create Chapter"}
             </button>
             <button
               type="button"
               onClick={() => setShowChapterComposer(false)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 transition hover:bg-white"
+              className="site-button-secondary rounded-lg px-4 py-2 text-xs"
             >
               Cancel
             </button>
@@ -177,6 +182,7 @@ export default function SubjectBlock({ subject, canManage }) {
           ))
         )}
       </div>
+      {popupNode}
     </article>
   );
 }

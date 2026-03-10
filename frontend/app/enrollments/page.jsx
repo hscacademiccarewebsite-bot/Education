@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
 import { ListSkeleton } from "@/components/loaders/AppLoader";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { FloatingInput, FloatingTextarea } from "@/components/forms/FloatingField";
 import {
   useCreateEnrollmentRequestMutation,
   useGetEnrollmentRequestsForReviewQuery,
@@ -17,15 +20,70 @@ import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isStudent } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
-const STATUS_PILL = {
-  pending: "bg-amber-100 text-amber-700",
-  approved: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-rose-100 text-rose-700",
+const REVIEW_FILTERS = ["pending", "approved", "rejected"];
+
+const STATUS_META = {
+  pending: {
+    key: "enrollmentsPage.status.pending",
+    defaultLabel: "Pending",
+    pillClass: "bg-amber-100 text-amber-700",
+    helperKey: "enrollmentsPage.status.helperPending",
+    defaultHelper: "Waiting for review",
+  },
+  approved: {
+    key: "enrollmentsPage.status.approved",
+    defaultLabel: "Approved",
+    pillClass: "bg-emerald-100 text-emerald-700",
+    helperKey: "enrollmentsPage.status.helperApproved",
+    defaultHelper: "Access granted",
+  },
+  rejected: {
+    key: "enrollmentsPage.status.rejected",
+    defaultLabel: "Rejected",
+    pillClass: "bg-rose-100 text-rose-700",
+    helperKey: "enrollmentsPage.status.helperRejected",
+    defaultHelper: "You can apply again",
+  },
+  default: {
+    key: "enrollmentsPage.status.notApplied",
+    defaultLabel: "Not Applied",
+    pillClass: "bg-slate-100 text-slate-700",
+    helperKey: "enrollmentsPage.status.helperNotApplied",
+    defaultHelper: "No request submitted",
+  },
 };
 
-function fieldClass() {
-  return "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100";
+const dateFormatter = new Intl.DateTimeFormat("en-BD", {
+  dateStyle: "medium",
+});
+
+function getStatusMeta(status, t) {
+  const meta = STATUS_META[String(status || "").toLowerCase()] || STATUS_META.default;
+  return {
+    label: t ? t(meta.key, meta.defaultLabel) : meta.defaultLabel,
+    pillClass: meta.pillClass,
+    helper: t ? t(meta.helperKey, meta.defaultHelper) : meta.defaultHelper,
+  };
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return dateFormatter.format(parsed);
+}
+
+function formatMoney(value, currency = "BDT") {
+  const amount = Number(value || 0);
+  return `${new Intl.NumberFormat("en-US").format(amount)} ${currency}`;
 }
 
 function resolveFacebookProfileUrl(rawValue) {
@@ -44,6 +102,7 @@ function resolveFacebookProfileUrl(rawValue) {
 }
 
 export default function EnrollmentsPage() {
+  const { t } = useSiteLanguage();
   const searchParams = useSearchParams();
   const preselectedBatchId = searchParams.get("batchId") || "";
 
@@ -54,6 +113,7 @@ export default function EnrollmentsPage() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const { showSuccess, showError, popupNode } = useActionPopup();
 
   const [form, setForm] = useState({
     batchId: "",
@@ -65,7 +125,7 @@ export default function EnrollmentsPage() {
     facebookGroupJoinRequested: false,
   });
 
-  const { data: myData, isLoading: myLoading } = useGetMyEnrollmentRequestsQuery(undefined, {
+  const { data: myData, isLoading: myDataLoading } = useGetMyEnrollmentRequestsQuery(undefined, {
     skip: !isStudentRole,
   });
   const { data: coursesData, isLoading: coursesLoading } = useListBatchesQuery(undefined, {
@@ -88,6 +148,23 @@ export default function EnrollmentsPage() {
   );
 
   const myEnrollments = myData?.data || [];
+  const approvedEnrollments = useMemo(
+    () => myEnrollments.filter((item) => String(item.status || "").toLowerCase() === "approved"),
+    [myEnrollments]
+  );
+  const approvedCourseEntries = useMemo(() => {
+    const uniqueCourses = new Map();
+    approvedEnrollments.forEach((item) => {
+      const batch = item?.batch;
+      const batchId = String(batch?._id || "");
+      if (!batchId || uniqueCourses.has(batchId)) {
+        return;
+      }
+      uniqueCourses.set(batchId, { batch, enrollment: item });
+    });
+    return Array.from(uniqueCourses.values());
+  }, [approvedEnrollments]);
+  const showApprovedCoursesOnlyView = isStudentRole && !preselectedBatchId;
   const enrollmentByBatchId = useMemo(() => {
     const map = new Map();
     myEnrollments.forEach((item) => {
@@ -97,8 +174,37 @@ export default function EnrollmentsPage() {
   }, [myEnrollments]);
 
   const selectedBatchEnrollment = enrollmentByBatchId.get(String(form.batchId || ""));
+  const selectedEnrollmentStatus = String(selectedBatchEnrollment?.status || "");
+  const pendingEnrollment = selectedEnrollmentStatus === "pending";
+  const approvedEnrollment = selectedEnrollmentStatus === "approved";
   const selectedBatch = availableBatches.find((batch) => String(batch._id) === String(form.batchId));
   const hasSelectedBatchGroupLink = Boolean(selectedBatch?.facebookGroupUrl);
+  const reviewItems = reviewData?.data || [];
+  const selectedBatchStatusMeta = getStatusMeta(selectedBatchEnrollment?.status, t);
+  const noBatchConfigured = !coursesLoading && availableBatches.length === 0;
+  const applicationChecklist = [
+    { label: t("enrollmentsPage.form.batchReady", "Batch ready"), done: Boolean(form.batchId) },
+    {
+      label: t("enrollmentsPage.form.profileDetails", "Profile details"),
+      done: Boolean(
+        form.applicantName.trim() && form.applicantFacebookId.trim() && form.applicantPhoto?.url
+      ),
+    },
+    {
+      label: t("enrollmentsPage.form.groupConfirmed", "Group request confirmed"),
+      done: Boolean(form.facebookGroupJoinRequested && hasSelectedBatchGroupLink),
+    },
+  ];
+  const pageTitle = isStudentRole
+    ? showApprovedCoursesOnlyView
+      ? t("enrollmentsPage.layout.titleStudent", "My Enrollments")
+      : t("enrollmentsPage.actions.applyForBatchBtn", "Apply for Batch")
+    : t("enrollmentsPage.layout.titleAdmin", "Enrollment Review");
+  const pageDescription = isStudentRole
+    ? showApprovedCoursesOnlyView
+      ? t("enrollmentsPage.layout.descStudentOnlyApproved", "Only approved courses are shown here. Open course details to continue your study flow.")
+      : t("enrollmentsPage.layout.descStudentSubmit", "Submit your enrollment request once and track approval in one clean workflow.")
+    : t("enrollmentsPage.layout.descAdmin", "Review incoming enrollment requests and approve or reject with clear status control.");
 
   useEffect(() => {
     if (!isStudentRole || !currentUser) {
@@ -142,35 +248,51 @@ export default function EnrollmentsPage() {
     setMessage("");
 
     if (!form.batchId) {
-      setError("Please select a batch.");
+      const validationMessage = t("enrollmentsPage.messages.noBatch", "No batch is available for application right now.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
     if (!form.applicantName.trim()) {
-      setError("Applicant name is required.");
+      const validationMessage = t("enrollmentsPage.messages.nameReq", "Applicant name is required.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
     if (!form.applicantFacebookId.trim()) {
-      setError("Facebook ID is required.");
+      const validationMessage = t("enrollmentsPage.messages.fbReq", "Facebook ID is required.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
     if (!form.applicantPhoto?.url) {
-      setError("Applicant photo is required.");
+      const validationMessage = t("enrollmentsPage.messages.photoReq", "Applicant photo is required.");
+      setError(validationMessage);
+      showError(validationMessage);
+      return;
+    }
+    if (pendingEnrollment) {
+      const validationMessage = t("enrollmentsPage.messages.alreadyPending", "Your application is already pending for this batch.");
+      setError(validationMessage);
+      showError(validationMessage);
+      return;
+    }
+    if (approvedEnrollment) {
+      const validationMessage = t("enrollmentsPage.messages.alreadyApproved", "You are already approved in this batch.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
     if (!form.facebookGroupJoinRequested) {
-      setError("Please send join request to private Facebook group and confirm checkbox.");
+      const validationMessage = t("enrollmentsPage.messages.joinGroupReq", "Please send join request to private Facebook group and confirm checkbox.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
     if (!hasSelectedBatchGroupLink) {
-      setError("This batch does not have a private Facebook group link configured yet.");
-      return;
-    }
-    if (selectedBatchEnrollment?.status === "pending") {
-      setError("Your application is already pending for this batch.");
-      return;
-    }
-    if (selectedBatchEnrollment?.status === "approved") {
-      setError("You are already approved in this batch.");
+      const validationMessage = t("enrollmentsPage.messages.noGroupLink2", "This batch does not have a private Facebook group link configured yet.");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
@@ -188,9 +310,12 @@ export default function EnrollmentsPage() {
         facebookGroupJoinRequested: true,
       }).unwrap();
 
-      setMessage(response?.message || "Enrollment request submitted.");
+      setMessage(response?.message || t("enrollmentsPage.messages.submitSuccess", "Enrollment request submitted."));
+      showSuccess(response?.message || t("enrollmentsPage.messages.submitSuccess", "Enrollment request submitted."));
     } catch (applyError) {
-      setError(normalizeApiError(applyError));
+      const resolvedError = normalizeApiError(applyError);
+      setError(resolvedError);
+      showError(resolvedError);
     }
   };
 
@@ -204,388 +329,541 @@ export default function EnrollmentsPage() {
         status: nextStatus,
         rejectionReason:
           nextStatus === "rejected"
-            ? window.prompt("Rejection reason (optional):") || "Not provided"
+            ? window.prompt(t("enrollmentsPage.messages.rejectReason", "Rejection reason (optional):")) || t("enrollmentsPage.messages.notProvided", "Not provided")
             : undefined,
       }).unwrap();
-      setMessage(`Request ${nextStatus}.`);
+      setMessage(t("enrollmentsPage.messages.requestStatus", `Request ${nextStatus}.`, { status: nextStatus }));
+      showSuccess(t("enrollmentsPage.messages.requestStatus", `Request ${nextStatus}.`, { status: nextStatus }));
     } catch (reviewError) {
-      setError(normalizeApiError(reviewError));
+      const resolvedError = normalizeApiError(reviewError);
+      setError(resolvedError);
+      showError(resolvedError);
     }
   };
 
   return (
     <RequireAuth>
-      <section className="container-page py-10">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <section className="container-page py-8 md:py-10">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase text-slate-500">Enrollments</p>
-            <h1 className="text-2xl font-extrabold text-slate-900">
-              {isStudentRole ? "Apply for Batch" : "Enrollment Review"}
-            </h1>
+            <span className="site-kicker">{t("enrollmentsPage.layout.kicker", "Enrollment Desk")}</span>
+            <h1 className="site-title mt-3">{pageTitle}</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+              {pageDescription}
+            </p>
           </div>
           {role ? <RoleBadge role={role} /> : null}
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
             {error}
           </div>
         ) : null}
         {message ? (
-          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             {message}
           </div>
         ) : null}
 
         {isStudentRole ? (
-          <>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-black text-slate-900">Batch Application Form</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Submit your information to apply. Admin/Teacher/Moderator will review your request.
-              </p>
-
-              <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleApply}>
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Select Batch
-                  </label>
-                  <select
-                    value={form.batchId}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, batchId: event.target.value }))
-                    }
-                    className={fieldClass()}
-                  >
-                    <option value="">Choose a batch...</option>
-                    {availableBatches.map((batch) => (
-                      <option key={batch._id} value={batch._id}>
-                        {batch.name} ({batch.status})
-                      </option>
-                    ))}
-                  </select>
-                  {coursesLoading ? <p className="mt-1 text-xs text-slate-500">Loading batches...</p> : null}
-                  {selectedBatchEnrollment ? (
-                    <p className="mt-2 text-xs font-semibold text-slate-600">
-                      Existing status for this batch:{" "}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
-                          STATUS_PILL[selectedBatchEnrollment.status] || "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {selectedBatchEnrollment.status}
-                      </span>
-                    </p>
-                  ) : null}
-                </div>
-
-                {selectedBatch?.facebookGroupUrl ? (
-                  <div className="md:col-span-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm text-cyan-800">
-                    <p className="font-semibold">
-                      Step 1: Send join request to private group before applying.
-                    </p>
-                    <a
-                      href={selectedBatch.facebookGroupUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 inline-flex text-xs font-black uppercase tracking-[0.12em] text-cyan-700 underline"
-                    >
-                      Open Private Facebook Group
-                    </a>
-                  </div>
-                ) : null}
-
+          showApprovedCoursesOnlyView ? (
+            <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 p-5 shadow-[0_12px_24px_rgba(15,23,42,0.08)] md:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Applicant Name
-                  </label>
-                  <input
-                    required
-                    value={form.applicantName}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, applicantName: event.target.value }))
-                    }
-                    className={fieldClass()}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Facebook ID
-                  </label>
-                  <input
-                    required
-                    value={form.applicantFacebookId}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, applicantFacebookId: event.target.value }))
-                    }
-                    className={fieldClass()}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Phone (Optional)
-                  </label>
-                  <input
-                    value={form.applicantPhone}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
-                    }
-                    className={fieldClass()}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                    Note (Optional)
-                  </label>
-                  <textarea
-                    value={form.note}
-                    onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
-                    rows={3}
-                    className={fieldClass()}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <ImageUploadField
-                    label="Applicant Photo"
-                    folder="hsc-academic/enrollments"
-                    asset={form.applicantPhoto}
-                    previewAlt="Applicant photo"
-                    onChange={(asset) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        applicantPhoto: asset?.url
-                          ? { url: asset.url, publicId: asset.publicId || "" }
-                          : null,
-                      }))
-                    }
-                  />
-                </div>
-
-                <label className="md:col-span-2 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={form.facebookGroupJoinRequested}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        facebookGroupJoinRequested: event.target.checked,
-                      }))
-                    }
-                  />
-                  I have already sent a join request in the private Facebook group.
-                </label>
-
-                <div className="md:col-span-2">
-                  <button
-                    type="submit"
-                    disabled={applying || !form.facebookGroupJoinRequested || !hasSelectedBatchGroupLink}
-                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
-                  >
-                    {applying
-                      ? "Submitting..."
-                      : selectedBatchEnrollment?.status === "rejected"
-                      ? "Re-Apply"
-                      : "Apply for Batch"}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-              <h2 className="text-lg font-black text-slate-900">My Requests</h2>
-              <p className="mt-1 text-sm text-slate-600">Track approval status of your applications.</p>
-
-              <div className="mt-4 space-y-3">
-                {myLoading ? (
-                  <ListSkeleton rows={3} />
-                ) : myEnrollments.length === 0 ? (
-                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                    No enrollment requests found.
+                  <h2 className="text-xl font-black text-slate-900 md:text-2xl">Approved Courses</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Only courses with approved enrollment are shown.
                   </p>
-                ) : (
-                  myEnrollments.map((item) => (
-                    <article key={item._id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-bold text-slate-900">{item.batch?.name || "Batch"}</h3>
-                          <p className="mt-1 text-sm text-slate-600">
-                            FB ID: {item.applicantFacebookId} {item.applicantPhone ? `| Phone: ${item.applicantPhone}` : ""}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Submitted: {new Date(item.createdAt).toLocaleString()}
-                          </p>
-                          {item.batch?.facebookGroupUrl ? (
-                            <a
-                              href={item.batch.facebookGroupUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-1 inline-flex text-xs font-semibold text-cyan-700 underline"
-                            >
-                              Open batch private group
-                            </a>
-                          ) : null}
-                          {item.status === "rejected" ? (
-                            <p className="mt-1 text-xs font-semibold text-rose-700">
-                              Reason: {item.rejectionReason || "Not provided"}
-                            </p>
-                          ) : null}
-                        </div>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                            STATUS_PILL[item.status] || "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {item.status}
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                  {t("enrollmentsPage.layout.numApproved", "{count} approved", { count: approvedCourseEntries.length })}
+                </span>
+              </div>
+
+              {myDataLoading ? (
+                <div className="mt-5">
+                  <ListSkeleton rows={3} />
+                </div>
+              ) : approvedCourseEntries.length === 0 ? (
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
+                  <p className="text-base font-black text-slate-900">No approved course yet</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Browse courses and apply to get your first approval.
+                  </p>
+                  <Link href="/courses" className="site-button-primary mt-4 inline-flex px-4 py-2 text-[10px]">
+                    Browse Courses
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {approvedCourseEntries.map(({ batch: course, enrollment }, index) => (
+                    <article
+                      key={course?._id || index}
+                      className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+                    >
+                      <div className="relative h-28 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                        {course?.banner?.url || course?.thumbnail?.url ? (
+                          <img
+                            src={course?.banner?.url || course?.thumbnail?.url}
+                            alt={course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                            Course Banner
+                          </div>
+                        )}
+                        <span className="absolute right-2.5 top-2.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
+                          Approved
                         </span>
                       </div>
+
+                      <div className="mt-3">
+                        <h3 className="line-clamp-1 text-sm font-black text-slate-900">{course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}</h3>
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">
+                          {course?.description || t("enrollmentsPage.layout.approvedForCourse", "Approved for this course.")}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+                        <p className="text-[11px] font-black text-slate-900">
+                          {formatMoney(course?.monthlyFee, course?.currency || "BDT")}
+                        </p>
+                        <span className="text-[10px] text-slate-500">
+                          {formatDate(enrollment?.updatedAt || enrollment?.createdAt) || "Approved"}
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/courses/${course?._id}`}
+                        className="site-button-primary mt-3 h-9 w-full justify-center px-3 text-[10px]"
+                      >
+                        Open Course
+                      </Link>
                     </article>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <label className="text-sm font-semibold text-slate-700">Filter:</label>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <form
+                onSubmit={handleApply}
+                className="overflow-hidden rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
               >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
+                <div className="border-b border-slate-200 px-5 py-4 md:px-6 md:py-5">
+                  <h2 className="text-lg font-black text-slate-900 md:text-xl">Application Form</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Fill out the form below. Your request will be reviewed by the academic team.
+                  </p>
+                </div>
+
+                <div className="space-y-5 px-5 py-5 md:px-6 md:py-6">
+                  <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:grid-cols-3">
+                    {applicationChecklist.map((item) => (
+                      <div
+                        key={item.label}
+                        className={`rounded-xl border px-3 py-2 ${
+                          item.done
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-white text-slate-500"
+                        }`}
+                      >
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em]">{item.label}</p>
+                        <p className="mt-1 text-xs font-semibold">{item.done ? t("enrollmentsPage.form.done", "Done") : "Pending"}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {noBatchConfigured ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                      No active or upcoming batches are available right now.
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                        Applying To
+                      </p>
+                      <p className="mt-1 text-base font-black text-slate-900">
+                        {selectedBatch?.name || t("enrollmentsPage.messages.noBatchAvail", "No batch available")}
+                      </p>
+                      {selectedBatchEnrollment ? (
+                        <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                          {t("enrollmentsPage.form.existingRequest", "Existing request:")}
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
+                          >
+                            {selectedBatchStatusMeta.label}
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {selectedBatch?.facebookGroupUrl ? (
+                      <div className="md:col-span-2 rounded-2xl border border-cyan-200 bg-cyan-50/80 px-4 py-3 text-sm text-cyan-900">
+                        <p className="font-semibold">
+                          Step 1. Send a join request to the private Facebook group.
+                        </p>
+                        <a
+                          href={selectedBatch.facebookGroupUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex text-xs font-black uppercase tracking-[0.12em] text-cyan-700 underline"
+                        >
+                          Open Private Facebook Group
+                        </a>
+                      </div>
+                    ) : form.batchId ? (
+                      <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        This batch does not have a private Facebook group link configured yet.
+                      </div>
+                    ) : null}
+
+                    {pendingEnrollment ? (
+                      <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                        You already applied for this batch. Your request is pending review.
+                      </div>
+                    ) : null}
+
+                    {approvedEnrollment ? (
+                      <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                        You are already approved in this batch. No new application is needed.
+                      </div>
+                    ) : null}
+
+                    <FloatingInput
+                      id="applicant-name"
+                      label={t("enrollmentsPage.form.applicantName", "Applicant Name")}
+                      required
+                      value={form.applicantName}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, applicantName: event.target.value }))
+                      }
+                      autoComplete="name"
+                    />
+
+                    <FloatingInput
+                      id="facebook-id"
+                      label={t("enrollmentsPage.form.facebookId", "Facebook ID")}
+                      required
+                      value={form.applicantFacebookId}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, applicantFacebookId: event.target.value }))
+                      }
+                    />
+
+                    <FloatingInput
+                      id="phone"
+                      label={t("enrollmentsPage.form.phone", "Phone (Optional)")}
+                      value={form.applicantPhone}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, applicantPhone: event.target.value }))
+                      }
+                      autoComplete="tel"
+                    />
+
+                    <div className="md:col-span-2">
+                      <FloatingTextarea
+                        id="note"
+                        label={t("enrollmentsPage.form.note", "Note (Optional)")}
+                        value={form.note}
+                        onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <ImageUploadField
+                        label={t("enrollmentsPage.form.applicantPhoto", "Applicant Photo")}
+                        folder="hsc-academic/enrollments"
+                        asset={form.applicantPhoto}
+                        previewAlt={t("enrollmentsPage.form.photoAlt", "Applicant photo")}
+                        className="bg-white"
+                        previewClassName="mt-3 h-24 w-24 rounded-xl border border-slate-200 object-cover"
+                        onChange={(asset) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            applicantPhoto: asset?.url
+                              ? { url: asset.url, publicId: asset.publicId || "" }
+                              : null,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <label className="md:col-span-2 flex items-start gap-3 rounded-2xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={form.facebookGroupJoinRequested}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            facebookGroupJoinRequested: event.target.checked,
+                          }))
+                        }
+                        className="mt-1 h-4 w-4 rounded border-slate-400 text-cyan-600 focus:ring-cyan-500"
+                      />
+                      <span className="font-semibold">
+                        I have already sent a join request in the private Facebook group.
+                      </span>
+                    </label>
+
+                    <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                      <p className="text-xs text-slate-500">
+                        Required: applicant name, Facebook ID, photo, and group confirmation.
+                      </p>
+                      <button
+                        type="submit"
+                        disabled={
+                          applying ||
+                          pendingEnrollment ||
+                          approvedEnrollment ||
+                          !form.facebookGroupJoinRequested ||
+                          !hasSelectedBatchGroupLink
+                        }
+                        className="site-button-primary min-w-[190px] px-5 py-2.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                      >
+                        {applying
+                          ? t("enrollmentsPage.actions.submitting", "Submitting...")
+                          : pendingEnrollment
+                          ? t("enrollmentsPage.actions.alreadyApplied", "Already Applied (Pending)")
+                          : approvedEnrollment
+                          ? t("enrollmentsPage.actions.alreadyApproved", "Already Approved")
+                          : selectedBatchEnrollment?.status === "rejected"
+                          ? t("enrollmentsPage.actions.reApply", "Re-Apply for Batch")
+                          : t("enrollmentsPage.actions.applyForBatchBtn", "Apply for Batch")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              <aside className="space-y-4">
+                <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-5 shadow-[0_10px_22px_rgba(15,23,42,0.07)]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Selected Batch
+                  </p>
+                  {selectedBatch ? (
+                    <>
+                      <h3 className="mt-3 text-lg font-black text-slate-900">{selectedBatch.name}</h3>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {selectedBatch.description || t("enrollmentsPage.layout.noDesc", "No description available.")}
+                      </p>
+                      <dl className="mt-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.status", "Status")}</dt>
+                          <dd className="font-black capitalize text-slate-800">
+                            {String(selectedBatch.status || "active")}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.monthlyFee", "Monthly Fee")}</dt>
+                          <dd className="font-black text-slate-900">
+                            {formatMoney(selectedBatch.monthlyFee, selectedBatch.currency || "BDT")}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.yourStatus", "Your Status")}</dt>
+                          <dd>
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
+                            >
+                              {selectedBatchStatusMeta.label}
+                            </span>
+                          </dd>
+                        </div>
+                      </dl>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">
+                      Batch details will appear when an active or upcoming batch is available.
+                    </p>
+                  )}
+                </section>
+
+                <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/90 p-5 shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Submission Notes
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                    <li>{t("enrollmentsPage.layout.note1", "Use your real Facebook profile to help the reviewer verify identity.")}</li>
+                    <li>{t("enrollmentsPage.layout.note2", "Only one active request per batch is allowed at a time.")}</li>
+                    <li>{t("enrollmentsPage.layout.note3", "If rejected, update your details and submit again.")}</li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          )
+        ) : (
+          <section className="overflow-hidden rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 shadow-[0_12px_24px_rgba(15,23,42,0.08)]">
+            <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 md:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">{t("enrollmentsPage.layout.requestQueue", "Request Queue")}</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Filter by status and process enrollment decisions.
+                  </p>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                  {t("enrollmentsPage.layout.numShown", "{count} shown", { count: reviewItems.length })}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {REVIEW_FILTERS.map((filter) => {
+                  const active = statusFilter === filter;
+
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setStatusFilter(filter)}
+                      className={`px-3 py-1.5 text-xs ${active ? "site-button-primary" : "site-button-secondary"}`}
+                    >
+                      {filter}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {reviewLoading ? (
-              <ListSkeleton rows={3} />
-            ) : (reviewData?.data || []).length === 0 ? (
-              <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="px-5 py-5 md:px-6">
+                <ListSkeleton rows={4} />
+              </div>
+            ) : reviewItems.length === 0 ? (
+              <p className="px-5 py-5 text-sm text-slate-600 md:px-6">
                 No requests found for this filter.
               </p>
             ) : (
-              <div className="space-y-3">
-                {(reviewData?.data || []).map((item) => {
+              <div className="divide-y divide-slate-200">
+                {reviewItems.map((item) => {
+                  const itemStatusMeta = getStatusMeta(item.status, t);
                   const rawFacebookProfile =
                     item.student?.facebookProfileId || item.applicantFacebookId || "";
                   const facebookProfileUrl = resolveFacebookProfileUrl(rawFacebookProfile);
 
                   return (
-                    <article key={item._id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-start gap-3">
-                        {item.applicantPhoto?.url ? (
-                          <img
-                            src={item.applicantPhoto.url}
-                            alt={item.applicantName || "Applicant"}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-slate-200" />
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="truncate font-bold text-slate-900">
-                            {item.applicantName || item.student?.fullName || "Student"}
-                          </h3>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-600">
-                            <span className="truncate">{item.batch?.name || "Batch N/A"}</span>
-                            <span>|</span>
-                            <span>FB:</span>
-                            {facebookProfileUrl ? (
+                    <article key={item._id} className="px-5 py-4 md:px-6">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          {item.applicantPhoto?.url ? (
+                            <img
+                              src={item.applicantPhoto.url}
+                              alt={item.applicantName || t("enrollmentsPage.layout.applicantFallback", "Applicant")}
+                              className="h-11 w-11 rounded-full border border-slate-200 object-cover"
+                            />
+                          ) : (
+                            <div className="h-11 w-11 rounded-full border border-slate-200 bg-slate-100" />
+                          )}
+
+                          <div className="min-w-0">
+                            <h3 className="truncate text-base font-black text-slate-900">
+                              {item.applicantName || item.student?.fullName || t("enrollmentsPage.layout.studentFallback", "Student")}
+                            </h3>
+                            <p className="mt-0.5 text-sm text-slate-600">
+                              Batch: {item.batch?.name || t("enrollmentsPage.layout.batchNA", "Batch N/A")}
+                            </p>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600">
+                              <span>{t("enrollmentsPage.layout.fbPrefix", "FB:")}</span>
+                              {facebookProfileUrl ? (
+                                <a
+                                  href={facebookProfileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-semibold text-cyan-700 underline"
+                                  title={rawFacebookProfile}
+                                >
+                                  {rawFacebookProfile}
+                                </a>
+                              ) : (
+                                <span>{item.applicantFacebookId || t("enrollmentsPage.layout.na", "N/A")}</span>
+                              )}
+                              {item.applicantPhone ? (
+                                <>
+                                  <span>|</span>
+                                  <span>{item.applicantPhone}</span>
+                                </>
+                              ) : null}
+                              <span>|</span>
+                              <span>
+                                Group request: {item.facebookGroupJoinRequested ? t("enrollmentsPage.layout.sent", "Sent") : t("enrollmentsPage.layout.notConfirmed", "Not confirmed")}
+                              </span>
+                            </div>
+
+                            {item.batch?.facebookGroupUrl ? (
                               <a
-                                href={facebookProfileUrl}
+                                href={item.batch.facebookGroupUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="truncate font-semibold text-cyan-700 underline"
-                                title={rawFacebookProfile}
+                                className="mt-1 inline-flex text-xs font-semibold text-cyan-700 underline"
                               >
-                                {rawFacebookProfile}
+                                Open private Facebook group
                               </a>
                             ) : (
-                              <span className="truncate">{item.applicantFacebookId || "N/A"}</span>
+                              <p className="mt-1 text-xs font-semibold text-amber-700">
+                                Group link not configured
+                              </p>
                             )}
-                            {item.applicantPhone ? (
-                              <>
-                                <span>|</span>
-                                <span>{item.applicantPhone}</span>
-                              </>
+
+                            {item.note ? (
+                              <p className="mt-1 text-xs text-slate-500">{t("enrollmentsPage.layout.notePrefix", "Note:")} {item.note}</p>
+                            ) : null}
+
+                            {item.status === "rejected" ? (
+                              <p className="mt-1 text-xs font-semibold text-rose-700">
+                                Reason: {item.rejectionReason || t("enrollmentsPage.messages.notProvided", "Not provided")}
+                              </p>
                             ) : null}
                           </div>
-                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                            Group request: {item.facebookGroupJoinRequested ? "Sent" : "Not confirmed"}
+                        </div>
+
+                        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-col lg:items-end">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${itemStatusMeta.pillClass}`}
+                          >
+                            {itemStatusMeta.label}
+                          </span>
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            {formatDate(item.createdAt)}
                           </p>
-                          {item.batch?.facebookGroupUrl ? (
-                            <a
-                              href={item.batch.facebookGroupUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-1 inline-flex text-xs font-semibold text-cyan-700 underline"
-                            >
-                              Open private Facebook group
-                            </a>
-                          ) : (
-                            <p className="mt-1 text-xs font-semibold text-amber-700">
-                              Group link not configured
-                            </p>
-                          )}
-                          {item.note ? (
-                            <p className="mt-1 line-clamp-1 text-xs text-slate-500">Note: {item.note}</p>
+
+                          {item.status === "pending" ? (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={reviewing}
+                                onClick={() => handleReview(item._id, "approved")}
+                                className="site-button-primary px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={reviewing}
+                                onClick={() => handleReview(item._id, "rejected")}
+                                className="site-button-secondary px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Reject
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                       </div>
-
-                      <div className="flex flex-col items-end gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                            STATUS_PILL[item.status] || "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {item.status}
-                        </span>
-                        <p className="text-[11px] text-slate-500">
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {item.status === "pending" ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={reviewing}
-                          onClick={() => handleReview(item._id, "approved")}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          disabled={reviewing}
-                          onClick={() => handleReview(item._id, "rejected")}
-                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : item.status === "rejected" ? (
-                      <p className="mt-2 text-xs font-semibold text-rose-700">
-                        Reason: {item.rejectionReason || "Not provided"}
-                      </p>
-                    ) : null}
                     </article>
                   );
                 })}
               </div>
             )}
-          </div>
+          </section>
         )}
       </section>
+
+      {popupNode}
     </RequireAuth>
   );
 }

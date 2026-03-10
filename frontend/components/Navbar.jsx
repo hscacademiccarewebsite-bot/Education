@@ -14,40 +14,40 @@ import {
 } from "@/lib/features/user/userSlice";
 import RoleBadge from "@/components/RoleBadge";
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const NAV_LINKS = [
   {
     href: "/",
-    label: "Home",
+    labelKey: "navbar.home",
     exact: true,
     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
   },
   {
     href: "/courses",
-    label: "Courses",
-    requiresAuth: true,
+    labelKey: "navbar.courses",
     icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
   },
   {
     href: "/#about",
-    label: "About",
+    labelKey: "navbar.about",
     icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   },
   {
     href: "/#faculty",
-    label: "Faculty",
+    labelKey: "navbar.faculty",
     icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
   },
   {
     href: "/contact-us",
-    label: "Contact",
+    labelKey: "navbar.contact",
     icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
   },
 ];
 
 const DASHBOARD_LINK = {
   href: "/dashboard",
-  label: "Dashboard",
+  labelKey: "navbar.dashboard",
   icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
 };
 
@@ -82,6 +82,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: siteSettingsData } = useGetPublicSiteSettingsQuery();
+  const { language, toggleLanguage, t } = useSiteLanguage();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -137,7 +138,7 @@ export default function Navbar() {
   const siteName = siteSettingsData?.data?.general?.siteName || "HSC Academic & Admission Care";
   const siteTagline = siteSettingsData?.data?.general?.siteTagline || "Academic Platform";
   const siteLogoUrl = siteSettingsData?.data?.general?.logoUrl || "/logo.png";
-  const accountLabel = displayName || (isAuthenticated ? "Student" : "");
+  const accountLabel = displayName || (isAuthenticated ? t("navbar.student", "Student") : "");
   const visibleNavLinks = useMemo(
     () =>
       NAV_LINKS.filter((item) => {
@@ -158,7 +159,7 @@ export default function Navbar() {
       await signInWithPopup(auth, provider);
       router.push("/dashboard");
     } catch (error) {
-      setLoginError(error?.message || "Login failed.");
+      setLoginError(error?.message || t("navbar.loginFailed", "Login failed."));
     } finally {
       setLoginLoading(false);
     }
@@ -208,15 +209,15 @@ export default function Navbar() {
                       href={item.href}
                       className={`relative flex items-center gap-2 rounded-2xl px-4 py-2 text-[13px] font-black transition-all duration-200 ${
                         active
-                          ? "bg-slate-950 text-white shadow-[0_10px_20px_rgba(15,23,42,0.24)]"
-                          : "text-slate-600 hover:bg-white/90 hover:text-slate-900"
+                          ? "bg-[linear-gradient(135deg,var(--action-start),var(--action-end))] text-white shadow-[var(--action-shadow)]"
+                          : "text-slate-600 hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                       }`}
                     >
                       <NavIcon
                         path={item.icon}
-                        className={`h-4 w-4 ${active ? "text-emerald-300" : "text-slate-400"}`}
+                        className={`h-4 w-4 ${active ? "text-white" : "text-slate-400"}`}
                       />
-                      {item.label}
+                      {t(item.labelKey)}
                     </Link>
                   );
                 })}
@@ -224,6 +225,23 @@ export default function Navbar() {
             </nav>
 
             <div className="ml-auto hidden shrink-0 items-center gap-3 lg:flex">
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="site-button-secondary h-10 min-w-[74px] rounded-2xl px-3 text-[11px] font-black uppercase tracking-[0.14em]"
+                title={
+                  language === "bn"
+                    ? t("language.switchToEnglish")
+                    : t("language.switchToBangla")
+                }
+                aria-label={
+                  language === "bn"
+                    ? t("language.switchToEnglish")
+                    : t("language.switchToBangla")
+                }
+              >
+                {language === "bn" ? t("language.english") : t("language.bangla")}
+              </button>
               {!isInitialized ? (
                 <div className="h-11 w-28 animate-pulse rounded-full bg-white/70" />
               ) : !isAuthenticated ? (
@@ -231,22 +249,22 @@ export default function Navbar() {
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={loginLoading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5 hover:bg-teal-800 active:scale-95 disabled:opacity-50"
+                  className="site-button-primary h-10 gap-2 rounded-2xl px-4 text-xs active:scale-95 disabled:opacity-50"
                 >
                   <NavIcon
                     path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     className="h-4 w-4"
                   />
-                  {loginLoading ? "..." : "Login"}
+                  {loginLoading ? t("navbar.loginBusy") : t("navbar.login")}
                 </button>
               ) : (
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((value) => !value)}
-                    className="site-panel-muted flex items-center gap-3 rounded-[18px] border border-white/70 p-1.5 pr-3 transition hover:-translate-y-0.5 active:scale-95"
+                    className="site-panel-muted flex items-center gap-3 rounded-[18px] border border-[var(--action-soft-border)] p-1.5 pr-3 transition hover:-translate-y-0.5 hover:bg-[var(--action-soft-bg)] active:scale-95"
                     aria-expanded={profileMenuOpen}
-                    aria-label="Toggle profile menu"
+                    aria-label={t("navbar.toggleProfileMenu")}
                   >
                     {photoUrl ? (
                       <img
@@ -262,7 +280,7 @@ export default function Navbar() {
                     <div className="text-left">
                       <p className="max-w-[132px] truncate text-xs font-black text-slate-900">{accountLabel}</p>
                       <p className="text-[10px] font-black uppercase tracking-[0.17em] text-slate-500">
-                        {currentRole || "student"}
+                        {currentRole || t("navbar.student")}
                       </p>
                     </div>
                     <svg
@@ -285,7 +303,7 @@ export default function Navbar() {
                             <RoleBadge role={currentRole} />
                           ) : (
                             <span className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white/70">
-                              Student
+                              {t("navbar.student")}
                             </span>
                           )}
                         </div>
@@ -293,29 +311,29 @@ export default function Navbar() {
                       <div className="flex flex-col gap-1">
                         <Link
                           href="/profile"
-                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-100"
+                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                         >
                           <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4 text-slate-500" />
-                          Profile
+                          {t("navbar.profile")}
                         </Link>
                         <Link
                           href={DASHBOARD_LINK.href}
-                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-100"
+                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                         >
                           <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4 text-slate-500" />
-                          {DASHBOARD_LINK.label}
+                          {t(DASHBOARD_LINK.labelKey)}
                         </Link>
                       </div>
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-rose-600 transition hover:bg-white"
+                        className="mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-[var(--action-soft-text)] transition hover:bg-[var(--action-soft-bg)]"
                       >
                         <NavIcon
                           path="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                           className="h-4 w-4"
                         />
-                        Sign Out
+                        {t("navbar.signOut")}
                       </button>
                     </div>
                   )}
@@ -326,24 +344,28 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen((value) => !value)}
-              className="site-panel-muted ml-auto flex h-11 w-11 items-center justify-center rounded-2xl transition active:scale-90 lg:hidden"
+              className="ml-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)] transition hover:bg-white active:scale-90 lg:hidden"
               aria-expanded={mobileOpen}
               aria-controls={mobileMenuId}
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={
+                mobileOpen
+                  ? t("navbar.closeNavigationMenu")
+                  : t("navbar.openNavigationMenu")
+              }
             >
               <div className="flex flex-col gap-1.5">
                 <span
-                  className={`h-0.5 w-5 rounded-full bg-slate-900 transition-all duration-300 ${
+                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
                     mobileOpen ? "translate-y-2 rotate-45" : ""
                   }`}
                 />
                 <span
-                  className={`h-0.5 w-5 rounded-full bg-slate-900 transition-all duration-300 ${
+                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
                     mobileOpen ? "opacity-0" : ""
                   }`}
                 />
                 <span
-                  className={`h-0.5 w-5 rounded-full bg-slate-900 transition-all duration-300 ${
+                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
                     mobileOpen ? "-translate-y-2 -rotate-45" : ""
                   }`}
                 />
@@ -377,7 +399,7 @@ export default function Navbar() {
           className={`absolute inset-0 bg-slate-950/35 backdrop-blur-sm transition-opacity duration-300 ${
             mobileOpen ? "opacity-100" : "opacity-0"
           }`}
-          aria-label="Close mobile navigation overlay"
+          aria-label={t("navbar.closeMobileNavigation")}
         />
 
         <aside
@@ -388,16 +410,18 @@ export default function Navbar() {
         >
           <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
             <div>
-              <p className="font-display text-sm font-black text-slate-900">Navigation</p>
+              <p className="font-display text-sm font-black text-slate-900">
+                {t("navbar.navigation")}
+              </p>
               <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                Main Menu
+                {t("navbar.mainMenu")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500"
-              aria-label="Close mobile navigation"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)] text-[var(--action-soft-text)] transition hover:bg-white hover:text-[var(--action-start)]"
+              aria-label={t("navbar.closeMobileNavigation")}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -414,17 +438,31 @@ export default function Navbar() {
                     key={item.href}
                     href={item.href}
                     className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
-                      active ? "bg-slate-950 text-white" : "bg-white text-slate-700 hover:bg-slate-50"
+                      active
+                        ? "bg-[linear-gradient(135deg,var(--action-start),var(--action-end))] text-white"
+                        : "bg-white text-slate-700 hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                     }`}
                   >
-                    <NavIcon path={item.icon} className={`h-5 w-5 ${active ? "text-emerald-300" : "text-slate-400"}`} />
-                    {item.label}
+                    <NavIcon path={item.icon} className={`h-5 w-5 ${active ? "text-white" : "text-slate-400"}`} />
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
             </div>
 
             <div className="mt-6 border-t border-slate-200/70 pt-6">
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="site-button-secondary mb-3 flex h-10 w-full items-center justify-center rounded-2xl text-[11px] font-black uppercase tracking-[0.14em]"
+                title={
+                  language === "bn"
+                    ? t("language.switchToEnglish")
+                    : t("language.switchToBangla")
+                }
+              >
+                {language === "bn" ? t("language.english") : t("language.bangla")}
+              </button>
               {!isInitialized ? (
                 <div className="h-12 animate-pulse rounded-2xl bg-white" />
               ) : !isAuthenticated ? (
@@ -432,13 +470,13 @@ export default function Navbar() {
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={loginLoading}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-50"
+                  className="site-button-primary flex h-10 w-full items-center justify-center gap-2 text-xs disabled:opacity-50"
                 >
                   <NavIcon
                     path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     className="h-4 w-4"
                   />
-                  {loginLoading ? "Please Wait" : "Login"}
+                  {loginLoading ? t("navbar.loginPending") : t("navbar.login")}
                 </button>
               ) : (
                 <div className="space-y-3">
@@ -458,7 +496,7 @@ export default function Navbar() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black">{accountLabel}</p>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
-                          {currentRole || "student"}
+                          {currentRole || t("navbar.student")}
                         </p>
                       </div>
                     </div>
@@ -468,26 +506,26 @@ export default function Navbar() {
                   <div className="flex flex-col gap-2">
                     <Link
                       href="/profile"
-                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800"
+                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                     >
                       <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4 text-slate-500" />
-                      Profile
+                      {t("navbar.profile")}
                     </Link>
                     <Link
                       href={DASHBOARD_LINK.href}
-                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800"
+                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
                     >
                       <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4 text-slate-500" />
-                      {DASHBOARD_LINK.label}
+                      {t(DASHBOARD_LINK.labelKey)}
                     </Link>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex h-12 w-full items-center justify-center rounded-2xl bg-rose-50 text-sm font-black text-rose-600"
+                    className="site-button-secondary flex h-10 w-full items-center justify-center text-xs"
                   >
-                    Sign Out
+                    {t("navbar.signOut")}
                   </button>
                 </div>
               )}

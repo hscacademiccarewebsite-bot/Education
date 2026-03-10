@@ -7,12 +7,14 @@ import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/a
 import { useGetCurrentUserQuery } from "@/lib/features/auth/authApi";
 import { selectCurrentUser } from "@/lib/features/user/userSlice";
 import AuthSkeleton from "@/components/loaders/AuthSkeleton";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function RequireAuth({ children, allowedRoles }) {
   const router = useRouter();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
   const currentUser = useSelector(selectCurrentUser);
+  const { t } = useSiteLanguage();
 
   const { data, isLoading, isFetching, isError } = useGetCurrentUserQuery(undefined, {
     skip: !isAuthenticated || Boolean(currentUser),
@@ -56,12 +58,12 @@ export default function RequireAuth({ children, allowedRoles }) {
     return (
       <div className="container-page py-10">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-sm">
-          <p className="font-bold text-rose-700">Account verification failed.</p>
+          <p className="font-bold text-rose-700">{t("requireAuth.verificationFailed")}</p>
           <button
             onClick={() => router.replace("/")}
-            className="mt-4 rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700"
+            className="site-button-primary mt-4"
           >
-            Back to Home
+            {t("requireAuth.backToHome")}
           </button>
         </div>
       </div>

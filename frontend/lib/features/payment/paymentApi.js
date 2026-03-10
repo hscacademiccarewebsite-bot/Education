@@ -77,6 +77,24 @@ export const paymentApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Payment", id: "MY" }, { type: "Payment", id: "GLOBAL" }],
     }),
+
+    createBkashPayment: builder.mutation({
+      query: ({ paymentId }) => ({
+        url: `/payments/bkash/create`,
+        method: "POST",
+        body: { paymentId },
+      }),
+      // We don't invalidate yet; we only get the URL redirect.
+    }),
+
+    executeBkashPayment: builder.mutation({
+      query: ({ paymentID, paymentId }) => ({
+        url: `/payments/bkash/execute`,
+        method: "POST",
+        body: { paymentID, paymentId },
+      }),
+      invalidatesTags: [{ type: "Payment", id: "MY" }, { type: "Payment", id: "GLOBAL" }],
+    }),
   }),
 });
 
@@ -87,4 +105,6 @@ export const {
   useGenerateMonthlyDuesMutation,
   useMarkPaymentOfflinePaidMutation,
   useMarkPaymentOnlinePaidMutation,
+  useCreateBkashPaymentMutation,
+  useExecuteBkashPaymentMutation,
 } = paymentApi;

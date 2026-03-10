@@ -2,15 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { InlineLoader } from "@/components/loaders/AppLoader";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { FloatingInput, FloatingTextarea } from "@/components/forms/FloatingField";
 import {
   useCreateVideoMutation,
   useListVideosQuery,
   useUpdateChapterMutation,
 } from "@/lib/features/content/contentApi";
-
-function inputClass() {
-  return "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200";
-}
 
 export default function ChapterBlock({ chapter, canManage }) {
   const { data, isLoading } = useListVideosQuery(chapter._id);
@@ -24,6 +22,7 @@ export default function ChapterBlock({ chapter, canManage }) {
   const [videoDescription, setVideoDescription] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const { showSuccess, showError, popupNode } = useActionPopup();
 
   const videos = data?.data || [];
 
@@ -50,8 +49,11 @@ export default function ChapterBlock({ chapter, canManage }) {
       }).unwrap();
 
       setMessage("Chapter updated.");
+      showSuccess("Chapter updated.");
     } catch (updateError) {
-      setError(updateError?.data?.message || "Failed to update chapter.");
+      const resolvedError = updateError?.data?.message || "Failed to update chapter.";
+      setError(resolvedError);
+      showError(resolvedError);
       setEditingTitle(chapter.title);
     }
   };
@@ -62,7 +64,9 @@ export default function ChapterBlock({ chapter, canManage }) {
     setError("");
 
     if (!videoTitle.trim() || !facebookVideoId.trim()) {
-      setError("Video title and Facebook video ID are required.");
+      const validationMessage = "Video title and Facebook video ID are required.";
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
@@ -75,31 +79,34 @@ export default function ChapterBlock({ chapter, canManage }) {
       }).unwrap();
 
       setMessage("Video added.");
+      showSuccess("Video added.");
       setVideoTitle("");
       setFacebookVideoId("");
       setVideoDescription("");
       setShowVideoComposer(false);
     } catch (createError) {
-      setError(createError?.data?.message || "Failed to add video.");
+      const resolvedError = createError?.data?.message || "Failed to add video.";
+      setError(resolvedError);
+      showError(resolvedError);
     }
   };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         {canManage ? (
-          <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <input
+          <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <FloatingInput
+              label="Chapter title"
               value={editingTitle}
               onChange={(event) => setEditingTitle(event.target.value)}
-              className={inputClass()}
-              placeholder="Chapter title"
+              className="min-w-0"
             />
             <button
               type="button"
               disabled={updatingChapter}
               onClick={handleChapterRename}
-              className="rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+              className="site-button-primary h-[52px] self-start rounded-lg px-3.5 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {updatingChapter ? "Saving..." : "Save"}
             </button>
@@ -116,7 +123,7 @@ export default function ChapterBlock({ chapter, canManage }) {
               setMessage("");
               setError("");
             }}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-sky-700 transition hover:bg-sky-100"
+            className="site-button-secondary self-start rounded-lg px-3.5 py-2 text-xs sm:self-end"
           >
             {showVideoComposer ? "Close" : "Add Video"}
           </button>
@@ -133,25 +140,22 @@ export default function ChapterBlock({ chapter, canManage }) {
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">New Video</p>
 
           <div className="mt-2 grid gap-2">
-            <input
+            <FloatingInput
               required
+              label="Video title"
               value={videoTitle}
               onChange={(event) => setVideoTitle(event.target.value)}
-              placeholder="Video title"
-              className={inputClass()}
             />
-            <input
+            <FloatingInput
               required
+              label="Facebook video ID"
               value={facebookVideoId}
               onChange={(event) => setFacebookVideoId(event.target.value)}
-              placeholder="Facebook video ID"
-              className={inputClass()}
             />
-            <textarea
+            <FloatingTextarea
+              label="Video description"
               value={videoDescription}
               onChange={(event) => setVideoDescription(event.target.value)}
-              placeholder="Video description"
-              className={inputClass()}
               rows={2}
             />
           </div>
@@ -166,14 +170,14 @@ export default function ChapterBlock({ chapter, canManage }) {
             <button
               type="submit"
               disabled={creatingVideo}
-              className="rounded-lg bg-sky-600 px-3.5 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+              className="site-button-primary rounded-lg px-3.5 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {creatingVideo ? "Adding..." : "Add Video"}
             </button>
             <button
               type="button"
               onClick={() => setShowVideoComposer(false)}
-              className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
+              className="site-button-secondary rounded-lg px-3.5 py-2 text-xs"
             >
               Cancel
             </button>
@@ -198,22 +202,19 @@ export default function ChapterBlock({ chapter, canManage }) {
                     href={video.facebookVideoUrl || `https://www.facebook.com/watch/?v=${video.facebookVideoId}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-100"
+                    className="site-button-secondary rounded-md px-2.5 py-1 text-[11px]"
                   >
                     Open Video
                   </a>
                 ) : null}
               </div>
 
-              {video.facebookVideoId ? (
-                <p className="mt-1 text-[11px] font-semibold text-slate-500">ID: {video.facebookVideoId}</p>
-              ) : null}
-
               {video.description ? <p className="mt-1 text-xs text-slate-600">{video.description}</p> : null}
             </article>
           ))
         )}
       </div>
+      {popupNode}
     </div>
   );
 }

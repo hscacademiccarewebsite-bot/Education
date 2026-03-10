@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useSelector } from "react-redux";
 import { CardSkeleton, ListSkeleton } from "@/components/loaders/AppLoader";
-import PageHero from "@/components/layouts/PageHero";
-import { SubjectIcon, FeeIcon, CourseIcon } from "@/components/icons/PortalIcons";
+import { ChapterIcon, SubjectIcon } from "@/components/icons/PortalIcons";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { FloatingInput } from "@/components/forms/FloatingField";
+import { auth } from "@/firebase.config";
 import { useGetBatchByIdQuery } from "@/lib/features/batch/batchApi";
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import {
@@ -18,6 +21,7 @@ import {
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { canManageContent, isStudent } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const COURSE_FALLBACK =
   "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1400&q=70";
@@ -25,10 +29,6 @@ const COURSE_FALLBACK =
 const initialSubjectForm = {
   title: "",
 };
-
-function fieldClass() {
-  return "w-full rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
-}
 
 function MessageBanner({ tone, children }) {
   const classes =
@@ -52,12 +52,89 @@ function enrollmentTone(status) {
   if (status === "rejected") {
     return "bg-rose-100 text-rose-700";
   }
-  return "bg-amber-100 text-amber-700";
+  if (status === "pending") {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
+function enrollmentLabel(status, t) {
+  if (status === "approved") {
+    return t ? t("batchDetails.status.approved", "Approved") : "Approved";
+  }
+  if (status === "pending") {
+    return t ? t("batchDetails.status.applied", "Applied (Pending)") : "Applied (Pending)";
+  }
+  if (status === "rejected") {
+    return t ? t("batchDetails.status.rejected", "Rejected") : "Rejected";
+  }
+  return t ? t("batchDetails.status.notApplied", "Not Applied") : "Not Applied";
+}
+
+function studentActionLabel(status, t) {
+  if (status === "rejected") {
+    return t ? t("batchDetails.actions.applyAgain", "Apply Again") : "Apply Again";
+  }
+  return t ? t("batchDetails.actions.applyCourse", "Apply for Course") : "Apply for Course";
+}
+
+function SubjectDirectoryCard({ subject, index, canManage, onEdit, onDelete, deletingSubject, t }) {
+  return (
+    <article className="group rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-black text-white">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+            <SubjectIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.subjectCard.node", "Subject Node")}</p>
+            <h3 className="mt-1 truncate text-base font-black text-slate-950 md:text-lg">{subject.title}</h3>
+          </div>
+        </div>
+
+        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">{t("batchDetails.subjectCard.active", "Active")}</span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
+          <SubjectIcon className="h-3.5 w-3.5" />
+          Subject Layer
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
+          <ChapterIcon className="h-3.5 w-3.5" />
+          Next: Chapters
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={`/subjects/${subject._id}`} className="site-button-primary px-4 py-2 text-xs">{t("batchDetails.actions.openSubject", "Open Subject")}</Link>
+        {canManage ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onEdit(subject)}
+              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
+            >{t("batchDetails.actions.edit", "Edit")}</button>
+            <button
+              type="button"
+              onClick={() => onDelete(subject)}
+              disabled={deletingSubject}
+              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-60"
+            >{t("batchDetails.actions.delete", "Delete")}</button>
+          </>
+        ) : null}
+      </div>
+    </article>
+  );
 }
 
 export default function BatchDetailsPage() {
   const params = useParams();
   const batchId = params?.batchId || params?.courseId;
+  const { t } = useSiteLanguage();
 
   const role = useSelector(selectCurrentUserRole);
   const canManage = canManageContent(role);
@@ -66,16 +143,29 @@ export default function BatchDetailsPage() {
   const { data: batchData, isLoading: batchLoading } = useGetBatchByIdQuery(batchId, {
     skip: !batchId,
   });
+  const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, {
+    skip: !studentRole,
+  });
+
+  const myBatchEnrollment = useMemo(
+    () =>
+      (myEnrollmentsData?.data || []).find(
+        (request) => String(request.batch?._id || request.batch) === String(batchId)
+      ),
+    [myEnrollmentsData, batchId]
+  );
+  const studentEnrollmentStatus = String(myBatchEnrollment?.status || "");
+  const studentApproved = studentRole && studentEnrollmentStatus === "approved";
+  const canAccessCourseContent = canManage || studentApproved;
+  const shouldPromptSignIn = !role;
+
   const {
     data: subjectsData,
     isLoading: subjectsLoading,
     isError: subjectsIsError,
     error: subjectsError,
   } = useListSubjectsQuery(batchId, {
-    skip: !batchId,
-  });
-  const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, {
-    skip: !studentRole,
+    skip: !batchId || !canAccessCourseContent,
   });
 
   const [createSubject, { isLoading: creatingSubject }] = useCreateSubjectMutation();
@@ -88,12 +178,12 @@ export default function BatchDetailsPage() {
   const [editingSubjectTitle, setEditingSubjectTitle] = useState("");
   const [subjectMessage, setSubjectMessage] = useState("");
   const [subjectError, setSubjectError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const { showSuccess, showError, requestDeleteConfirmation, popupNode } = useActionPopup();
 
   const batch = batchData?.data;
   const subjects = subjectsData?.data || [];
-  const myBatchEnrollment = (myEnrollmentsData?.data || []).find(
-    (request) => String(request.batch?._id || request.batch) === String(batchId)
-  );
 
   const openCreatePanel = () => {
     setEditingSubjectId("");
@@ -124,7 +214,9 @@ export default function BatchDetailsPage() {
     setSubjectError("");
 
     if (!subjectForm.title.trim()) {
-      setSubjectError("Subject title is required.");
+      const validationMessage = t("batchDetails.messages.subjectReq", "Subject title is required.");
+      setSubjectError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
@@ -134,11 +226,14 @@ export default function BatchDetailsPage() {
         title: subjectForm.title.trim(),
       }).unwrap();
 
-      setSubjectMessage("Subject created successfully.");
+      setSubjectMessage(t("batchDetails.messages.createdSuccess", "Subject created successfully."));
+      showSuccess(t("batchDetails.messages.createdSuccess", "Subject created successfully."));
       setSubjectForm(initialSubjectForm);
       setShowSubjectForm(false);
     } catch (createError) {
-      setSubjectError(normalizeApiError(createError, "Failed to create subject."));
+      const resolvedError = normalizeApiError(createError, "Failed to create subject.");
+      setSubjectError(resolvedError);
+      showError(resolvedError);
     }
   };
 
@@ -148,7 +243,9 @@ export default function BatchDetailsPage() {
     setSubjectError("");
 
     if (!editingSubjectId || !editingSubjectTitle.trim()) {
-      setSubjectError("Subject title is required.");
+      const validationMessage = t("batchDetails.messages.subjectReq", "Subject title is required.");
+      setSubjectError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
@@ -159,17 +256,23 @@ export default function BatchDetailsPage() {
         title: editingSubjectTitle.trim(),
       }).unwrap();
 
-      setSubjectMessage("Subject updated successfully.");
+      setSubjectMessage(t("batchDetails.messages.updatedSuccess", "Subject updated successfully."));
+      showSuccess(t("batchDetails.messages.updatedSuccess", "Subject updated successfully."));
       closeManagementPanel();
     } catch (updateError) {
-      setSubjectError(normalizeApiError(updateError, "Failed to update subject."));
+      const resolvedError = normalizeApiError(updateError, "Failed to update subject.");
+      setSubjectError(resolvedError);
+      showError(resolvedError);
     }
   };
 
   const handleDeleteSubject = async (subject) => {
-    const confirmed = window.confirm(
-      `Delete "${subject.title}"?\n\nAll chapters and videos inside this subject will be removed permanently.`
-    );
+    const confirmed = await requestDeleteConfirmation({
+      title: t("batchDetails.messages.deleteConfirmTitle", `Delete "${subject.title}"?`, { title: subject.title }),
+      message:
+        t("batchDetails.messages.deleteConfirmMsg", "All chapters and videos inside this subject will be removed permanently. Type DELETE to continue."),
+      approveLabel: t("batchDetails.messages.deleteBtn", "Delete Subject"),
+    });
     if (!confirmed) {
       return;
     }
@@ -183,12 +286,30 @@ export default function BatchDetailsPage() {
         batchId,
       }).unwrap();
 
-      setSubjectMessage("Subject deleted successfully.");
+      setSubjectMessage(t("batchDetails.messages.deletedSuccess", "Subject deleted successfully."));
+      showSuccess(t("batchDetails.messages.deletedSuccess", "Subject deleted successfully."));
       if (editingSubjectId === subject._id) {
         closeManagementPanel();
       }
     } catch (deleteError) {
-      setSubjectError(normalizeApiError(deleteError, "Failed to delete subject."));
+      const resolvedError = normalizeApiError(deleteError, "Failed to delete subject.");
+      setSubjectError(resolvedError);
+      showError(resolvedError);
+    }
+  };
+
+  const handleFirebaseLogin = async () => {
+    setLoginError("");
+    setLoginLoading(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      setLoginError(error?.message || "Login failed.");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -209,290 +330,274 @@ export default function BatchDetailsPage() {
   }
 
   const managementOpen = canManage && (showSubjectForm || Boolean(editingSubjectId));
+  const courseStatus = String(batch.status || "active");
+  const courseStatusTone =
+    courseStatus === "active"
+      ? "bg-emerald-100 text-emerald-700"
+      : courseStatus === "upcoming"
+      ? "bg-amber-100 text-amber-700"
+      : "bg-slate-100 text-slate-700";
+  const studentStatusMessage =
+    studentEnrollmentStatus === "approved"
+      ? t("batchDetails.messages.enrollApproved", "Your enrollment is approved. You can access all course content.")
+      : studentEnrollmentStatus === "pending"
+      ? t("batchDetails.messages.enrollPending", "Your application is under review.")
+      : studentEnrollmentStatus === "rejected"
+      ? t("batchDetails.messages.enrollRejected", "Your previous application was rejected. You can apply again.")
+      : t("batchDetails.messages.enrollNotApplied", "You have not applied to this course yet.");
+  const accessLabel = studentRole
+    ? enrollmentLabel(studentEnrollmentStatus, t)
+    : shouldPromptSignIn
+    ? t("batchDetails.messages.signInRequired", "Sign In Required")
+    : t("batchDetails.messages.staffAccess", "Staff Access");
+  const accessTone = studentRole
+    ? enrollmentTone(studentEnrollmentStatus)
+    : shouldPromptSignIn
+    ? "bg-slate-100 text-slate-700"
+    : "bg-emerald-100 text-emerald-700";
+  const accessMessage = studentRole
+    ? studentStatusMessage
+    : shouldPromptSignIn
+    ? t("batchDetails.messages.signInPrompt", "Sign in as a student to apply and track enrollment.")
+    : t("batchDetails.messages.staffPrompt", "You can manage course structure and subject content from here.");
+  const primaryAccessAction = studentRole
+    ? studentApproved || studentEnrollmentStatus === "pending"
+      ? null
+      : {
+          type: "link",
+          href: `/enrollments?batchId=${batchId}`,
+          label: studentActionLabel(studentEnrollmentStatus, t),
+        }
+    : shouldPromptSignIn
+    ? {
+        type: "login",
+        label: t("batchDetails.actions.login", "Login"),
+      }
+    : null;
 
   return (
     <main className="site-shell min-h-screen pb-20">
-      <section className="container-page py-8 md:py-10">
-        <PageHero
-          eyebrow="Course Structure"
-          title={batch.name}
-          description={
-            batch.description ||
-            "Navigate the academic tree from subject to chapter to video inside this course workspace."
-          }
-          actions={
-            <>
-              <Link href="/courses" className="site-button-secondary">
-                Back To Courses
-              </Link>
-              {studentRole ? (
-                myBatchEnrollment ? (
+      <section className="container-page space-y-6 py-8 md:py-10">
+        <div className="grid gap-6 border-b border-slate-200 pb-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+          <section className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white shadow-[0_12px_24px_rgba(15,23,42,0.08)]">
+            <div className="grid gap-6 p-5 md:p-7 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">{t("batchDetails.layout.courseDetails", "Course Details")}</span>
                   <span
-                    className={`inline-flex items-center rounded-full px-4 py-3 text-xs font-black uppercase tracking-[0.14em] ${enrollmentTone(
-                      myBatchEnrollment.status
-                    )}`}
+                    className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${courseStatusTone}`}
                   >
-                    Enrollment {myBatchEnrollment.status}
+                    {courseStatus}
                   </span>
-                ) : (
-                  <Link href={`/enrollments?batchId=${batchId}`} className="site-button-primary">
-                    Apply For Batch
-                  </Link>
-                )
-              ) : null}
-              {batch.facebookGroupUrl ? (
-                <a
-                  href={batch.facebookGroupUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="site-button-secondary"
-                >
-                  Open Facebook Group
-                </a>
-              ) : null}
-              {canManage ? (
-                <button type="button" onClick={openCreatePanel} className="site-button-primary">
-                  {showSubjectForm && !editingSubjectId ? "Close Subject Form" : "Create Subject"}
-                </button>
-              ) : null}
-            </>
-          }
-          aside={
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Subjects</p>
-                <p className="mt-2 text-3xl font-black text-white">{subjects.length}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Monthly Fee</p>
-                <p className="mt-2 text-3xl font-black text-white">{batch.monthlyFee || 0} BDT</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Status</p>
-                <p className="mt-2 text-sm font-semibold uppercase tracking-[0.18em] text-white">
-                  {batch.status || "active"}
-                </p>
-              </div>
-            </div>
-          }
-          className="overflow-hidden"
-        />
+                </div>
 
-        <div className="site-panel mt-6 overflow-hidden rounded-[32px] p-0">
-          <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="p-6 md:p-8">
-              <p className="site-kicker">Course Cover</p>
-              <h2 className="font-display mt-4 text-3xl font-black text-slate-950">
-                Guided entry into the learning tree
-              </h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                Students enter through approved enrollment. Faculty then organizes the path as subject,
-                chapter, and video. The course banner, fee, and Facebook group access stay visible here for
-                operational clarity.
-              </p>
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <div className="site-stat-tile">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                      <CourseIcon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="site-stat-label">Course Space</p>
-                      <p className="text-sm font-semibold text-slate-700">{batch.slug || batch._id}</p>
-                    </div>
-                  </div>
+                <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+                  {batch.name}
+                </h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+                  {batch.description ||
+                    t("batchDetails.layout.defaultDesc", "This course is organized by subject, chapter, and video with guided academic progression.")}
+                </p>
+
+                <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                  <Link
+                    href="/courses"
+                    className="site-button-secondary inline-flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    </svg>{t("batchDetails.actions.allCourses", "All Courses")}</Link>
+                  {batch.facebookGroupUrl ? (
+                    <a
+                      href={batch.facebookGroupUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="site-button-secondary inline-flex items-center gap-2"
+                    >
+                      <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h9m-9 4.5h6m-7.5 7.5h12a1.5 1.5 0 0 0 1.5-1.5V6A1.5 1.5 0 0 0 18 4.5H6A1.5 1.5 0 0 0 4.5 6v12A1.5 1.5 0 0 0 6 19.5Z" />
+                      </svg>{t("batchDetails.actions.fbGroup", "Facebook Group")}</a>
+                  ) : null}
+                  {canManage ? (
+                    <button type="button" onClick={openCreatePanel} className="site-button-primary">
+                      {showSubjectForm && !editingSubjectId ? t("batchDetails.actions.closePopup", "Close Popup") : t("batchDetails.actions.createSubject", "Create Subject")}
+                    </button>
+                  ) : null}
                 </div>
-                <div className="site-stat-tile">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-100 text-cyan-700">
-                      <FeeIcon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="site-stat-label">Fee Model</p>
-                      <p className="text-sm font-semibold text-slate-700">Monthly subscription</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="site-stat-tile">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                      <SubjectIcon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="site-stat-label">Academic Units</p>
-                      <p className="text-sm font-semibold text-slate-700">{subjects.length} subjects mapped</p>
-                    </div>
-                  </div>
-                </div>
+              </div>
+
+              <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-100">
+                <img
+                  src={batch?.banner?.url || batch?.thumbnail?.url || COURSE_FALLBACK}
+                  alt={batch.name}
+                  className="h-[145px] w-full object-cover md:h-[175px]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-slate-900/5 to-transparent" />
+                <p className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-700">{t("batchDetails.layout.coursePreview", "Course Preview")}</p>
               </div>
             </div>
 
-            <div className="relative min-h-[280px]">
-              <img
-                src={batch?.banner?.url || batch?.thumbnail?.url || COURSE_FALLBACK}
-                alt={batch.name}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/80 via-slate-950/30 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200/80">
-                  Private Group Required
-                </p>
-                <p className="mt-2 max-w-sm text-sm leading-7 text-white/80">
-                  Students should request access to the private Facebook group before submitting enrollment.
-                </p>
-              </div>
+            <div className="border-t border-slate-200 px-5 py-4 md:px-7">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.layout.quickFacts", "Quick Facts")}</p>
+              <dl className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.monthlyFee", "Monthly Fee")}</dt>
+                  <dd className="mt-1 text-sm font-black text-slate-900">{batch.monthlyFee || 0} BDT</dd>
+                </div>
+                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.visibility", "Visibility")}</dt>
+                  <dd className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-700">
+                    {courseStatus}
+                  </dd>
+                </div>
+                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.subjects", "Subjects")}</dt>
+                  <dd className="mt-1 text-sm font-black text-slate-900">
+                    {canAccessCourseContent ? subjects.length : t("batchDetails.layout.locked", "Locked")}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div className="site-panel-muted mt-6 rounded-[28px] p-4 md:p-5">
-          <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
-            <span className="rounded-full bg-slate-900 px-3 py-1.5 text-white">Workflow</span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700">
-              Course
+          <aside className="space-y-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_22px_rgba(15,23,42,0.08)] md:p-6 xl:sticky xl:top-24">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.layout.accessEnrollment", "Access & Enrollment")}</p>
+            <span
+              className={`inline-flex rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em] ${accessTone}`}
+            >
+              {accessLabel}
             </span>
-            <span className="text-slate-300">/</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Subject</span>
-            <span className="text-slate-300">/</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Chapter</span>
-            <span className="text-slate-300">/</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">Video</span>
-          </div>
+            <p className="text-sm text-slate-600 md:text-base">{accessMessage}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              {canAccessCourseContent
+                ? t("batchDetails.messages.contentUnlocked", "Course content is unlocked for your account.")
+                : t("batchDetails.messages.contentLocked", "Course content will unlock after access approval.")}
+            </p>
+            {primaryAccessAction?.type === "login" ? (
+              <button
+                type="button"
+                onClick={handleFirebaseLogin}
+                disabled={loginLoading}
+                className="site-button-primary mt-1 inline-flex disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              >
+                {loginLoading ? t("batchDetails.actions.loggingIn", "Logging In...") : primaryAccessAction.label}
+              </button>
+            ) : primaryAccessAction?.type === "link" ? (
+              <Link href={primaryAccessAction.href} className="site-button-primary mt-1 inline-flex">
+                {primaryAccessAction.label}
+              </Link>
+            ) : null}
+            {loginError ? <p className="text-xs font-semibold text-rose-700">{loginError}</p> : null}
+          </aside>
         </div>
 
-        <div className="mt-6 space-y-4">
-          {subjectMessage ? <MessageBanner tone="success">{subjectMessage}</MessageBanner> : null}
-          {subjectError ? <MessageBanner tone="error">{subjectError}</MessageBanner> : null}
-          {subjectsIsError ? (
+        <div className="space-y-4">
+          {canAccessCourseContent && subjectsIsError ? (
             <MessageBanner tone="warning">
               {subjectsError?.data?.message ||
-                "You do not have access to this course content yet. Enrollment approval is required for students."}
+                t("batchDetails.messages.noAccessYet", "You do not have access to this course content yet. Enrollment approval is required for students.")}
             </MessageBanner>
           ) : null}
         </div>
 
-        <div className={`mt-8 grid gap-6 ${managementOpen ? "xl:grid-cols-[minmax(0,1fr)_390px]" : ""}`}>
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="site-kicker">Subject Directory</p>
-                <h2 className="font-display mt-4 text-3xl font-black text-slate-950">Academic unit register</h2>
-              </div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                Enterprise content indexing
-              </p>
-            </div>
-
-            <div className="site-panel overflow-hidden rounded-[30px]">
-              <div className="hidden border-b border-slate-200/80 bg-slate-50/80 px-5 py-3 md:grid md:grid-cols-[56px_minmax(0,1.3fr)_minmax(0,0.9fr)_auto] md:gap-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">No</p>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Subject</p>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Scope</p>
-                <p className="text-right text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Actions</p>
+        {canAccessCourseContent ? (
+          <div className="mt-8">
+            <section className="space-y-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="site-kicker">{t("batchDetails.layout.subjectDirectory", "Subject Directory")}</p>
+                  <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">{t("batchDetails.layout.courseSubjects", "Course subjects")}</h2>
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                  {subjects.length} {t("batchDetails.layout.total", "total")}</p>
               </div>
 
               {subjectsLoading ? (
-                <div className="p-5">
+                <div className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
                   <ListSkeleton rows={3} />
                 </div>
               ) : subjects.length === 0 ? (
-                <div className="px-5 py-12 text-center">
+                <div className="site-panel rounded-[clamp(8px,5%,12px)] py-12 text-center">
                   <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                     <SubjectIcon className="h-6 w-6" />
                   </span>
-                  <p className="font-display mt-4 text-2xl font-black text-slate-950">No subjects yet</p>
-                  <p className="mt-3 text-sm text-slate-600">
-                    Create the first subject to begin structuring this course.
-                  </p>
+                  <p className="mt-4 text-2xl font-black text-slate-950">{t("batchDetails.layout.noSubjects", "No subjects yet")}</p>
+                  <p className="mt-3 text-sm text-slate-600">{t("batchDetails.layout.createFirstSubject", "Create the first subject to begin structuring this course.")}</p>
                 </div>
               ) : (
-                subjects.map((subject, index) => (
-                  <article
-                    key={subject._id}
-                    className="border-b border-slate-200/70 px-4 py-4 last:border-b-0 md:px-5"
-                  >
-                    <div className="grid gap-3 md:grid-cols-[56px_minmax(0,1.3fr)_minmax(0,0.9fr)_auto] md:items-center md:gap-4">
-                      <div className="flex items-center gap-3 md:gap-0">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 md:ml-2">
-                          <SubjectIcon className="h-5 w-5" />
-                        </span>
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Subject</p>
-                        <h3 className="mt-1 truncate text-lg font-black text-slate-950">{subject.title}</h3>
-                        <p className="mt-1 text-xs text-slate-500">ID: {subject._id}</p>
-                      </div>
-
-                      <p className="text-sm leading-6 text-slate-600">
-                        Open this subject to manage chapter sequencing and lecture-level structure.
-                      </p>
-
-                      <div className="flex flex-wrap gap-2 md:justify-end">
-                        <Link href={`/subjects/${subject._id}`} className="site-button-primary px-4 py-2 text-xs">
-                          Open Subject
-                        </Link>
-                        {canManage ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openEditSubject(subject)}
-                              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSubject(subject)}
-                              disabled={deletingSubject}
-                              className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </article>
-                ))
+                <div className="grid gap-3 md:grid-cols-2">
+                  {subjects.map((subject, index) => (
+                    <SubjectDirectoryCard
+                      key={subject._id}
+                      subject={subject}
+                      index={index}
+                      canManage={canManage}
+                      onEdit={openEditSubject}
+                      onDelete={handleDeleteSubject}
+                      deletingSubject={deletingSubject}
+                    />
+                  ))}
+                </div>
               )}
-            </div>
-          </section>
+            </section>
+          </div>
+        ) : (
+          <div className="mt-8 border-y border-slate-200 py-8">
+            <p className="site-kicker">{t("batchDetails.layout.courseContent", "Course Content")}</p>
+            <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">{t("batchDetails.layout.contentAppearsHere", "Content will appear here after access approval")}</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+              Once your access is approved, you will see all course subjects and can continue into
+              chapters and lessons from this section.
+            </p>
+          </div>
+        )}
 
-          {managementOpen ? (
-            <aside className="site-panel h-fit rounded-[30px] border border-slate-200 p-5 md:p-6 xl:sticky xl:top-28">
-              <p className="site-kicker">{editingSubjectId ? "Update Subject" : "Create Subject"}</p>
-              <h2 className="font-display mt-4 text-3xl font-black text-slate-950">
-                {editingSubjectId ? "Edit subject metadata" : "Register new subject"}
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
-                Keep subject titles clear and academic. This is the root record for chapter and video hierarchy.
-              </p>
+        {canAccessCourseContent && managementOpen ? (
+          <div
+            className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/40 p-3 backdrop-blur-sm md:items-center md:p-6"
+            onClick={closeManagementPanel}
+          >
+            <aside
+              className="site-panel animate-scale-in max-h-[92vh] w-full max-w-[620px] overflow-y-auto rounded-[clamp(8px,5%,12px)] border border-slate-200 p-5 md:p-6"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="site-kicker">{editingSubjectId ? t("batchDetails.layout.updateSubject", "Update Subject") : t("batchDetails.actions.createSubject", "Create Subject")}</p>
+                  <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">
+                    {editingSubjectId ? t("batchDetails.layout.editMetadata", "Edit subject metadata") : t("batchDetails.layout.registerNew", "Register new subject")}
+                  </h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">
+                    Keep subject titles clear and academic. This is the root record for chapter and video hierarchy.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeManagementPanel}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
+                  aria-label="Close popup"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M6 18 18 6" />
+                  </svg>
+                </button>
+              </div>
 
               <form
                 onSubmit={editingSubjectId ? handleUpdateSubject : handleCreateSubject}
                 className="mt-6 space-y-4"
               >
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                    Subject Title
-                  </label>
-                  <input
-                    required
-                    value={editingSubjectId ? editingSubjectTitle : subjectForm.title}
-                    onChange={(event) =>
-                      editingSubjectId
-                        ? setEditingSubjectTitle(event.target.value)
-                        : setSubjectForm({ title: event.target.value })
-                    }
-                    placeholder="Physics"
-                    className={fieldClass()}
-                  />
-                </div>
+                <FloatingInput
+                  required
+                  label={t("batchDetails.layout.subjectTitle", "Subject Title")}
+                  value={editingSubjectId ? editingSubjectTitle : subjectForm.title}
+                  onChange={(event) =>
+                    editingSubjectId
+                      ? setEditingSubjectTitle(event.target.value)
+                      : setSubjectForm({ title: event.target.value })
+                  }
+                  hint={t("batchDetails.layout.subjectHint", "e.g., Physics")}
+                />
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
@@ -511,25 +616,22 @@ export default function BatchDetailsPage() {
                   >
                     {editingSubjectId
                       ? updatingSubject
-                        ? "Saving..."
-                        : "Save Subject"
+                        ? t("batchDetails.actions.saving", "Saving...")
+                        : t("batchDetails.actions.saveSubject", "Save Subject")
                       : creatingSubject
-                      ? "Creating..."
-                      : "Create Subject"}
+                      ? t("batchDetails.actions.creating", "Creating...")
+                      : t("batchDetails.actions.createSubject", "Create Subject")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={closeManagementPanel}
-                    className="site-button-secondary"
-                  >
-                    Close
+                  <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
+                    Cancel
                   </button>
                 </div>
               </form>
             </aside>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </section>
+      {popupNode}
     </main>
   );
 }

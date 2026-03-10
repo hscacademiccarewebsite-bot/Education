@@ -2,33 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import PageHero from "@/components/layouts/PageHero";
 import RequireAuth from "@/components/RequireAuth";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
 import { InlineLoader } from "@/components/loaders/AppLoader";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { FloatingInput, FloatingTextarea } from "@/components/forms/FloatingField";
 import {
   useGetAdminSiteSettingsQuery,
   useUpdateAdminSiteSettingsMutation,
 } from "@/lib/features/home/homeApi";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
-
-function fieldClass() {
-  return "w-full rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100";
-}
-
-function toHighlightsText(highlights) {
-  if (!Array.isArray(highlights)) {
-    return "";
-  }
-  return highlights.filter(Boolean).join("\n");
-}
-
-function splitHighlights(value) {
-  return String(value || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 function toFooterLinksText(links) {
   if (!Array.isArray(links)) {
@@ -80,10 +64,6 @@ const EMPTY_FORM = {
   footerLinks: "",
   logoAsset: null,
   logoTouched: false,
-  aboutHeading: "",
-  aboutDescription: "",
-  aboutMission: "",
-  aboutHighlights: "",
   contactEmail: "",
   contactPhone: "",
   contactAddress: "",
@@ -107,7 +87,7 @@ function MessageBanner({ tone, children }) {
 
 function SectionCard({ eyebrow, title, description, children }) {
   return (
-    <article className="site-panel rounded-[32px] p-5 md:p-6">
+    <article className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
@@ -128,7 +108,8 @@ export default function SiteSettingsPage() {
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const { showSuccess, showError, popupNode } = useActionPopup();
+  const { t, language } = useSiteLanguage();
 
   const settings = data?.data;
   const metadata = settings?.metadata || {};
@@ -151,10 +132,6 @@ export default function SiteSettingsPage() {
           }
         : null,
       logoTouched: false,
-      aboutHeading: settings?.about?.heading || "",
-      aboutDescription: settings?.about?.description || "",
-      aboutMission: settings?.about?.mission || "",
-      aboutHighlights: toHighlightsText(settings?.about?.highlights),
       contactEmail: settings?.contact?.email || "",
       contactPhone: settings?.contact?.phone || "",
       contactAddress: settings?.contact?.address || "",
@@ -166,17 +143,19 @@ export default function SiteSettingsPage() {
 
   const lastUpdatedText = useMemo(() => {
     if (!metadata?.updatedAt) {
-      return "Not updated yet";
+      return t("siteSettingsPage.notUpdatedYet");
     }
-    return new Date(metadata.updatedAt).toLocaleString();
-  }, [metadata?.updatedAt]);
+    return new Date(metadata.updatedAt).toLocaleString(language === "bn" ? "bn-BD" : "en-US");
+  }, [language, metadata?.updatedAt, t]);
 
-  const previewHighlights = useMemo(() => splitHighlights(form.aboutHighlights), [form.aboutHighlights]);
+  const footerLinkCount = useMemo(
+    () => parseFooterLinksText(form.footerLinks).length,
+    [form.footerLinks]
+  );
 
   const onSave = async (event) => {
     event.preventDefault();
     setError("");
-    setSuccess("");
 
     const payload = {
       general: {
@@ -185,12 +164,6 @@ export default function SiteSettingsPage() {
         footerText: form.footerText.trim(),
         footerCopyright: form.footerCopyright.trim(),
         footerLinks: parseFooterLinksText(form.footerLinks),
-      },
-      about: {
-        heading: form.aboutHeading.trim(),
-        description: form.aboutDescription.trim(),
-        mission: form.aboutMission.trim(),
-        highlights: splitHighlights(form.aboutHighlights),
       },
       contact: {
         email: form.contactEmail.trim(),
@@ -215,412 +188,287 @@ export default function SiteSettingsPage() {
 
     try {
       await updateSiteSettings(payload).unwrap();
-      setSuccess("Site settings updated successfully.");
+      showSuccess(t("siteSettingsPage.messages.updated"));
       setForm((prev) => ({ ...prev, logoTouched: false }));
     } catch (saveError) {
-      setError(normalizeApiError(saveError));
+      const resolvedError = normalizeApiError(saveError);
+      setError(resolvedError);
+      showError(resolvedError);
     }
   };
 
   return (
     <RequireAuth allowedRoles={["admin"]}>
       <section className="container-page py-8 md:py-10">
-        <PageHero
-          eyebrow="Admin Control"
-          title="Manage the entire site experience."
-          description="Update brand identity, homepage narrative, contact channels, and global footer content from one controlled workspace."
-          actions={
-            <>
+        <section className="site-panel overflow-hidden rounded-[clamp(8px,5%,12px)] p-5 md:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="site-kicker">{t("siteSettingsPage.kicker")}</p>
+              <h1 className="site-title mt-4">{t("siteSettingsPage.title")}</h1>
+              <p className="site-lead mt-4 max-w-3xl">
+                {t("siteSettingsPage.subtitle")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => refetch()} className="site-button-secondary">
-                Refresh
+                {t("siteSettingsPage.refresh")}
               </button>
               <Link href="/dashboard/slider-control" className="site-button-secondary">
-                Slider Control
+                {t("siteSettingsPage.sliderControl")}
               </Link>
               <Link href="/dashboard" className="site-button-primary">
-                Back To Dashboard
+                {t("navbar.dashboard")}
               </Link>
-            </>
-          }
-          aside={
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Last Updated</p>
-                <p className="mt-2 text-sm font-semibold text-white">{lastUpdatedText}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Hero Slides</p>
-                <p className="mt-2 text-3xl font-black text-white">
-                  {Number(metadata?.heroSlidesCount || 0)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Active Brand</p>
-                <p className="mt-2 text-sm font-semibold text-white">
-                  {form.siteName || "HSC Academic & Admission Care"}
-                </p>
-              </div>
             </div>
-          }
-        />
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.lastUpdated")}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-800">{lastUpdatedText}</p>
+            </div>
+            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.heroSlides")}</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{Number(metadata?.heroSlidesCount || 0)}</p>
+            </div>
+            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.footerLinks")}</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{footerLinkCount}</p>
+            </div>
+            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.activeBrand")}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-800">
+                {form.siteName || t("siteSettingsPage.defaultSiteName")}
+              </p>
+            </div>
+          </div>
+        </section>
 
         <div className="mt-6 space-y-4">
           {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
-          {success ? <MessageBanner tone="success">{success}</MessageBanner> : null}
         </div>
 
         {isLoading ? (
-          <div className="site-panel mt-8 rounded-[32px] p-6">
-            <InlineLoader label="Loading site settings..." />
+          <div className="site-panel mt-8 rounded-[clamp(8px,5%,12px)] p-6">
+            <InlineLoader label={t("siteSettingsPage.loading")} />
           </div>
         ) : isError ? (
           <div className="mt-8">
-            <MessageBanner tone="error">Failed to load site settings.</MessageBanner>
+            <MessageBanner tone="error">{t("siteSettingsPage.loadError")}</MessageBanner>
           </div>
         ) : (
-          <form className="mt-8 space-y-6" onSubmit={onSave}>
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_0.85fr]">
-              <div className="space-y-6">
-                <SectionCard
-                  eyebrow="Brand System"
-                  title="General Branding"
-                  description="Define the name, tagline, footer statement, and logo asset used across the public-facing site."
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Site Name
-                      </label>
-                      <input
-                        value={form.siteName}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, siteName: event.target.value }))
-                        }
-                        className={fieldClass()}
-                        placeholder="HSC Academic & Admission Care"
-                      />
-                    </div>
+          <form className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" onSubmit={onSave}>
+            <div className="space-y-6">
+              <SectionCard
+                eyebrow={t("siteSettingsPage.brandSystem")}
+                title={t("siteSettingsPage.generalBranding")}
+                description={t("siteSettingsPage.generalBrandingDesc")}
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FloatingInput
+                    label={t("siteSettingsPage.fields.siteName")}
+                    value={form.siteName}
+                    onChange={(event) => setForm((prev) => ({ ...prev, siteName: event.target.value }))}
+                    hint={t("siteSettingsPage.defaultSiteName")}
+                  />
 
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Site Tagline
-                      </label>
-                      <input
-                        value={form.siteTagline}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, siteTagline: event.target.value }))
-                        }
-                        className={fieldClass()}
-                        placeholder="Structured learning for HSC and admission preparation."
-                      />
-                    </div>
+                  <FloatingInput
+                    label={t("siteSettingsPage.fields.siteTagline")}
+                    value={form.siteTagline}
+                    onChange={(event) => setForm((prev) => ({ ...prev, siteTagline: event.target.value }))}
+                    hint={t("siteSettingsPage.defaultTagline")}
+                  />
 
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Footer Text
-                      </label>
-                      <textarea
-                        value={form.footerText}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, footerText: event.target.value }))
-                        }
-                        rows={3}
-                        className={fieldClass()}
-                        placeholder="Footer short note"
-                      />
-                    </div>
+                  <FloatingTextarea
+                    label={t("siteSettingsPage.fields.footerText")}
+                    className="md:col-span-2"
+                    value={form.footerText}
+                    onChange={(event) => setForm((prev) => ({ ...prev, footerText: event.target.value }))}
+                    rows={3}
+                    hint={t("siteSettingsPage.footerShortNote")}
+                  />
 
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Footer Copyright
-                      </label>
-                      <input
-                        value={form.footerCopyright}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, footerCopyright: event.target.value }))
-                        }
-                        className={fieldClass()}
-                        placeholder="All rights reserved."
-                      />
-                    </div>
+                  <FloatingInput
+                    label={t("siteSettingsPage.fields.footerCopyright")}
+                    className="md:col-span-2"
+                    value={form.footerCopyright}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, footerCopyright: event.target.value }))
+                    }
+                    hint={t("footer.defaultCopyright")}
+                  />
 
-                    <div className="md:col-span-2">
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Footer Links (One Per Line)
-                      </label>
-                      <textarea
-                        value={form.footerLinks}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, footerLinks: event.target.value }))
-                        }
-                        rows={5}
-                        className={fieldClass()}
-                        placeholder={"Courses | /courses | auth\nAbout | /about-us\nFaculty | /faculty\nContact | /contact-us"}
-                      />
-                      <p className="mt-2 text-xs text-slate-500">
-                        Format: <span className="font-bold">Label | /path | auth(optional)</span>
-                      </p>
-                    </div>
+                  <div className="md:col-span-2">
+                    <FloatingTextarea
+                      label={t("siteSettingsPage.fields.footerLinks")}
+                      value={form.footerLinks}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, footerLinks: event.target.value }))
+                      }
+                      rows={5}
+                      hint={t("siteSettingsPage.footerLinksHint")}
+                    />
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t("siteSettingsPage.formatLabel")}: <span className="font-bold">{t("siteSettingsPage.formatSample")}</span>
+                    </p>
+                  </div>
 
-                    <div className="md:col-span-2">
-                      <ImageUploadField
-                        label="Site Logo"
-                        folder="hsc-academic/site"
-                        asset={form.logoAsset}
-                        previewAlt="Site logo"
-                        onChange={(asset) =>
+                  <div className="md:col-span-2">
+                    <ImageUploadField
+                      label={t("siteSettingsPage.fields.siteLogo")}
+                      folder="hsc-academic/site"
+                      asset={form.logoAsset}
+                      previewAlt={t("siteSettingsPage.siteLogoPreviewAlt")}
+                      onChange={(asset) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          logoTouched: true,
+                          logoAsset: asset?.url
+                            ? { url: asset.url, publicId: asset.publicId || "" }
+                            : null,
+                        }))
+                      }
+                    />
+
+                    {form.logoAsset ? (
+                      <button
+                        type="button"
+                        onClick={() =>
                           setForm((prev) => ({
                             ...prev,
                             logoTouched: true,
-                            logoAsset: asset?.url
-                              ? { url: asset.url, publicId: asset.publicId || "" }
-                              : null,
+                            logoAsset: null,
                           }))
                         }
-                      />
-
-                      {form.logoAsset ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              logoTouched: true,
-                              logoAsset: null,
-                            }))
-                          }
-                          className="mt-3 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100"
-                        >
-                          Remove Logo
-                        </button>
-                      ) : null}
-                    </div>
+                        className="site-button-secondary mt-3 px-4 py-2 text-xs"
+                      >
+                        {t("siteSettingsPage.removeLogo")}
+                      </button>
+                    ) : null}
                   </div>
-                </SectionCard>
+                </div>
+              </SectionCard>
 
-                <SectionCard
-                  eyebrow="Homepage Narrative"
-                  title="About Section"
-                  description="Control the institution-level message shown across the public pages."
-                >
-                  <div className="grid gap-4">
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Heading
-                      </label>
-                      <input
-                        value={form.aboutHeading}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, aboutHeading: event.target.value }))
-                        }
-                        className={fieldClass()}
-                        placeholder="About heading"
+              <SectionCard
+                eyebrow={t("siteSettingsPage.supportChannels")}
+                title={t("siteSettingsPage.contactSection")}
+                description={t("siteSettingsPage.contactSectionDesc")}
+              >
+                <div className="grid gap-4">
+                  <FloatingInput
+                    type="email"
+                    label={t("contactPage.labels.email")}
+                    value={form.contactEmail}
+                    onChange={(event) => setForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
+                  />
+
+                  <FloatingInput
+                    label={t("contactPage.labels.phone")}
+                    value={form.contactPhone}
+                    onChange={(event) => setForm((prev) => ({ ...prev, contactPhone: event.target.value }))}
+                  />
+
+                  <FloatingInput
+                    label={t("contactPage.labels.address")}
+                    value={form.contactAddress}
+                    onChange={(event) => setForm((prev) => ({ ...prev, contactAddress: event.target.value }))}
+                  />
+
+                  <FloatingInput
+                    label={t("contactPage.labels.officeHours")}
+                    value={form.contactOfficeHours}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, contactOfficeHours: event.target.value }))
+                    }
+                  />
+
+                  <FloatingInput
+                    type="url"
+                    label={t("siteSettingsPage.fields.facebookPageUrl")}
+                    value={form.contactFacebookPage}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, contactFacebookPage: event.target.value }))
+                    }
+                  />
+
+                  <FloatingInput
+                    type="url"
+                    label={t("siteSettingsPage.fields.whatsAppUrl")}
+                    value={form.contactWhatsapp}
+                    onChange={(event) => setForm((prev) => ({ ...prev, contactWhatsapp: event.target.value }))}
+                  />
+                </div>
+              </SectionCard>
+            </div>
+
+            <aside className="space-y-6 xl:sticky xl:top-24 xl:h-fit">
+              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-6">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  {t("siteSettingsPage.livePreview")}
+                </p>
+                <div className="mt-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-4">
+                    {form.logoAsset?.url ? (
+                      <img
+                        src={form.logoAsset.url}
+                        alt={form.siteName || t("siteSettingsPage.siteLogoPreviewAlt")}
+                        className="h-14 w-14 rounded-2xl bg-white object-cover"
                       />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Description
-                      </label>
-                      <textarea
-                        value={form.aboutDescription}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, aboutDescription: event.target.value }))
-                        }
-                        rows={5}
-                        className={fieldClass()}
-                        placeholder="About description"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Mission
-                      </label>
-                      <textarea
-                        value={form.aboutMission}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, aboutMission: event.target.value }))
-                        }
-                        rows={4}
-                        className={fieldClass()}
-                        placeholder="Mission statement"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Highlights (One Per Line)
-                      </label>
-                      <textarea
-                        value={form.aboutHighlights}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, aboutHighlights: event.target.value }))
-                        }
-                        rows={6}
-                        className={fieldClass()}
-                        placeholder={"Curriculum Architecture\nEnrollment Governance\nMonthly payment transparency"}
-                      />
-                    </div>
-                  </div>
-                </SectionCard>
-              </div>
-
-              <div className="space-y-6">
-                <SectionCard
-                  eyebrow="Support Channels"
-                  title="Contact Section"
-                  description="Keep public contact paths consistent across contact, footer, and support-driven screens."
-                >
-                  <div className="grid gap-4">
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={form.contactEmail}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactEmail: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Phone
-                      </label>
-                      <input
-                        value={form.contactPhone}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactPhone: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Address
-                      </label>
-                      <input
-                        value={form.contactAddress}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactAddress: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Office Hours
-                      </label>
-                      <input
-                        value={form.contactOfficeHours}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactOfficeHours: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Facebook Page URL
-                      </label>
-                      <input
-                        type="url"
-                        value={form.contactFacebookPage}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactFacebookPage: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        WhatsApp URL
-                      </label>
-                      <input
-                        type="url"
-                        value={form.contactWhatsapp}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, contactWhatsapp: event.target.value }))
-                        }
-                        className={fieldClass()}
-                      />
-                    </div>
-                  </div>
-                </SectionCard>
-
-                <div className="site-panel-dark rounded-[32px] p-6 text-white">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200/80">
-                    Live Preview
-                  </p>
-                  <div className="mt-4 rounded-[28px] border border-white/10 bg-white/5 p-5">
-                    <div className="flex items-center gap-4">
-                      {form.logoAsset?.url ? (
-                        <img
-                          src={form.logoAsset.url}
-                          alt={form.siteName || "Site logo"}
-                          className="h-14 w-14 rounded-2xl bg-white object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-lg font-black text-white">
-                          {(form.siteName || "HSC").slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-display text-2xl font-black text-white">
-                          {form.siteName || "HSC Academic & Admission Care"}
-                        </p>
-                        <p className="mt-1 text-sm text-white/70">
-                          {form.siteTagline || "Structured learning for HSC and admission preparation."}
-                        </p>
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-200 text-lg font-black text-slate-800">
+                        {(form.siteName || t("siteSettingsPage.defaultShortName")).slice(0, 2).toUpperCase()}
                       </div>
-                    </div>
-
-                    <div className="mt-5 space-y-3 text-sm text-white/75">
-                      <p>{form.footerText || "Footer note will appear here after save."}</p>
-                      <p>
-                        © {new Date().getFullYear()} {form.siteName || "HSC Academic & Admission Care"}{" "}
-                        {form.footerCopyright || "All rights reserved."}
+                    )}
+                    <div>
+                      <p className="font-display text-2xl font-black text-slate-900">
+                        {form.siteName || t("siteSettingsPage.defaultSiteName")}
                       </p>
-                      <p>{form.aboutHeading || "About heading preview"}</p>
-                      {previewHighlights.length ? (
-                        <div className="space-y-2">
-                          {previewHighlights.slice(0, 4).map((item) => (
-                            <div key={item} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                              {item}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
+                      <p className="mt-1 text-sm text-slate-600">
+                        {form.siteTagline || t("siteSettingsPage.defaultTagline")}
+                      </p>
                     </div>
+                  </div>
+
+                  <div className="mt-5 space-y-3 text-sm text-slate-600">
+                    <p>{form.footerText || t("siteSettingsPage.footerPreviewFallback")}</p>
+                    <p>
+                      © {new Date().getFullYear()} {form.siteName || t("siteSettingsPage.defaultSiteName")}{" "}
+                      {form.footerCopyright || t("footer.defaultCopyright")}
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="site-panel-muted flex flex-wrap items-center justify-between gap-4 rounded-[32px] px-5 py-4">
-              <div>
+              <div className="site-panel-muted rounded-[clamp(8px,5%,12px)] p-5">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  Publish Changes
+                  {t("siteSettingsPage.formattingGuide")}
+                </p>
+                <div className="mt-3 space-y-3 text-sm text-slate-600">
+                  <p>
+                    {t("siteSettingsPage.footerLinksLabel")}: <span className="font-semibold">{t("siteSettingsPage.formatSampleShort")}</span>
+                  </p>
+                  <p>
+                    {t("siteSettingsPage.saveAppliesNote")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  {t("siteSettingsPage.publishChanges")}
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
-                  Updates apply to homepage, about, contact, and footer content immediately after save.
+                  {t("siteSettingsPage.publishDescription")}
                 </p>
+                <button type="submit" disabled={saving} className="site-button-primary mt-4 w-full justify-center">
+                  {saving ? t("siteSettingsPage.saving") : t("siteSettingsPage.saveSiteSettings")}
+                </button>
               </div>
-              <button type="submit" disabled={saving} className="site-button-primary">
-                {saving ? "Saving..." : "Save Site Settings"}
-              </button>
-            </div>
+            </aside>
           </form>
         )}
       </section>
+      {popupNode}
     </RequireAuth>
   );
 }

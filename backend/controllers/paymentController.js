@@ -1,7 +1,9 @@
 const Batch = require("../model/batchSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
+const User = require("../model/userSchema");
 const { canAccessBatch, isAdmin, isValidObjectId } = require("../utils/batchAccess");
+const { getBkashToken, createBkashPayment, executeBkashPayment } = require("../utils/bkash");
 
 const buildDueDateUTC = (year, month, day) => {
   const safeDay = Math.max(1, Math.min(28, Number(day) || 1));
@@ -76,14 +78,20 @@ class PaymentController {
       }
 
       const payments = await PaymentRecord.find(query)
-        .populate("student", "fullName email phone")
+        .populate({
+          path: "student",
+          select: "fullName email phone role",
+          match: { role: "student" },
+        })
         .populate("paidBy", "fullName role")
         .sort({ billingYear: -1, billingMonth: -1, createdAt: -1 });
 
+      const studentPayments = payments.filter((item) => Boolean(item.student));
+
       return res.status(200).json({
         success: true,
-        count: payments.length,
-        data: payments,
+        count: studentPayments.length,
+        data: studentPayments,
       });
     } catch (error) {
       return res.status(500).json({
@@ -110,15 +118,21 @@ class PaymentController {
       }
 
       const payments = await PaymentRecord.find(query)
-        .populate("student", "fullName email")
+        .populate({
+          path: "student",
+          select: "fullName email role",
+          match: { role: "student" },
+        })
         .populate("batch", "name slug")
         .populate("paidBy", "fullName role")
         .sort({ createdAt: -1 });
 
+      const studentPayments = payments.filter((item) => Boolean(item.student));
+
       return res.status(200).json({
         success: true,
-        count: payments.length,
-        data: payments,
+        count: studentPayments.length,
+        data: studentPayments,
       });
     } catch (error) {
       return res.status(500).json({
@@ -195,7 +209,9 @@ class PaymentController {
       const approvedEnrollments = await EnrollmentRequest.find({
         batch: { $in: targetBatchIds },
         status: "approved",
-      }).select("_id student batch");
+      })
+        .select("_id student batch")
+        .lean();
 
       if (approvedEnrollments.length === 0) {
         return res.status(200).json({
@@ -205,7 +221,28 @@ class PaymentController {
         });
       }
 
-      const operations = approvedEnrollments.map((enrollment) => {
+      const uniqueStudentIds = [...new Set(approvedEnrollments.map((item) => String(item.student)))];
+      const studentUsers = await User.find({
+        _id: { $in: uniqueStudentIds },
+        role: "student",
+      })
+        .select("_id")
+        .lean();
+      const allowedStudentIds = new Set(studentUsers.map((item) => String(item._id)));
+
+      const eligibleEnrollments = approvedEnrollments.filter((item) =>
+        allowedStudentIds.has(String(item.student))
+      );
+
+      if (eligibleEnrollments.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No eligible student enrollments found for due generation.",
+          generated: 0,
+        });
+      }
+
+      const operations = eligibleEnrollments.map((enrollment) => {
         const batch = batchMap.get(String(enrollment.batch));
         const dueDate = buildDueDateUTC(year, month, batch?.paymentDueDay || 1);
 
@@ -270,6 +307,14 @@ class PaymentController {
         });
       }
 
+      const paymentStudent = await User.findById(payment.student).select("role");
+      if (!paymentStudent || paymentStudent.role !== "student") {
+        return res.status(400).json({
+          success: false,
+          message: "Payments are only available for student accounts.",
+        });
+      }
+
       const hasAccess = isAdmin(req.user) || (await canAccessBatch(req.user, payment.batch));
       if (!hasAccess) {
         return res.status(403).json({
@@ -319,6 +364,14 @@ class PaymentController {
         });
       }
 
+      const paymentStudent = await User.findById(payment.student).select("role");
+      if (!paymentStudent || paymentStudent.role !== "student") {
+        return res.status(400).json({
+          success: false,
+          message: "Payments are only available for student accounts.",
+        });
+      }
+
       const isOwner = String(payment.student) === String(req.user._id);
       const canForceUpdate = isAdmin(req.user);
 
@@ -347,6 +400,125 @@ class PaymentController {
       return res.status(500).json({
         success: false,
         message: "Failed to mark payment online.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async createBkashPayment(req, res) {
+    try {
+      const { paymentId } = req.body;
+
+      if (!isValidObjectId(paymentId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid paymentId.",
+        });
+      }
+
+      const payment = await PaymentRecord.findById(paymentId);
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: "Payment record not found.",
+        });
+      }
+
+      if (String(payment.student) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only pay for your own dues.",
+        });
+      }
+
+      if (payment.status !== "due") {
+        return res.status(400).json({
+          success: false,
+          message: "This payment is not due.",
+        });
+      }
+
+      const idToken = await getBkashToken();
+      const bkashResponse = await createBkashPayment(payment, idToken);
+
+      if (bkashResponse && bkashResponse.bkashURL) {
+        return res.status(200).json({
+          success: true,
+          bkashURL: bkashResponse.bkashURL,
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: "Failed to initialize bKash checkout",
+        bkashResponse,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create bKash checkout URL.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async executeBkashPayment(req, res) {
+    try {
+      const { paymentID, paymentId: ourPaymentId } = req.body;
+
+      if (!paymentID || !isValidObjectId(ourPaymentId)) {
+        return res.status(400).json({
+          success: false,
+          message: "bKash paymentID and existing internal paymentId are required.",
+        });
+      }
+
+      const paymentRecord = await PaymentRecord.findById(ourPaymentId);
+      if (!paymentRecord || String(paymentRecord.student) !== String(req.user._id)) {
+        return res.status(404).json({
+          success: false,
+          message: "Associated payment record not found.",
+        });
+      }
+
+      if (paymentRecord.status !== "due") {
+        return res.status(400).json({
+          success: false,
+          message: "Payment is already processed.",
+        });
+      }
+
+      // Execute Bkash Transaction
+      const idToken = await getBkashToken();
+      const executeResponse = await executeBkashPayment(paymentID, idToken);
+
+      // Verify Status
+      if (executeResponse && executeResponse.statusCode === "0000" && executeResponse.transactionStatus === "Completed") {
+        paymentRecord.status = "paid_online";
+        paymentRecord.paymentMethod = "bkash";
+        paymentRecord.bkashPaymentId = executeResponse.paymentID;
+        paymentRecord.bkashTransactionId = executeResponse.trxID;
+        paymentRecord.merchantInvoiceNumber = executeResponse.merchantInvoiceNumber;
+        paymentRecord.paidAt = executeResponse.paymentExecuteTime ? new Date(executeResponse.paymentExecuteTime) : new Date();
+        await paymentRecord.save();
+
+        return res.status(200).json({
+          success: true,
+          message: "Payment successfully verified and executed.",
+          data: paymentRecord,
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: executeResponse.statusMessage || "bKash payment verification failed.",
+          bkashResponse: executeResponse,
+        });
+      }
+
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Execution failed.",
         error: error.message,
       });
     }

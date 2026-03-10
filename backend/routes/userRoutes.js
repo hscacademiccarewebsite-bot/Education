@@ -12,6 +12,12 @@ router.get(
   AuthMiddleware.requireRoles("admin"),
   UserController.listUsers
 );
+router.get(
+  "/:userId/details",
+  AuthMiddleware.requireAuth,
+  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  UserController.getUserDetails
+);
 router.patch(
   "/:userId/role",
   AuthMiddleware.requireAuth,

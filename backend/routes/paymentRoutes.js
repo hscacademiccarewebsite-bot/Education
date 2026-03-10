@@ -30,4 +30,16 @@ router.patch(
   PaymentController.markPaymentOnlinePaid
 );
 
+router.post(
+  "/bkash/create",
+  AuthMiddleware.requireRoles("student"),
+  PaymentController.createBkashPayment
+);
+
+router.post(
+  "/bkash/execute",
+  AuthMiddleware.requireRoles("student"),
+  PaymentController.executeBkashPayment
+);
+
 module.exports = router;

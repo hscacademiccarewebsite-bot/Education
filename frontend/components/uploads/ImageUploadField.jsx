@@ -3,23 +3,58 @@
 import { useId, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectToken } from "@/lib/features/auth/authSlice";
-import { isCloudinaryUploadConfigured, uploadImageToCloudinary } from "@/lib/utils/cloudinaryUpload";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import {
+  deleteImageFromCloudinary,
+  isCloudinaryUploadConfigured,
+  uploadImageToCloudinary,
+} from "@/lib/utils/cloudinaryUpload";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+
+function defaultPixelHint(folder, label, t) {
+  const folderName = String(folder || "").toLowerCase();
+  const labelText = String(label || "").toLowerCase();
+
+  if (folderName.includes("slider")) {
+    return t("uploadField.recommended.slider");
+  }
+  if (folderName.includes("course")) {
+    return t("uploadField.recommended.course");
+  }
+  if (folderName.includes("profile") || folderName.includes("enrollment") || labelText.includes("photo")) {
+    return t("uploadField.recommended.profile");
+  }
+  if (folderName.includes("site") || labelText.includes("logo")) {
+    return t("uploadField.recommended.site");
+  }
+
+  return t("uploadField.recommended.default");
+}
 
 export default function ImageUploadField({
-  label = "Image Upload",
+  label = "",
   asset = null,
   onChange,
   folder = "hsc-courses",
-  previewAlt = "Uploaded image",
+  previewAlt = "",
   className = "",
+  previewClassName = "",
+  recommendedPixels = "",
 }) {
   const inputId = useId();
   const token = useSelector(selectToken);
   const [uploading, setUploading] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
   const [error, setError] = useState("");
+  const { showSuccess, showError, requestDeleteConfirmation, popupNode } = useActionPopup();
+  const { t } = useSiteLanguage();
+  const resolvedLabel = label || t("uploadField.label");
+  const resolvedPreviewAlt = previewAlt || t("uploadField.previewAlt");
 
   const isConfigured = isCloudinaryUploadConfigured(token);
+  const pixelHint = recommendedPixels || defaultPixelHint(folder, resolvedLabel, t);
 
   const handleSelectFile = async (event) => {
     const file = event.target.files?.[0];
@@ -30,72 +65,125 @@ export default function ImageUploadField({
     }
 
     if (!file.type.startsWith("image/")) {
-      setError("Please choose a valid image file.");
+      const validationMessage = t("uploadField.errors.invalidImage");
+      setError(validationMessage);
+      showError(validationMessage);
       return;
     }
 
     setError("");
     setUploading(true);
-    setProgress(0);
+    setUploadStage(t("uploadField.stage.preparing"));
+    setProgress(5);
 
     try {
       const uploaded = await uploadImageToCloudinary(file, folder, {
         onProgress: (value) => setProgress(value),
+        onStage: (value) => setUploadStage(value),
         token,
       });
       onChange?.(uploaded);
+      showSuccess(t("uploadField.messages.uploaded"));
     } catch (uploadError) {
-      setError(uploadError?.message || "Failed to upload image.");
+      const resolvedError = uploadError?.message || t("uploadField.errors.uploadFailed");
+      setError(resolvedError);
+      showError(resolvedError);
     } finally {
       setUploading(false);
+      setUploadStage("");
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!asset?.url) {
+      return;
+    }
+
+    const confirmed = await requestDeleteConfirmation({
+      title: t("uploadField.removeConfirm.title"),
+      message: t("uploadField.removeConfirm.message"),
+      approveLabel: t("uploadField.removeConfirm.approveLabel"),
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+
+    const publicId = String(asset?.publicId || "").trim();
+    if (!publicId) {
+      onChange?.(null);
+      showSuccess(t("uploadField.messages.removed"));
+      return;
+    }
+
+    setRemoving(true);
+    try {
+      await deleteImageFromCloudinary(publicId, { token });
+      onChange?.(null);
+      showSuccess(t("uploadField.messages.removedSuccess"));
+    } catch (removeError) {
+      const resolvedError = removeError?.message || t("uploadField.errors.removeFailed");
+      setError(resolvedError);
+      showError(resolvedError);
+    } finally {
+      setRemoving(false);
     }
   };
 
   return (
-    <div className={`rounded-[14px] border border-slate-300 bg-slate-50 p-3 shadow-[0_4px_10px_rgba(15,23,42,0.08)] ${className}`}>
-      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+    <div className={`rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-slate-50 p-3 shadow-[0_4px_10px_rgba(15,23,42,0.08)] ${className}`}>
+      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{resolvedLabel}</p>
+      <p className="mt-1 text-[11px] font-semibold text-slate-500">{pixelHint}</p>
 
       {!isConfigured ? (
         <p className="mt-2 text-xs text-slate-600">
-          Upload is unavailable. Login first or set `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and
-          `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`.
+          {t("uploadField.unavailable")}
         </p>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <label
             htmlFor={inputId}
-            className="cursor-pointer rounded-lg bg-cyan-600 px-3 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-cyan-700"
+            className="site-button-primary cursor-pointer px-3 py-2 text-xs"
           >
-            {uploading ? "Uploading..." : "Choose Image"}
+            {uploading ? t("uploadField.uploading") : t("uploadField.chooseImage")}
           </label>
           <input
             id={inputId}
             type="file"
             accept="image/*"
             onChange={handleSelectFile}
-            disabled={uploading}
+            disabled={uploading || removing}
             className="hidden"
           />
 
           {asset?.url ? (
             <button
               type="button"
-              onClick={() => onChange?.(null)}
-              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-100"
+              onClick={handleRemove}
+              disabled={uploading || removing}
+              className="site-button-secondary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Remove
+              {removing ? t("uploadField.removing") : t("uploadField.remove")}
             </button>
           ) : null}
         </div>
       )}
 
       {uploading ? (
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full rounded-full bg-cyan-600 transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <>
+          <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600">
+            <span>{uploadStage || t("uploadField.stage.uploadingImage")}</span>
+            <span>{Math.min(100, Math.max(0, progress))}%</span>
+          </div>
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-[var(--action-start)] transition-all duration-200"
+              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+            />
+          </div>
+        </>
       ) : null}
 
       {error ? (
@@ -105,8 +193,13 @@ export default function ImageUploadField({
       ) : null}
 
       {asset?.url ? (
-        <img src={asset.url} alt={previewAlt} className="mt-3 h-28 w-full rounded-xl object-cover" />
+        <img
+          src={asset.url}
+          alt={resolvedPreviewAlt}
+          className={previewClassName || "mt-3 h-20 w-20 rounded-xl border border-slate-200 object-cover"}
+        />
       ) : null}
+      {popupNode}
     </div>
   );
 }

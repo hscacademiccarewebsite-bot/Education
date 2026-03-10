@@ -6,5 +6,6 @@ const router = express.Router();
 
 router.use(AuthMiddleware.requireAuth);
 router.post("/image", UploadController.uploadImage);
+router.delete("/image", UploadController.deleteImage);
 
 module.exports = router;

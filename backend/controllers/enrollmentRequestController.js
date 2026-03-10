@@ -1,6 +1,7 @@
 const Batch = require("../model/batchSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
+const User = require("../model/userSchema");
 const { canAccessBatch, getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 const { normalizeCloudinaryAsset } = require("../utils/cloudinaryAsset");
 
@@ -184,7 +185,10 @@ class EnrollmentRequestController {
   static async getMyEnrollmentRequests(req, res) {
     try {
       const requests = await EnrollmentRequest.find({ student: req.user._id })
-        .populate("batch", "name slug monthlyFee currency status facebookGroupUrl")
+        .populate(
+          "batch",
+          "name slug description monthlyFee currency status facebookGroupUrl banner thumbnail startsAt endsAt"
+        )
         .populate("reviewedBy", "fullName role")
         .sort({ createdAt: -1 });
 
@@ -235,7 +239,10 @@ class EnrollmentRequestController {
 
       const requests = await EnrollmentRequest.find(query)
         .populate("student", "fullName email phone profilePhoto facebookProfileId role")
-        .populate("batch", "name slug monthlyFee currency status facebookGroupUrl")
+        .populate(
+          "batch",
+          "name slug description monthlyFee currency status facebookGroupUrl banner thumbnail startsAt endsAt"
+        )
         .populate("reviewedBy", "fullName role")
         .sort({ createdAt: -1 });
 
@@ -292,27 +299,32 @@ class EnrollmentRequestController {
         });
       }
 
-      enrollment.status = status;
-      enrollment.reviewedBy = req.user._id;
-      enrollment.reviewedAt = new Date();
-
       if (status === "approved") {
-        enrollment.approvedAt = new Date();
-        enrollment.rejectedAt = undefined;
-        enrollment.rejectionReason = undefined;
+        const enrollmentStudent = await User.findById(enrollment.student).select("role");
+        if (!enrollmentStudent || enrollmentStudent.role !== "student") {
+          return res.status(400).json({
+            success: false,
+            message: "Only student accounts can be approved for payment-enabled enrollment.",
+          });
+        }
 
-        // On approval, ensure current month due record exists.
+        // On approval, ensure billing starts from the NEXT month (current month is free)
         const now = new Date();
+        const nextMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)); // safely advance month
+
+        const billingYear = nextMonthDate.getUTCFullYear();
+        const billingMonth = nextMonthDate.getUTCMonth() + 1; // 1-indexed for DB
+
         const dueDate = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), enrollment.batch.paymentDueDay || 1)
+          Date.UTC(billingYear, billingMonth - 1, enrollment.batch.paymentDueDay || 1)
         );
 
         await PaymentRecord.findOneAndUpdate(
           {
             student: enrollment.student,
             batch: enrollment.batch._id,
-            billingYear: now.getUTCFullYear(),
-            billingMonth: now.getUTCMonth() + 1,
+            billingYear,
+            billingMonth,
           },
           {
             $setOnInsert: {
@@ -327,9 +339,31 @@ class EnrollmentRequestController {
           { upsert: true, new: true }
         );
       } else {
-        enrollment.rejectedAt = new Date();
-        enrollment.rejectionReason = rejectionReason || "Not provided";
+        await PaymentRecord.updateMany(
+          {
+            student: enrollment.student,
+            batch: enrollment.batch._id,
+            status: "due",
+          },
+          {
+            $set: {
+              status: "waived",
+              paymentMethod: "manual_adjustment",
+              paidBy: req.user._id,
+              note:
+                rejectionReason || "Enrollment rejected/removed by staff. Outstanding dues were waived.",
+            },
+          }
+        );
+        enrollment.approvedAt = undefined;
       }
+
+      enrollment.status = status;
+      enrollment.reviewedBy = req.user._id;
+      enrollment.reviewedAt = new Date();
+      enrollment.rejectedAt = status === "rejected" ? new Date() : undefined;
+      enrollment.rejectionReason = status === "rejected" ? rejectionReason || "Not provided" : undefined;
+      enrollment.approvedAt = status === "approved" ? new Date() : undefined;
 
       await enrollment.save();
 

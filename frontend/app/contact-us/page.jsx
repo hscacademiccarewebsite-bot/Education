@@ -3,12 +3,13 @@
 import PageHero from "@/components/layouts/PageHero";
 import { CardSkeleton } from "@/components/loaders/AppLoader";
 import { useGetPublicContactQuery } from "@/lib/features/home/homeApi";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
-function ContactTile({ label, value, href = "" }) {
-  const content = value || "Not available";
+function ContactTile({ label, value, href = "", fallbackText }) {
+  const content = value || fallbackText;
 
   return (
-    <article className="site-panel-muted rounded-[14px] p-5">
+    <article className="site-panel-muted rounded-[clamp(8px,5%,12px)] p-5">
       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
       {href && value ? (
         <a
@@ -29,23 +30,24 @@ function ContactTile({ label, value, href = "" }) {
 export default function ContactUsPage() {
   const { data, isLoading, isError } = useGetPublicContactQuery();
   const contact = data?.data;
+  const { t } = useSiteLanguage();
 
   return (
     <section className="container-page py-8 md:py-10">
       <PageHero
-        eyebrow="Reach The Team"
-        title="Support, enrollment, and academic guidance."
-        description="Whether you need help with admissions, batch enrollment, payment follow-up, or course navigation, this is the operational contact layer of the platform."
+        eyebrow={t("contactPage.eyebrow")}
+        title={t("contactPage.title")}
+        description={t("contactPage.description")}
         aside={
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200/80">
-              Response Window
+              {t("contactPage.responseWindow")}
             </p>
             <p className="mt-4 text-3xl font-black text-white">
-              {contact?.officeHours || "Daily Support"}
+              {contact?.officeHours || t("contactPage.dailySupport")}
             </p>
             <p className="mt-3 text-sm leading-7 text-white/70">
-              Keep official support channels updated here so every page reflects the same information.
+              {t("contactPage.asideNote")}
             </p>
           </div>
         }
@@ -56,16 +58,44 @@ export default function ContactUsPage() {
           <CardSkeleton />
         ) : isError ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-            Failed to load contact data from backend.
+            {t("contactPage.loadError")}
           </div>
         ) : (
           <div className="site-grid md:grid-cols-2 xl:grid-cols-3">
-            <ContactTile label="Email" value={contact?.email} href={contact?.email ? `mailto:${contact.email}` : ""} />
-            <ContactTile label="Phone" value={contact?.phone} href={contact?.phone ? `tel:${contact.phone}` : ""} />
-            <ContactTile label="Address" value={contact?.address} />
-            <ContactTile label="Office Hours" value={contact?.officeHours} />
-            <ContactTile label="Facebook Page" value={contact?.facebookPage} href={contact?.facebookPage} />
-            <ContactTile label="WhatsApp" value={contact?.whatsapp} href={contact?.whatsapp} />
+            <ContactTile
+              label={t("contactPage.labels.email")}
+              value={contact?.email}
+              href={contact?.email ? `mailto:${contact.email}` : ""}
+              fallbackText={t("contactPage.notAvailable")}
+            />
+            <ContactTile
+              label={t("contactPage.labels.phone")}
+              value={contact?.phone}
+              href={contact?.phone ? `tel:${contact.phone}` : ""}
+              fallbackText={t("contactPage.notAvailable")}
+            />
+            <ContactTile
+              label={t("contactPage.labels.address")}
+              value={contact?.address}
+              fallbackText={t("contactPage.notAvailable")}
+            />
+            <ContactTile
+              label={t("contactPage.labels.officeHours")}
+              value={contact?.officeHours}
+              fallbackText={t("contactPage.notAvailable")}
+            />
+            <ContactTile
+              label={t("contactPage.labels.facebook")}
+              value={contact?.facebookPage}
+              href={contact?.facebookPage}
+              fallbackText={t("contactPage.notAvailable")}
+            />
+            <ContactTile
+              label={t("contactPage.labels.whatsapp")}
+              value={contact?.whatsapp}
+              href={contact?.whatsapp}
+              fallbackText={t("contactPage.notAvailable")}
+            />
           </div>
         )}
       </div>

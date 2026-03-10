@@ -19,7 +19,7 @@ export default function PageHero({
         </div>
 
         {aside ? (
-          <div className="rounded-[14px] border border-slate-700 bg-slate-900 p-5 text-white shadow-[0_8px_18px_rgba(15,23,42,0.28)]">
+          <div className="rounded-[clamp(8px,5%,12px)] border border-slate-700 bg-slate-900 p-5 text-white shadow-[0_8px_18px_rgba(15,23,42,0.28)]">
             {aside}
           </div>
         ) : null}

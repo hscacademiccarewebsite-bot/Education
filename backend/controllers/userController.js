@@ -1,6 +1,8 @@
 const User = require("../model/userSchema");
+const EnrollmentRequest = require("../model/enrollmentRequestSchema");
+const PaymentRecord = require("../model/paymentRecordSchema");
 const { USER_ROLES } = require("../model/constants");
-const { isValidObjectId } = require("../utils/batchAccess");
+const { getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 const {
   normalizeCloudinaryAsset,
   deleteCloudinaryAssetByPublicId,
@@ -277,6 +279,204 @@ class UserController {
       return res.status(500).json({
         success: false,
         message: "Failed to update role.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getUserDetails(req, res) {
+    try {
+      const { userId } = req.params;
+
+      if (!isValidObjectId(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId.",
+        });
+      }
+
+      const targetUser = await User.findById(userId)
+        .populate("assignedBatches", "name slug status monthlyFee currency facebookGroupUrl startsAt endsAt")
+        .lean();
+
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      const requesterIsAdmin = isAdmin(req.user);
+      const accessibleBatchIds = requesterIsAdmin
+        ? []
+        : await getAccessibleBatchIdsForStaff(req.user);
+      const accessibleBatchIdSet = new Set(accessibleBatchIds.map((id) => String(id)));
+
+      if (!requesterIsAdmin && accessibleBatchIds.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have access to this user's course data.",
+        });
+      }
+
+      const isStudentAccount = targetUser.role === "student";
+      const enrollmentQuery = { student: userId };
+      const paymentQuery = { student: userId };
+
+      if (!requesterIsAdmin) {
+        enrollmentQuery.batch = { $in: accessibleBatchIds };
+        paymentQuery.batch = { $in: accessibleBatchIds };
+      }
+
+      const [enrollmentRequests, payments] = await Promise.all([
+        EnrollmentRequest.find(enrollmentQuery)
+          .populate("batch", "name slug status monthlyFee currency facebookGroupUrl startsAt endsAt")
+          .populate("reviewedBy", "fullName role")
+          .sort({ createdAt: -1 })
+          .lean(),
+        isStudentAccount
+          ? PaymentRecord.find(paymentQuery)
+              .populate("batch", "name slug status monthlyFee currency")
+              .populate("paidBy", "fullName role")
+              .populate("enrollmentRequest", "status")
+              .sort({ createdAt: -1 })
+              .lean()
+          : Promise.resolve([]),
+      ]);
+
+      if (!requesterIsAdmin) {
+        targetUser.assignedBatches = (targetUser.assignedBatches || []).filter((batch) =>
+          accessibleBatchIdSet.has(String(batch?._id || batch || ""))
+        );
+
+        const hasAccessibleData =
+          targetUser.assignedBatches.length > 0 || enrollmentRequests.length > 0 || payments.length > 0;
+
+        if (!hasAccessibleData) {
+          return res.status(403).json({
+            success: false,
+            message: "You do not have access to this user's course data.",
+          });
+        }
+      }
+
+      const enrollmentSummary = enrollmentRequests.reduce(
+        (acc, item) => {
+          if (item.status === "pending") {
+            acc.pending += 1;
+          } else if (item.status === "approved") {
+            acc.approved += 1;
+          } else if (item.status === "rejected") {
+            acc.rejected += 1;
+          }
+          return acc;
+        },
+        {
+          total: enrollmentRequests.length,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+        }
+      );
+
+      const paymentSummary = payments.reduce(
+        (acc, item) => {
+          const amount = Number(item.amount || 0);
+          acc.totalAmount += amount;
+
+          if (item.status === "due") {
+            acc.totalDue += amount;
+            acc.dueCount += 1;
+          } else if (item.status === "paid_online" || item.status === "paid_offline") {
+            acc.totalPaid += amount;
+            acc.paidCount += 1;
+          } else if (item.status === "waived") {
+            acc.totalWaived += amount;
+            acc.waivedCount += 1;
+          }
+
+          return acc;
+        },
+        {
+          totalRecords: payments.length,
+          totalAmount: 0,
+          totalDue: 0,
+          totalPaid: 0,
+          totalWaived: 0,
+          dueCount: 0,
+          paidCount: 0,
+          waivedCount: 0,
+        }
+      );
+
+      const assignedBatchIds = new Set(
+        (targetUser.assignedBatches || [])
+          .map((batch) => String(batch?._id || batch || ""))
+          .filter(Boolean)
+      );
+
+      const enrollmentBatchIds = new Set(
+        enrollmentRequests.map((item) => String(item.batch?._id || item.batch || "")).filter(Boolean)
+      );
+
+      const paymentBatchIds = new Set(
+        payments.map((item) => String(item.batch?._id || item.batch || "")).filter(Boolean)
+      );
+
+      const allRelatedBatchIds = new Set([
+        ...assignedBatchIds,
+        ...enrollmentBatchIds,
+        ...paymentBatchIds,
+      ]);
+
+      const latestPaidRecord = payments.reduce((latest, item) => {
+        if (!item.paidAt) {
+          return latest;
+        }
+
+        const paidAt = new Date(item.paidAt);
+        if (Number.isNaN(paidAt.getTime())) {
+          return latest;
+        }
+
+        if (!latest) {
+          return item;
+        }
+
+        const latestPaidAt = new Date(latest.paidAt);
+        if (Number.isNaN(latestPaidAt.getTime()) || paidAt > latestPaidAt) {
+          return item;
+        }
+
+        return latest;
+      }, null);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: targetUser,
+          enrollmentRequests,
+          payments,
+          summary: {
+            courses: {
+              assignedCount: assignedBatchIds.size,
+              enrollmentCourseCount: enrollmentBatchIds.size,
+              paymentCourseCount: paymentBatchIds.size,
+              totalRelatedCourses: allRelatedBatchIds.size,
+            },
+            enrollment: enrollmentSummary,
+            payments: {
+              enabled: isStudentAccount,
+              ...paymentSummary,
+              lastPaidAt: latestPaidRecord?.paidAt || null,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load user details.",
         error: error.message,
       });
     }

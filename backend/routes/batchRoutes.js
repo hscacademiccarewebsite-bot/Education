@@ -4,8 +4,8 @@ const AuthMiddleware = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", BatchController.listBatches);
-router.get("/:batchId", BatchController.getBatchById);
+router.get("/", AuthMiddleware.optionalAuth, BatchController.listBatches);
+router.get("/:batchId", AuthMiddleware.optionalAuth, BatchController.getBatchById);
 
 router.use(AuthMiddleware.requireAuth);
 

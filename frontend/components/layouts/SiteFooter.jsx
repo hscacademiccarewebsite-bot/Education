@@ -5,17 +5,19 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const DEFAULT_FOOTER_LINKS = [
-  { href: "/courses", label: "Courses", requiresAuth: true },
-  { href: "/about-us", label: "About" },
-  { href: "/faculty", label: "Faculty" },
-  { href: "/contact-us", label: "Contact" },
+  { href: "/courses", labelKey: "navbar.courses", requiresAuth: true },
+  { href: "/about-us", labelKey: "navbar.about" },
+  { href: "/faculty", labelKey: "navbar.faculty" },
+  { href: "/contact-us", labelKey: "navbar.contact" },
 ];
 
 export default function SiteFooter() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
+  const { t } = useSiteLanguage();
   const { data } = useGetPublicSiteSettingsQuery();
   const general = data?.data?.general || {};
   const contact = data?.data?.contact || {};
@@ -37,8 +39,8 @@ export default function SiteFooter() {
   const footerDescription =
     general.footerText ||
     general.siteTagline ||
-    "Focused academic delivery, faculty-guided progression, and structured enrollment for HSC and admission preparation.";
-  const footerCopyright = general.footerCopyright || "All rights reserved.";
+    t("footer.defaultDescription");
+  const footerCopyright = general.footerCopyright || t("footer.defaultCopyright");
   const footerSiteName = general.siteName || "HSC Academic & Admission Care";
   const footerLinksSource = configuredLinks.length ? configuredLinks : DEFAULT_FOOTER_LINKS;
 
@@ -57,7 +59,7 @@ export default function SiteFooter() {
     {
       id: "facebook",
       href: contact.facebookPage,
-      label: "Facebook",
+      label: t("footer.facebook"),
       icon: (
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M24 12.073C24 5.404 18.627 0 12 0S0 5.404 0 12.073c0 6.025 4.388 11.021 10.125 11.927v-8.438H7.078v-3.49h3.047V9.41c0-3.017 1.792-4.686 4.533-4.686 1.312 0 2.686.235 2.686.235v2.961H15.83c-1.49 0-1.956.931-1.956 1.887v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.098 24 12.073z" />
@@ -67,7 +69,7 @@ export default function SiteFooter() {
     {
       id: "whatsapp",
       href: contact.whatsapp,
-      label: "WhatsApp",
+      label: t("footer.whatsapp"),
       icon: (
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M20.52 3.48A11.86 11.86 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.59 5.95L0 24l6.34-1.66a11.89 11.89 0 005.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.17-3.45-8.42zM12.07 21.8h-.01a9.88 9.88 0 01-5.02-1.37l-.36-.22-3.76.99 1-3.67-.24-.38a9.89 9.89 0 01-1.5-5.26c0-5.46 4.45-9.9 9.91-9.9 2.65 0 5.13 1.03 6.99 2.9a9.84 9.84 0 012.9 7c0 5.46-4.44 9.91-9.9 9.91zm5.43-7.43c-.3-.15-1.76-.87-2.03-.97-.28-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.64.07-.3-.14-1.26-.46-2.4-1.47-.88-.79-1.48-1.76-1.65-2.06-.18-.3-.02-.46.13-.61.13-.13.3-.34.45-.52.15-.17.2-.29.3-.49.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.57-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37s-1.04 1.02-1.04 2.48 1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.42.25-.69.25-1.29.17-1.41-.07-.12-.27-.19-.57-.34z" />
@@ -131,7 +133,7 @@ export default function SiteFooter() {
                       target="_blank"
                       rel="noreferrer"
                       aria-label={item.label}
-                      className="group flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-slate-400 ring-1 ring-white/10 transition-all hover:bg-emerald-500 hover:text-white hover:ring-emerald-500"
+                      className="group flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-slate-400 ring-1 ring-white/10 transition-all hover:bg-[linear-gradient(135deg,var(--action-start),var(--action-end))] hover:text-white hover:ring-[var(--action-start)]"
                     >
                       {item.icon}
                     </a>
@@ -142,7 +144,7 @@ export default function SiteFooter() {
 
             <div className="lg:col-span-2">
               <p className="text-sm font-bold uppercase tracking-wider text-emerald-100">
-                Explore
+                {t("footer.explore")}
               </p>
               <ul className="mt-6 flex flex-col gap-3">
                 {footerLinks.map((item) => (
@@ -151,7 +153,7 @@ export default function SiteFooter() {
                       href={item.href}
                       className="inline-flex text-sm text-slate-400 transition hover:-translate-y-0.5 hover:text-emerald-400"
                     >
-                      {item.label}
+                      {item.labelKey ? t(item.labelKey) : item.label}
                     </Link>
                   </li>
                 ))}
@@ -160,15 +162,15 @@ export default function SiteFooter() {
 
             <div className="lg:col-span-3">
               <p className="text-sm font-bold uppercase tracking-wider text-emerald-100">
-                Resources
+                {t("footer.resources")}
               </p>
               <ul className="mt-6 flex flex-col gap-3">
                 {[
-                  { href: "#", label: "Help Center & FAQ" },
-                  { href: "#", label: "Privacy Policy" },
-                  { href: "#", label: "Terms of Service" },
-                  { href: "#", label: "Student Guidelines" },
-                  { href: "#", label: "Refund Policy" },
+                  { href: "#", label: t("footer.helpCenter") },
+                  { href: "#", label: t("footer.privacyPolicy") },
+                  { href: "#", label: t("footer.termsOfService") },
+                  { href: "#", label: t("footer.studentGuidelines") },
+                  { href: "#", label: t("footer.refundPolicy") },
                 ].map((item, idx) => (
                   <li key={idx}>
                     <Link
@@ -184,7 +186,7 @@ export default function SiteFooter() {
 
             <div className="lg:col-span-3">
               <p className="text-sm font-bold uppercase tracking-wider text-emerald-100">
-                Contact Info
+                {t("footer.contactInfo")}
               </p>
               <ul className="mt-6 flex flex-col gap-4">
                 {contactRows.length ? (
@@ -202,7 +204,7 @@ export default function SiteFooter() {
                   ))
                 ) : (
                   <li className="text-sm text-slate-500">
-                    Contact details will appear after admin update.
+                    {t("footer.contactFallback")}
                   </li>
                 )}
               </ul>
@@ -214,7 +216,7 @@ export default function SiteFooter() {
               © {new Date().getFullYear()} {footerSiteName}. {footerCopyright}
             </p>
             <p className="text-sm tracking-wide text-slate-500">
-              Developed by{" "}
+              {t("footer.developedBy")}{" "}
               <a
                 href="https://shuvochakma.vercel.app/"
                 target="_blank"

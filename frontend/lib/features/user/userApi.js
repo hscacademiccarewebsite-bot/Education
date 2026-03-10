@@ -24,6 +24,14 @@ export const userApi = baseApi.injectEndpoints({
       providesTags: [{ type: "User", id: "LIST" }],
     }),
 
+    getUserDetails: builder.query({
+      query: (userId) => ({
+        url: `/users/${userId}/details`,
+        method: "GET",
+      }),
+      providesTags: (_, __, userId) => [{ type: "User", id: String(userId || "DETAILS") }],
+    }),
+
     updateUserRole: builder.mutation({
       query: ({ userId, role }) => ({
         url: `/users/${userId}/role`,
@@ -44,5 +52,9 @@ export const userApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useListUsersQuery, useUpdateUserRoleMutation, useAssignBatchesToStaffMutation } =
-  userApi;
+export const {
+  useListUsersQuery,
+  useGetUserDetailsQuery,
+  useUpdateUserRoleMutation,
+  useAssignBatchesToStaffMutation,
+} = userApi;
