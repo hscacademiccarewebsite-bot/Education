@@ -364,6 +364,7 @@ export default function ChapterDetailsPage() {
                     onEdit={openEditVideo}
                     onDelete={handleDeleteVideo}
                     deletingVideo={deletingVideo}
+                    t={t}
                   />
                 ))}
               </div>

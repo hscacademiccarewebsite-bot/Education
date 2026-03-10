@@ -149,6 +149,7 @@ class PaymentController {
       const year = Number(req.body.billingYear || now.getUTCFullYear());
       const month = Number(req.body.billingMonth || now.getUTCMonth() + 1);
       const batchId = req.body.batchId;
+      const billingMonthStart = new Date(Date.UTC(year, month - 1, 1));
 
       if (!Number.isInteger(year) || year < 2000 || year > 2100) {
         return res.status(400).json({
@@ -210,7 +211,7 @@ class PaymentController {
         batch: { $in: targetBatchIds },
         status: "approved",
       })
-        .select("_id student batch")
+        .select("_id student batch approvedAt reviewedAt createdAt")
         .lean();
 
       if (approvedEnrollments.length === 0) {
@@ -230,9 +231,18 @@ class PaymentController {
         .lean();
       const allowedStudentIds = new Set(studentUsers.map((item) => String(item._id)));
 
-      const eligibleEnrollments = approvedEnrollments.filter((item) =>
-        allowedStudentIds.has(String(item.student))
-      );
+      const eligibleEnrollments = approvedEnrollments.filter((item) => {
+        if (!allowedStudentIds.has(String(item.student))) {
+          return false;
+        }
+
+        // Billing starts from the month AFTER approval (enrollment month is free).
+        const approvedAt = item.approvedAt || item.reviewedAt || item.createdAt;
+        if (!approvedAt) {
+          return false;
+        }
+        return new Date(approvedAt) < billingMonthStart;
+      });
 
       if (eligibleEnrollments.length === 0) {
         return res.status(200).json({

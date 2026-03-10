@@ -3,11 +3,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const COMPLETE_DELAY_MS = 220;
+const COMPLETE_DELAY_MS = 350;
 const TRICKLE_INTERVAL_MS = 150;
 const SAFETY_TIMEOUT_MS = 20000;
 const LOADING_START_EVENT = "hsc:route-loading-start";
 const LOADING_END_EVENT = "hsc:route-loading-end";
+
+// Paths that should NOT be counted as "data" requests for completion gating.
+// Adjust if you have analytics, beacon endpoints, etc.
+const IGNORED_URL_PATTERNS = [
+  /\/_next\//,
+  /\/favicon/,
+  /\/__nextjs/,
+];
+
+function isTrackedRequest(url) {
+  try {
+    const u = new URL(url, window.location.href);
+    if (u.origin !== window.location.origin) return false; // same-origin only
+    return !IGNORED_URL_PATTERNS.some((re) => re.test(u.pathname));
+  } catch {
+    return false;
+  }
+}
 
 function isModifiedClick(event) {
   return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -18,12 +36,9 @@ function isRouteChangeTarget(url) {
   if (url.origin !== current.origin) {
     return false;
   }
-
-  // Ignore hash-only jumps.
   if (url.pathname === current.pathname && url.search === current.search) {
     return false;
   }
-
   return true;
 }
 
@@ -39,6 +54,7 @@ export default function GlobalRouteLoader() {
   const queuedStartRef = useRef(null);
   const routeCommittedRef = useRef(false);
   const loadingFallbackActiveRef = useRef(false);
+  const pendingFetchRef = useRef(0); // ← tracks in-flight fetch/XHR count
 
   const completeTimerRef = useRef(null);
   const trickleTimerRef = useRef(null);
@@ -51,27 +67,22 @@ export default function GlobalRouteLoader() {
       clearTimeout(queuedStartRef.current);
       queuedStartRef.current = null;
     }
-
     if (completeTimerRef.current) {
       clearTimeout(completeTimerRef.current);
       completeTimerRef.current = null;
     }
-
     if (trickleTimerRef.current) {
       clearInterval(trickleTimerRef.current);
       trickleTimerRef.current = null;
     }
-
     if (safetyTimerRef.current) {
       clearTimeout(safetyTimerRef.current);
       safetyTimerRef.current = null;
     }
-
     if (raf1Ref.current) {
       cancelAnimationFrame(raf1Ref.current);
       raf1Ref.current = null;
     }
-
     if (raf2Ref.current) {
       cancelAnimationFrame(raf2Ref.current);
       raf2Ref.current = null;
@@ -79,9 +90,7 @@ export default function GlobalRouteLoader() {
   };
 
   const forceComplete = () => {
-    if (!activeRef.current) {
-      return;
-    }
+    if (!activeRef.current) return;
 
     activeRef.current = false;
     setProgress(100);
@@ -98,26 +107,17 @@ export default function GlobalRouteLoader() {
     completeTimerRef.current = setTimeout(() => {
       setActive(false);
       setProgress(0);
-      if (completeTimerRef.current) {
-        clearTimeout(completeTimerRef.current);
-        completeTimerRef.current = null;
-      }
+      completeTimerRef.current = null;
     }, COMPLETE_DELAY_MS);
   };
 
+  // Only completes when: route committed + loading.js done + NO pending requests.
   const tryCompleteAfterPaint = () => {
-    if (!activeRef.current) {
-      return;
-    }
-    if (!routeCommittedRef.current) {
-      return;
-    }
-    if (loadingFallbackActiveRef.current) {
-      return;
-    }
-    if (raf1Ref.current || raf2Ref.current) {
-      return;
-    }
+    if (!activeRef.current) return;
+    if (!routeCommittedRef.current) return;
+    if (loadingFallbackActiveRef.current) return;
+    if (pendingFetchRef.current > 0) return; // ← wait for data
+    if (raf1Ref.current || raf2Ref.current) return;
 
     raf1Ref.current = requestAnimationFrame(() => {
       raf1Ref.current = null;
@@ -129,9 +129,7 @@ export default function GlobalRouteLoader() {
   };
 
   const startLoaderNow = () => {
-    if (activeRef.current) {
-      return;
-    }
+    if (activeRef.current) return;
 
     routeCommittedRef.current = false;
     loadingFallbackActiveRef.current = false;
@@ -142,11 +140,9 @@ export default function GlobalRouteLoader() {
 
     trickleTimerRef.current = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 92) {
-          return prev;
-        }
-        const next = prev + Math.max(1, Math.round((100 - prev) * 0.08));
-        return Math.min(92, next);
+        if (prev >= 90) return prev;
+        const bump = Math.max(1, Math.round((100 - prev) * 0.07));
+        return Math.min(90, prev + bump);
       });
     }, TRICKLE_INTERVAL_MS);
 
@@ -156,16 +152,14 @@ export default function GlobalRouteLoader() {
   };
 
   const scheduleStartLoader = () => {
-    if (activeRef.current || queuedStartRef.current) {
-      return;
-    }
-
+    if (activeRef.current || queuedStartRef.current) return;
     queuedStartRef.current = setTimeout(() => {
       queuedStartRef.current = null;
       startLoaderNow();
     }, 0);
   };
 
+  // ─── React to route change commit ──────────────────────────────────────────
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
@@ -184,41 +178,78 @@ export default function GlobalRouteLoader() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeKey]);
 
+  // ─── Patch fetch + XHR and wire navigation events ──────────────────────────
   useEffect(() => {
-    const onDocumentClick = (event) => {
-      if (event.defaultPrevented || event.button !== 0 || isModifiedClick(event)) {
-        return;
+    // ── fetch interception ──
+    const originalFetch = window.fetch;
+
+    window.fetch = function patchedFetch(input, init) {
+      const url = typeof input === "string" ? input : input?.url ?? "";
+      const track = isTrackedRequest(url);
+
+      if (track) {
+        pendingFetchRef.current += 1;
       }
+
+      return originalFetch.call(this, input, init).finally(() => {
+        if (track) {
+          pendingFetchRef.current = Math.max(0, pendingFetchRef.current - 1);
+          // Give React one scheduler tick to handle state from the response.
+          setTimeout(() => tryCompleteAfterPaint(), 0);
+        }
+      });
+    };
+
+    // ── XHR interception ──
+    const originalXHROpen = XMLHttpRequest.prototype.open;
+    const originalXHRSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
+      this.__hscTrack = isTrackedRequest(String(url));
+      return originalXHROpen.call(this, method, url, ...rest);
+    };
+
+    XMLHttpRequest.prototype.send = function patchedSend(...args) {
+      if (this.__hscTrack) {
+        pendingFetchRef.current += 1;
+
+        const onDone = () => {
+          pendingFetchRef.current = Math.max(0, pendingFetchRef.current - 1);
+          setTimeout(() => tryCompleteAfterPaint(), 0);
+          this.removeEventListener("loadend", onDone);
+        };
+        this.addEventListener("loadend", onDone);
+      }
+      return originalXHRSend.apply(this, args);
+    };
+
+    // ── navigation event wiring ──
+    const onDocumentClick = (event) => {
+      if (event.defaultPrevented || event.button !== 0 || isModifiedClick(event)) return;
 
       const anchor = event.target?.closest?.("a[href]");
-      if (!anchor) {
-        return;
-      }
-      if (anchor.target && anchor.target !== "_self") {
-        return;
-      }
-      if (anchor.hasAttribute("download")) {
-        return;
-      }
+      if (!anchor) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      if (anchor.hasAttribute("download")) return;
 
       const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) {
+      if (
+        !href ||
+        href.startsWith("mailto:") ||
+        href.startsWith("tel:") ||
+        href.startsWith("javascript:")
+      )
         return;
-      }
 
       try {
         const url = new URL(href, window.location.href);
-        if (isRouteChangeTarget(url)) {
-          scheduleStartLoader();
-        }
+        if (isRouteChangeTarget(url)) scheduleStartLoader();
       } catch {
-        // Ignore malformed URLs.
+        // malformed URL – ignore
       }
     };
 
-    const onPopState = () => {
-      scheduleStartLoader();
-    };
+    const onPopState = () => scheduleStartLoader();
 
     const onLoadingStart = () => {
       loadingFallbackActiveRef.current = true;
@@ -235,16 +266,13 @@ export default function GlobalRouteLoader() {
       if (url) {
         try {
           const target = new URL(String(url), window.location.href);
-          if (isRouteChangeTarget(target)) {
-            scheduleStartLoader();
-          }
+          if (isRouteChangeTarget(target)) scheduleStartLoader();
         } catch {
           scheduleStartLoader();
         }
       } else {
         scheduleStartLoader();
       }
-
       return pushState.call(this, state, title, url);
     };
 
@@ -252,16 +280,13 @@ export default function GlobalRouteLoader() {
       if (url) {
         try {
           const target = new URL(String(url), window.location.href);
-          if (isRouteChangeTarget(target)) {
-            scheduleStartLoader();
-          }
+          if (isRouteChangeTarget(target)) scheduleStartLoader();
         } catch {
           scheduleStartLoader();
         }
       } else {
         scheduleStartLoader();
       }
-
       return replaceState.call(this, state, title, url);
     };
 
@@ -272,6 +297,11 @@ export default function GlobalRouteLoader() {
 
     return () => {
       clearTimers();
+      // Restore originals
+      window.fetch = originalFetch;
+      XMLHttpRequest.prototype.open = originalXHROpen;
+      XMLHttpRequest.prototype.send = originalXHRSend;
+
       document.removeEventListener("click", onDocumentClick, true);
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener(LOADING_START_EVENT, onLoadingStart);
@@ -283,16 +313,76 @@ export default function GlobalRouteLoader() {
   }, []);
 
   return (
-    <div
-      className={`pointer-events-none fixed left-0 right-0 top-0 z-[70] h-1 bg-transparent transition-opacity duration-200 ${
-        active ? "opacity-100" : "opacity-0"
-      }`}
-      aria-hidden="true"
-    >
+    <>
+      {/* ── YouTube-style top progress bar ── */}
       <div
-        className="h-full bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 shadow-[0_0_18px_rgba(16,185,129,0.85)] transition-all duration-200 ease-out"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
+        role="progressbar"
+        aria-hidden="true"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "3px",
+          zIndex: 9999,
+          pointerEvents: "none",
+          opacity: active ? 1 : 0,
+          transition: "opacity 250ms ease",
+        }}
+      >
+        {/* Bar track */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transformOrigin: "left center",
+            transform: `scaleX(${progress / 100})`,
+            transition:
+              progress === 0
+                ? "none"
+                : "transform 220ms cubic-bezier(0.25, 1, 0.5, 1)",
+            background:
+              "linear-gradient(90deg, #147b79 0%, #1a9b93 45%, #1a6078 100%)",
+            boxShadow:
+              "0 0 10px rgba(20,123,121,0.7), 0 0 20px rgba(20,123,121,0.4)",
+          }}
+        >
+          {/* Shimmer sweep */}
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage:
+                "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)",
+              backgroundSize: "200% 100%",
+              animation: active ? "hsc-bar-shimmer 1.4s linear infinite" : "none",
+            }}
+          />
+        </div>
+
+        {/* Leading-edge glow dot */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: `${progress}%`,
+            transform: "translate(-50%, -50%)",
+            width: "6px",
+            height: "6px",
+            borderRadius: "9999px",
+            background: "#d4a85c",
+            boxShadow:
+              "0 0 6px 2px rgba(212,168,92,0.9), 0 0 14px 4px rgba(20,123,121,0.6)",
+            opacity: active && progress > 3 && progress < 98 ? 1 : 0,
+            transition:
+              "opacity 150ms ease, left 220ms cubic-bezier(0.25,1,0.5,1)",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    </>
   );
 }

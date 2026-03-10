@@ -535,6 +535,7 @@ export default function BatchDetailsPage() {
                       onEdit={openEditSubject}
                       onDelete={handleDeleteSubject}
                       deletingSubject={deletingSubject}
+                      t={t}
                     />
                   ))}
                 </div>

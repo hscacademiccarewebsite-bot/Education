@@ -334,6 +334,7 @@ export default function SubjectDetailsPage() {
                     onEdit={openEditChapter}
                     onDelete={handleDeleteChapter}
                     deletingChapter={deletingChapter}
+                    t={t}
                   />
                 ))}
               </div>

@@ -31,7 +31,8 @@ async function createBkashPayment(paymentRecord, idToken) {
     const amountStr = Number(paymentRecord.amount).toFixed(2);
     
     const { data } = await axios.post(`${BKASH_BASE_URL}/checkout/create`, {
-      mode: '0011',
+      // Tokenized checkout requires mode "0001" per bKash docs.
+      mode: '0001',
       payerReference: paymentRecord.student.toString(),
       callbackURL: `${process.env.FRONTEND_URL}/payments/bkash-callback`,
       amount: amountStr,

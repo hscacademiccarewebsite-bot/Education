@@ -99,8 +99,8 @@ export default function CourseCatalogCard({
         <div className={`mt-4 grid gap-1.5 ${actionCount > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
           <Link
             href={`/courses/${course?._id}`}
-            className={`site-button-primary min-h-9 px-3 whitespace-nowrap ${
-              actionCount > 1 ? "text-[9px] tracking-[0.06em]" : "text-[10px] tracking-[0.1em]"
+            className={`site-button-primary min-h-9 px-2 text-center leading-[1.2] ${
+              actionCount > 1 ? "text-[9px] tracking-[0.04em]" : "text-[9px] tracking-[0.1em]"
             }`}
           >
             {detailsLabel}
@@ -109,7 +109,9 @@ export default function CourseCatalogCard({
           {showApplyAction ? (
             <Link
               href={`/enrollments?batchId=${course?._id}`}
-              className="site-button-secondary min-h-9 px-3 text-[10px] tracking-[0.1em] whitespace-nowrap"
+              className={`site-button-secondary min-h-9 px-2 text-center leading-[1.2] ${
+                actionCount > 1 ? "text-[9px] tracking-[0.04em]" : "text-[9px] tracking-[0.1em]"
+              }`}
             >
               {t("courseCard.apply")}
             </Link>
@@ -119,7 +121,9 @@ export default function CourseCatalogCard({
             <button
               type="button"
               onClick={() => onModify?.(course)}
-              className="site-button-secondary min-h-9 px-3 text-[10px] tracking-[0.1em] whitespace-nowrap"
+              className={`site-button-secondary min-h-9 px-2 text-center leading-[1.2] ${
+                actionCount > 1 ? "text-[9px] tracking-[0.04em]" : "text-[9px] tracking-[0.1em]"
+              }`}
             >
               {t("courseCard.modify")}
             </button>
