@@ -115,13 +115,14 @@ class PublicController {
     const footerLinks = normalizeFooterLinks(raw.footerLinks);
 
     return {
-      siteName: String(raw.siteName || "").trim(),
       siteTagline: String(raw.siteTagline || "").trim(),
       footerText: String(raw.footerText || "").trim(),
       footerCopyright: String(raw.footerCopyright || "").trim(),
       footerLinks,
       logo: logoAsset || undefined,
       logoUrl: logoAsset?.url || "",
+      gpa5Count: Number(raw.gpa5Count) || 0,
+      publicAdmissionCount: Number(raw.publicAdmissionCount) || 0,
     };
   }
 
@@ -167,6 +168,8 @@ class PublicController {
       role: normalizeRole(user.role),
       email: user.email || "",
       phone: user.phone || "",
+      varsity: user.varsity || "",
+      experience: user.experience || "",
       profilePhotoUrl: user.profilePhoto?.url || "",
       assignedBatches: (user.assignedBatches || []).map((batch) => ({
         id: batch._id,
@@ -177,7 +180,7 @@ class PublicController {
 
   static async getHome(req, res) {
     try {
-      const [siteContent, runningCourses, facultyUsers] = await Promise.all([
+      const [siteContent, runningCourses, facultyUsers, studentCount] = await Promise.all([
         PublicController.getOrCreateSiteContent(),
         Batch.find({ status: { $in: ["active", "upcoming"] } })
           .select(
@@ -189,10 +192,11 @@ class PublicController {
           role: { $in: ["teacher", "moderator"] },
           isActive: true,
         })
-          .select("_id fullName role email phone profilePhoto assignedBatches")
+          .select("_id fullName role email phone varsity experience profilePhoto assignedBatches")
           .populate("assignedBatches", "name")
           .sort({ fullName: 1 })
           .limit(24),
+        User.countDocuments({ role: "student", isActive: true }),
       ]);
 
       await PublicController.ensureHeroSlideIds(siteContent);
@@ -203,15 +207,22 @@ class PublicController {
           .filter((slide) => slide.imageUrl)
       );
 
+      const general = PublicController.normalizeGeneralSection(siteContent.general);
+
       return res.status(200).json({
         success: true,
         data: {
-          general: PublicController.normalizeGeneralSection(siteContent.general),
+          general,
           heroSlides,
           runningCourses,
           about: siteContent.about,
           contact: siteContent.contact,
           faculty: PublicController.mapFaculty(facultyUsers),
+          stats: {
+            studentCount,
+            gpa5Count: general.gpa5Count,
+            publicAdmissionCount: general.publicAdmissionCount,
+          },
         },
       });
     } catch (error) {
@@ -535,9 +546,6 @@ class PublicController {
       siteContent.contact = siteContent.contact || {};
 
       if (general && typeof general === "object") {
-        if (general.siteName !== undefined) {
-          siteContent.general.siteName = String(general.siteName || "").trim();
-        }
 
         if (general.siteTagline !== undefined) {
           siteContent.general.siteTagline = String(general.siteTagline || "").trim();
@@ -553,6 +561,14 @@ class PublicController {
 
         if (general.footerLinks !== undefined) {
           siteContent.general.footerLinks = normalizeFooterLinks(general.footerLinks);
+        }
+
+        if (general.gpa5Count !== undefined) {
+          siteContent.general.gpa5Count = Math.max(0, parseInt(general.gpa5Count, 10) || 0);
+        }
+
+        if (general.publicAdmissionCount !== undefined) {
+          siteContent.general.publicAdmissionCount = Math.max(0, parseInt(general.publicAdmissionCount, 10) || 0);
         }
 
         if (
@@ -630,6 +646,10 @@ class PublicController {
         if (contact.whatsapp !== undefined) {
           siteContent.contact.whatsapp = String(contact.whatsapp || "").trim();
         }
+
+        if (contact.mapEmbedUrl !== undefined) {
+          siteContent.contact.mapEmbedUrl = String(contact.mapEmbedUrl || "").trim();
+        }
       }
 
       siteContent.updatedBy = req.user?._id;
@@ -663,7 +683,7 @@ class PublicController {
         role: { $in: ["teacher", "moderator"] },
         isActive: true,
       })
-        .select("_id fullName role email phone profilePhoto assignedBatches")
+        .select("_id fullName role email phone varsity experience profilePhoto assignedBatches")
         .populate("assignedBatches", "name")
         .sort({ fullName: 1 });
 

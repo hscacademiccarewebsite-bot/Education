@@ -23,7 +23,19 @@
   --card-radius-soft: clamp(8px, 5%, 10px);
   --card-border: #cbd5e1;
   --site-navbar-height-mobile: 64px;
-  --site-navbar-height-desktop: 74px;
+  --site-navbar-height-desktop: 84px;
+  --site-nav-float-gap: 16px;
+
+  /* Typography Scale */
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  --font-size-2xl: 1.5rem;     /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
+  --font-size-4xl: 2.25rem;     /* 36px */
+  --font-size-5xl: 3rem;        /* 48px */
 }
 
 html {
@@ -32,11 +44,16 @@ html {
 
 body {
   min-height: 100vh;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
   color: var(--page-ink);
   background-color: #ececee;
   background-image: radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.14) 1px, transparent 0);
   background-size: 14px 14px;
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
@@ -49,7 +66,7 @@ body {
 }
 
 .font-display {
-  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 }
 
 .site-shell {
@@ -63,19 +80,38 @@ body {
   padding-top: var(--site-navbar-height-mobile);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .site-nav-offset {
     padding-top: var(--site-navbar-height-desktop);
   }
 }
 
+/* Background Depth Blobs */
 .site-shell::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 10%;
+  right: -5%;
+  width: 40vw;
+  height: 40vw;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+  filter: blur(80px);
   pointer-events: none;
-  background: none;
-  opacity: 0;
+  z-index: 0;
+  opacity: 1;
+}
+
+.site-shell::after {
+  content: "";
+  position: absolute;
+  top: 40%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.06) 0%, transparent 70%);
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .site-shell > *:not(header) {
@@ -127,15 +163,14 @@ body {
 }
 
 .site-kicker {
-  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em];
+  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] backdrop-blur-sm;
   color: var(--page-teal);
-  background: rgba(15, 118, 110, 0.08);
-  border-color: rgba(15, 118, 110, 0.14);
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(15, 118, 110, 0.2);
 }
 
 .site-title {
-  @apply text-3xl font-black tracking-tight text-slate-950 md:text-4xl;
-  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+  @apply text-2xl font-black tracking-tight text-slate-950 md:text-[30px];
 }
 
 .site-lead {
@@ -166,6 +201,18 @@ body {
   background: linear-gradient(135deg, var(--action-start) 0%, var(--action-end) 100%);
   box-shadow: var(--action-shadow);
   color: #ffffff;
+}
+
+.site-button-danger {
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white transition;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  box-shadow: 0 16px 34px rgba(225, 29, 72, 0.24);
+}
+
+.site-button-danger:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  box-shadow: 0 20px 38px rgba(225, 29, 72, 0.3);
 }
 
 .site-grid {
@@ -313,6 +360,12 @@ body {
   animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.animate-stagger-1 { animation-delay: 0.1s; }
+.animate-stagger-2 { animation-delay: 0.15s; }
+.animate-stagger-3 { animation-delay: 0.2s; }
+.animate-stagger-4 { animation-delay: 0.25s; }
+.animate-stagger-5 { animation-delay: 0.3s; }
+
 .feedback-icon-wrap {
   display: inline-flex;
   height: 76px;
@@ -370,19 +423,6 @@ body {
 
 .feedback-icon-cross-2 {
   animation: feedbackStrokeDraw 0.34s ease-out 0.68s forwards;
-}
-
-/* Intersection Observer reveal */
-.reveal-on-scroll {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal-on-scroll.revealed {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 /* Glass card utility */

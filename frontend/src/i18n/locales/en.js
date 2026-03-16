@@ -43,10 +43,10 @@ const en = {
       title: "prepare with confidence for every academic goal.",
       description:
         "One focused learning ecosystem for SSC, HSC, and admission preparation with guided classes, structured practice, and dependable support.",
-      highlights: [
-        "Live classes with experienced faculty",
-        "Online and offline enrollment support",
-        "Practice-first routine with progress tracking",
+      stats: [
+        { value: "200+", label: "GPA 5 Achieved" },
+        { value: "150+", label: "Public University Admissions" },
+        { value: "500+", label: "Active Members" },
       ],
       previousSlide: "Previous slide",
       nextSlide: "Next slide",
@@ -54,7 +54,8 @@ const en = {
     },
     courses: {
       kicker: "Popular Courses",
-      title: "Popular Courses",
+      accent: "Popular",
+      title: "Courses",
       description:
         "Explore active programs designed for strong academic outcomes and focused preparation.",
       viewAll: "View All",
@@ -66,9 +67,10 @@ const en = {
     },
     about: {
       kicker: "About Us",
-      heading: "A Learning Culture Built on Clarity and Discipline",
+      accent: "A Learning Culture",
+      heading: "Built on Clarity and Discipline",
       description:
-        "HSC Academic & Admission Care is built for students who want a serious academic environment with clear daily structure, disciplined practice, and dependable mentorship from experienced faculty.",
+        "HSC Academic and Admission Care is built for students who want a serious academic environment with clear daily structure, disciplined practice, and dependable mentorship from experienced faculty.",
       mission:
         "From first enrollment to final exam preparation, we organize every step of the journey so learners always know what to study, when to study, and how to improve.",
       detail:
@@ -96,7 +98,8 @@ const en = {
     },
     faculty: {
       kicker: "Faculty",
-      title: "Faculty and Support Team",
+      accent: "Faculty",
+      title: "and Support Team",
       description:
         "A coordinated team of teachers, mentors, and support staff ensuring quality delivery and consistent learner support.",
       teamMembers: "Team Members",
@@ -109,7 +112,8 @@ const en = {
   },
   aboutPage: {
     eyebrow: "Institution Story",
-    titleFallback: "About HSC Academic & Admission Care",
+    accent: "Empowering Students",
+    title: "with Quality Academic Care",
     description:
       "A disciplined learning system designed for academic consistency, strong faculty oversight, and a clear path from enrollment to chapter-wise study.",
     exploreCourses: "Explore Courses",
@@ -131,7 +135,8 @@ const en = {
   },
   contactPage: {
     eyebrow: "Reach The Team",
-    title: "Support, enrollment, and academic guidance.",
+    accent: "Get in Touch",
+    title: "with Our Support Team",
     description:
       "Whether you need help with admissions, batch enrollment, payment follow-up, or course navigation, this is the operational contact layer of the platform.",
     responseWindow: "Response Window",
@@ -151,10 +156,13 @@ const en = {
   },
   facultyPage: {
     eyebrow: "Faculty Network",
-    title: "Teachers and moderators guiding academic delivery.",
+    accent: "Expert Mentors",
+    title: "and Dedicated Support",
     description:
       "This panel reflects the people responsible for content operations, enrollment review, and student support across active and upcoming courses.",
     activeMembers: "Active Members",
+    institution: "Institution",
+    experience: "Experience",
     asideNote:
       "Faculty listings are loaded directly from the backend and stay aligned with staff assignments.",
     loadError: "Failed to load faculty data from backend.",
@@ -192,6 +200,8 @@ const en = {
   },
   dashboard: {
     kicker: "Role Workspace",
+    accent: "Operations",
+    title: "at a Glance",
     loading: "Loading...",
     profileLoading: "Profile loading...",
     liveSnapshot: "Live Snapshot",
@@ -233,23 +243,27 @@ const en = {
         note: "Keep your workflow focused and up to date.",
       },
       admin: {
-        title: "Admin Command Center",
+        accent: "Admin",
+        title: "Command Center",
         subtitle:
           "Control academic structure, homepage settings, enrollments, users, and finance from one operational workspace.",
         note: "Maintain system quality and keep operational flow stable across all teams.",
       },
       teacher: {
-        title: "Teacher Workspace",
+        accent: "Teacher",
+        title: "Workspace",
         subtitle: "Monitor course structure, review enrollments, and keep faculty delivery consistent.",
         note: "Prioritize pending approvals and keep content organization up to date.",
       },
       moderator: {
-        title: "Moderator Workspace",
+        titleAccent: "Moderator",
+        title: "Workspace",
         subtitle: "Coordinate enrollment operations, assist staff workflows, and maintain course continuity.",
         note: "Resolve queue bottlenecks and support smooth student onboarding.",
       },
       student: {
-        title: "Student Workspace",
+        accent: "Student",
+        title: "Workspace",
         subtitle: "Track your approvals, payments, and active academic journey in one place.",
         note: "Focus on approval status and due payments to unlock course access faster.",
       },
@@ -391,7 +405,20 @@ const en = {
     selectBatchPrompt: "Select a batch to view payment records.",
     studentFallback: "Student",
     batchFallback: "Batch",
-    payOnlineSandbox: "Pay Online (Sandbox)",
+    courseLabel: "Course",
+    courseFallback: "Course",
+    coversLabel: "Covers",
+    noDueLabel: "No due for this month yet.",
+    upToDate: "Up to date",
+    multipleDue: "Multiple months due",
+    billingLabel: "Billing month",
+    payOnlineSandbox: "Pay via bKash (Sandbox)",
+    studentHeadline: "Your monthly course dues",
+    studentSubhead: "Pay for the month you just completed. Each course shows the earliest unpaid month.",
+    coursesTitle: "Course Billing",
+    coursesSubtitle: "Each course shows the next due month to pay.",
+    adminHeadline: "Payments Control Center",
+    adminSubhead: "Review ledger activity, confirm offline collections, and keep monthly dues on schedule.",
     markPaidOffline: "Mark Paid Offline",
     markedByStaffNote: "Marked by staff via dashboard",
     adminConsoleKicker: "Payment Operations",
@@ -440,7 +467,8 @@ const en = {
     },
     hero: {
       eyebrow: "Financial Desk",
-      title: "Payment tracking and verification.",
+      accent: "Payment Dashboard",
+      title: "and Billing History",
       description:
         "Students can review dues and sandbox payment actions. Staff and administrators can monitor course-level records and mark offline collections.",
       workflow: "Workflow",
@@ -478,7 +506,7 @@ const en = {
     loading: "Loading site settings...",
     loadError: "Failed to load site settings.",
     notUpdatedYet: "Not updated yet",
-    defaultSiteName: "HSC Academic & Admission Care",
+    defaultSiteName: "HSC Academic and Admission Care",
     defaultShortName: "HSC",
     defaultTagline: "Structured learning for HSC and admission preparation.",
     footerShortNote: "Footer short note",
@@ -573,7 +601,7 @@ const en = {
       suggestedForNew: "Suggested for new slide",
     },
     deleteConfirmTitle: "Delete this slider image?",
-    deleteConfirmMessage: "This slide image and metadata will be permanently removed. Type DELETE to continue.",
+    deleteConfirmMessage: "This slide image and metadata will be permanently removed.",
     deleteSlide: "Delete Slide",
     messages: {
       sliderImageRequired: "Slider image is required.",
@@ -606,7 +634,7 @@ const en = {
     },
     removeConfirm: {
       title: "Remove this image?",
-      message: "This image will be removed from Cloudinary permanently. Type DELETE to continue.",
+      message: "This image will be permanently removed.",
       approveLabel: "Remove Image",
     },
     messages: {
@@ -669,7 +697,7 @@ const en = {
     },
     messages: {
       notFound: "Course not found or access denied.",
-      deleteConfirmMsg: "All chapters and videos inside this subject will be removed permanently. Type DELETE to continue.",
+      deleteConfirmMsg: "All chapters and videos inside this subject will be removed permanently.",
       deleteConfirmTitle: 'Delete "{title}"?',
       deleteBtn: "Delete Subject",
       enrollApproved: "Your enrollment is approved. You can access all course content.",
@@ -741,7 +769,7 @@ const en = {
       createdSuccess: "Chapter created successfully.",
       updatedSuccess: "Chapter updated successfully.",
       deleteConfirmTitle: 'Delete "{title}"?',
-      deleteConfirmMsg: "All videos inside this chapter will be removed permanently. Type DELETE to continue.",
+      deleteConfirmMsg: "All videos inside this chapter will be removed permanently.",
       deleteBtn: "Delete Chapter",
       deletedSuccess: "Chapter deleted successfully.",
       notFound: "Subject not found or access denied.",
@@ -792,7 +820,7 @@ const en = {
       addedSuccess: "Video added successfully.",
       updatedSuccess: "Video updated successfully.",
       deleteConfirmTitle: 'Delete "{title}"?',
-      deleteConfirmMsg: "This lecture reference will be removed permanently. Type DELETE to continue.",
+      deleteConfirmMsg: "This lecture reference will be removed permanently.",
       deleteBtn: "Delete Video",
       deletedSuccess: "Video deleted successfully.",
       notFound: "Chapter not found or access denied.",
@@ -884,7 +912,7 @@ const en = {
       updateSuccess: "Course updated successfully.",
       updateFail: "Failed to update course.",
       deleteConfirmTitle: 'Delete "{course}"?',
-      deleteConfirmMsg: "This will permanently remove related subjects, chapters, videos, enrollments, and payment records. Type DELETE to continue.",
+      deleteConfirmMsg: "This will permanently remove related subjects, chapters, videos, enrollments, and payment records.",
       deleteSuccess: "Course deleted successfully.",
       deleteFail: "Failed to delete course."
     },
@@ -900,7 +928,8 @@ const en = {
     },
     hero: {
       eyebrow: "Course Directory",
-      title: "Enterprise Course Management",
+      accent: "Course Directory",
+      title: "for Academic Success",
       description: "A centralized course catalogue for admissions and HSC operations. Track course lifecycle, manage access, and maintain consistent academic delivery from one workspace."
     },
     empty: {

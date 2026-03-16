@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import Avatar from "@/components/Avatar";
 import { useSelector } from "react-redux";
+import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
@@ -103,12 +106,14 @@ function resolveFacebookProfileUrl(rawValue) {
 
 export default function EnrollmentsPage() {
   const { t } = useSiteLanguage();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedBatchId = searchParams.get("batchId") || "";
 
   const role = useSelector(selectCurrentUserRole);
   const currentUser = useSelector(selectCurrentUser);
   const isStudentRole = isStudent(role);
+  const canReview = role === "admin" || role === "moderator";
 
   const [statusFilter, setStatusFilter] = useState("pending");
   const [error, setError] = useState("");
@@ -125,15 +130,19 @@ export default function EnrollmentsPage() {
     facebookGroupJoinRequested: false,
   });
 
+  const isInitialized = useSelector(selectIsAuthInitialized);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const enrollmentSkip = !isInitialized || !isAuthenticated;
+
   const { data: myData, isLoading: myDataLoading } = useGetMyEnrollmentRequestsQuery(undefined, {
-    skip: !isStudentRole,
+    skip: enrollmentSkip || !isStudentRole,
   });
   const { data: coursesData, isLoading: coursesLoading } = useListBatchesQuery(undefined, {
-    skip: !isStudentRole,
+    skip: enrollmentSkip || !isStudentRole,
   });
   const { data: reviewData, isLoading: reviewLoading } = useGetEnrollmentRequestsForReviewQuery(
     { status: statusFilter },
-    { skip: isStudentRole }
+    { skip: enrollmentSkip || isStudentRole }
   );
 
   const [createEnrollmentRequest, { isLoading: applying }] = useCreateEnrollmentRequestMutation();
@@ -199,7 +208,11 @@ export default function EnrollmentsPage() {
     ? showApprovedCoursesOnlyView
       ? t("enrollmentsPage.layout.titleStudent", "My Enrollments")
       : t("enrollmentsPage.actions.applyForBatchBtn", "Apply for Batch")
-    : t("enrollmentsPage.layout.titleAdmin", "Enrollment Review");
+    : (
+        <>
+          <span className="text-emerald-600">Enrollment</span> Desk
+        </>
+      );
   const pageDescription = isStudentRole
     ? showApprovedCoursesOnlyView
       ? t("enrollmentsPage.layout.descStudentOnlyApproved", "Only approved courses are shown here. Open course details to continue your study flow.")
@@ -297,7 +310,7 @@ export default function EnrollmentsPage() {
     }
 
     try {
-      const response = await createEnrollmentRequest({
+      await createEnrollmentRequest({
         batchId: form.batchId,
         applicantName: form.applicantName.trim(),
         applicantFacebookId: form.applicantFacebookId.trim(),
@@ -310,11 +323,13 @@ export default function EnrollmentsPage() {
         facebookGroupJoinRequested: true,
       }).unwrap();
 
-      setMessage(response?.message || t("enrollmentsPage.messages.submitSuccess", "Enrollment request submitted."));
-      showSuccess(response?.message || t("enrollmentsPage.messages.submitSuccess", "Enrollment request submitted."));
+      await showSuccess(
+        "You already applied for this batch. Your request is pending review.\nEnrollment request submitted successfully.",
+        "Application Successful"
+      );
+      router.push(`/courses/${form.batchId}`);
     } catch (applyError) {
       const resolvedError = normalizeApiError(applyError);
-      setError(resolvedError);
       showError(resolvedError);
     }
   };
@@ -355,28 +370,17 @@ export default function EnrollmentsPage() {
           {role ? <RoleBadge role={role} /> : null}
         </div>
 
-        {error ? (
-          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-            {error}
-          </div>
-        ) : null}
-        {message ? (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            {message}
-          </div>
-        ) : null}
-
         {isStudentRole ? (
           showApprovedCoursesOnlyView ? (
             <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 p-5 shadow-[0_12px_24px_rgba(15,23,42,0.08)] md:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 md:text-2xl">Approved Courses</h2>
+                  <h2 className="text-xl font-extrabold text-slate-900 md:text-lg">Approved Courses</h2>
                   <p className="mt-1 text-sm text-slate-600">
                     Only courses with approved enrollment are shown.
                   </p>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-600">
                   {t("enrollmentsPage.layout.numApproved", "{count} approved", { count: approvedCourseEntries.length })}
                 </span>
               </div>
@@ -387,7 +391,7 @@ export default function EnrollmentsPage() {
                 </div>
               ) : approvedCourseEntries.length === 0 ? (
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
-                  <p className="text-base font-black text-slate-900">No approved course yet</p>
+                  <p className="text-base font-extrabold text-slate-900">No approved course yet</p>
                   <p className="mt-1 text-sm text-slate-600">
                     Browse courses and apply to get your first approval.
                   </p>
@@ -411,24 +415,24 @@ export default function EnrollmentsPage() {
                             loading="lazy"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                          <div className="flex h-full w-full items-center justify-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                             Course Banner
                           </div>
                         )}
-                        <span className="absolute right-2.5 top-2.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
+                        <span className="absolute right-2.5 top-2.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-700">
                           Approved
                         </span>
                       </div>
 
                       <div className="mt-3">
-                        <h3 className="line-clamp-1 text-sm font-black text-slate-900">{course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}</h3>
+                        <h3 className="line-clamp-1 text-sm font-extrabold text-slate-900">{course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}</h3>
                         <p className="mt-1 line-clamp-2 text-xs text-slate-600">
                           {course?.description || t("enrollmentsPage.layout.approvedForCourse", "Approved for this course.")}
                         </p>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
-                        <p className="text-[11px] font-black text-slate-900">
+                        <p className="text-[11px] font-extrabold text-slate-900">
                           {formatMoney(course?.monthlyFee, course?.currency || "BDT")}
                         </p>
                         <span className="text-[10px] text-slate-500">
@@ -454,7 +458,7 @@ export default function EnrollmentsPage() {
                 className="overflow-hidden rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
               >
                 <div className="border-b border-slate-200 px-5 py-4 md:px-6 md:py-5">
-                  <h2 className="text-lg font-black text-slate-900 md:text-xl">Application Form</h2>
+                  <h2 className="text-lg font-extrabold text-slate-900 md:text-xl">Application Form</h2>
                   <p className="mt-1 text-sm text-slate-600">
                     Fill out the form below. Your request will be reviewed by the academic team.
                   </p>
@@ -471,7 +475,7 @@ export default function EnrollmentsPage() {
                             : "border-slate-200 bg-white text-slate-500"
                         }`}
                       >
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em]">{item.label}</p>
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]">{item.label}</p>
                         <p className="mt-1 text-xs font-semibold">{item.done ? t("enrollmentsPage.form.done", "Done") : "Pending"}</p>
                       </div>
                     ))}
@@ -485,17 +489,17 @@ export default function EnrollmentsPage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                         Applying To
                       </p>
-                      <p className="mt-1 text-base font-black text-slate-900">
+                      <p className="mt-1 text-base font-extrabold text-slate-900">
                         {selectedBatch?.name || t("enrollmentsPage.messages.noBatchAvail", "No batch available")}
                       </p>
                       {selectedBatchEnrollment ? (
                         <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
                           {t("enrollmentsPage.form.existingRequest", "Existing request:")}
                           <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
                           >
                             {selectedBatchStatusMeta.label}
                           </span>
@@ -512,7 +516,7 @@ export default function EnrollmentsPage() {
                           href={selectedBatch.facebookGroupUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-1 inline-flex text-xs font-black uppercase tracking-[0.12em] text-cyan-700 underline"
+                          className="mt-1 inline-flex text-xs font-extrabold uppercase tracking-[0.12em] text-cyan-700 underline"
                         >
                           Open Private Facebook Group
                         </a>
@@ -520,18 +524,6 @@ export default function EnrollmentsPage() {
                     ) : form.batchId ? (
                       <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                         This batch does not have a private Facebook group link configured yet.
-                      </div>
-                    ) : null}
-
-                    {pendingEnrollment ? (
-                      <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-                        You already applied for this batch. Your request is pending review.
-                      </div>
-                    ) : null}
-
-                    {approvedEnrollment ? (
-                      <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                        You are already approved in this batch. No new application is needed.
                       </div>
                     ) : null}
 
@@ -643,25 +635,25 @@ export default function EnrollmentsPage() {
 
               <aside className="space-y-4">
                 <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-5 shadow-[0_10px_22px_rgba(15,23,42,0.07)]">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     Selected Batch
                   </p>
                   {selectedBatch ? (
                     <>
-                      <h3 className="mt-3 text-lg font-black text-slate-900">{selectedBatch.name}</h3>
+                      <h3 className="mt-3 text-lg font-extrabold text-slate-900">{selectedBatch.name}</h3>
                       <p className="mt-1 text-sm text-slate-600">
                         {selectedBatch.description || t("enrollmentsPage.layout.noDesc", "No description available.")}
                       </p>
                       <dl className="mt-4 space-y-2 text-sm">
                         <div className="flex items-center justify-between gap-3">
                           <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.status", "Status")}</dt>
-                          <dd className="font-black capitalize text-slate-800">
+                          <dd className="font-extrabold capitalize text-slate-800">
                             {String(selectedBatch.status || "active")}
                           </dd>
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.monthlyFee", "Monthly Fee")}</dt>
-                          <dd className="font-black text-slate-900">
+                          <dd className="font-extrabold text-slate-900">
                             {formatMoney(selectedBatch.monthlyFee, selectedBatch.currency || "BDT")}
                           </dd>
                         </div>
@@ -669,7 +661,7 @@ export default function EnrollmentsPage() {
                           <dt className="font-semibold text-slate-500">{t("enrollmentsPage.layout.yourStatus", "Your Status")}</dt>
                           <dd>
                             <span
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${selectedBatchStatusMeta.pillClass}`}
                             >
                               {selectedBatchStatusMeta.label}
                             </span>
@@ -685,7 +677,7 @@ export default function EnrollmentsPage() {
                 </section>
 
                 <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/90 p-5 shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     Submission Notes
                   </p>
                   <ul className="mt-3 space-y-2 text-sm text-slate-600">
@@ -702,12 +694,12 @@ export default function EnrollmentsPage() {
             <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 md:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">{t("enrollmentsPage.layout.requestQueue", "Request Queue")}</h2>
+                  <h2 className="text-lg font-extrabold text-slate-900">{t("enrollmentsPage.layout.requestQueue", "Request Queue")}</h2>
                   <p className="mt-1 text-sm text-slate-600">
                     Filter by status and process enrollment decisions.
                   </p>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-600">
                   {t("enrollmentsPage.layout.numShown", "{count} shown", { count: reviewItems.length })}
                 </span>
               </div>
@@ -750,18 +742,15 @@ export default function EnrollmentsPage() {
                     <article key={item._id} className="px-5 py-4 md:px-6">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 items-start gap-3">
-                          {item.applicantPhoto?.url ? (
-                            <img
-                              src={item.applicantPhoto.url}
-                              alt={item.applicantName || t("enrollmentsPage.layout.applicantFallback", "Applicant")}
-                              className="h-11 w-11 rounded-full border border-slate-200 object-cover"
-                            />
-                          ) : (
-                            <div className="h-11 w-11 rounded-full border border-slate-200 bg-slate-100" />
-                          )}
+                          <Avatar
+                            src={item.applicantPhoto?.url}
+                            name={item.applicantName || "User"}
+                            className="h-10 w-10 rounded-lg"
+                            fallbackClassName="bg-slate-900 text-[10px] font-black text-white"
+                          />
 
                           <div className="min-w-0">
-                            <h3 className="truncate text-base font-black text-slate-900">
+                            <h3 className="truncate text-base font-extrabold text-slate-900">
                               {item.applicantName || item.student?.fullName || t("enrollmentsPage.layout.studentFallback", "Student")}
                             </h3>
                             <p className="mt-0.5 text-sm text-slate-600">
@@ -824,7 +813,7 @@ export default function EnrollmentsPage() {
 
                         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-col lg:items-end">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${itemStatusMeta.pillClass}`}
+                            className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] ${itemStatusMeta.pillClass}`}
                           >
                             {itemStatusMeta.label}
                           </span>
@@ -832,7 +821,7 @@ export default function EnrollmentsPage() {
                             {formatDate(item.createdAt)}
                           </p>
 
-                          {item.status === "pending" ? (
+                          {item.status === "pending" && canReview ? (
                             <div className="flex gap-2">
                               <button
                                 type="button"

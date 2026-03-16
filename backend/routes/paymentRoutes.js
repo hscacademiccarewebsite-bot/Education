@@ -10,7 +10,7 @@ router.get("/my", AuthMiddleware.requireRoles("student"), PaymentController.list
 
 router.get(
   "/batch/:batchId",
-  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  AuthMiddleware.requireRoles("admin", "moderator"),
   PaymentController.listBatchPayments
 );
 
@@ -20,8 +20,14 @@ router.post("/generate-dues", AuthMiddleware.requireRoles("admin"), PaymentContr
 
 router.patch(
   "/:paymentId/mark-offline-paid",
-  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  AuthMiddleware.requireRoles("admin", "moderator"),
   PaymentController.markPaymentOfflinePaid
+);
+
+router.patch(
+  "/:paymentId/waive",
+  AuthMiddleware.requireRoles("admin", "moderator"),
+  PaymentController.waivePayment
 );
 
 router.patch(

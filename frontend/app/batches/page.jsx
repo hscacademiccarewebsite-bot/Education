@@ -20,6 +20,7 @@ import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrol
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const initialCourseForm = {
   name: "",
@@ -230,7 +231,7 @@ export default function CoursesPage() {
     const confirmed = await requestDeleteConfirmation({
       title: t("batchesPage.messages.deleteConfirmTitle", `Delete "${course.name}"?`, { course: course.name }),
       message:
-        t("batchesPage.messages.deleteConfirmMsg", "This will permanently remove related subjects, chapters, videos, enrollments, and payment records. Type DELETE to continue."),
+        t("batchesPage.messages.deleteConfirmMsg", "This will permanently remove related subjects, chapters, videos, enrollments, and payment records."),
       approveLabel: t("batchesPage.actions.deleteCourse", "Delete Course"),
     });
     if (!confirmed) {
@@ -264,11 +265,16 @@ export default function CoursesPage() {
             </button>
           </div>
         ) : null}
-        <PageHero
-          eyebrow={t("batchesPage.hero.eyebrow", "Course Directory")}
-          title={t("batchesPage.hero.title", "Enterprise Course Management")}
-          description={t("batchesPage.hero.description", "A centralized course catalogue for admissions and HSC operations. Track course lifecycle, manage access, and maintain consistent academic delivery from one workspace.")}
-        />
+        <RevealSection noStagger>
+          <RevealItem>
+            <PageHero
+              eyebrow={t("batchesPage.hero.eyebrow")}
+              titleAccent={t("batchesPage.hero.accent")}
+              title={t("batchesPage.hero.title")}
+              description={t("batchesPage.hero.description")}
+            />
+          </RevealItem>
+        </RevealSection>
       </section>
 
       <div className="container-page mt-0">
@@ -279,17 +285,19 @@ export default function CoursesPage() {
             ))}
           </div>
         ) : courses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-[5%] border border-slate-200 bg-white py-20 text-center shadow-[0_8px_20px_rgba(15,23,42,0.1)]">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[5%] bg-slate-50 text-slate-300">
-              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-black text-slate-900">{t("batchesPage.empty.title", "No courses found")}</h3>
-            <p className="mt-2 text-slate-500">{t("batchesPage.empty.desc", "No courses are available right now.")}</p>
-          </div>
+          <RevealSection noStagger>
+            <RevealItem className="flex flex-col items-center justify-center rounded-[5%] border border-slate-200 bg-white py-20 text-center shadow-[0_8px_20px_rgba(15,23,42,0.1)]">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[5%] bg-slate-50 text-slate-300">
+                <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900">{t("batchesPage.empty.title", "No courses found")}</h3>
+              <p className="mt-2 text-slate-500">{t("batchesPage.empty.desc", "No courses are available right now.")}</p>
+            </RevealItem>
+          </RevealSection>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <RevealSection className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {courses.map((course, index) => {
               const enrollment = enrollmentMap.get(course._id);
               const enrollmentStatus = String(enrollment?.status || "");
@@ -298,19 +306,20 @@ export default function CoursesPage() {
                 studentRole && !studentApproved && enrollmentStatus !== "pending";
 
               return (
-                <CourseCatalogCard
-                  key={course._id}
-                  course={course}
-                  index={index}
-                  showApplyAction={showApplyAction}
-                  showModifyAction={adminRole}
-                  onModify={openEditForm}
-                  enrollmentStatus={enrollmentStatus}
-                  showEnrollmentStatus={studentRole}
-                />
+                <RevealItem key={course._id}>
+                  <CourseCatalogCard
+                    course={course}
+                    index={index}
+                    showApplyAction={showApplyAction}
+                    showModifyAction={adminRole}
+                    onModify={openEditForm}
+                    enrollmentStatus={enrollmentStatus}
+                    showEnrollmentStatus={studentRole}
+                  />
+                </RevealItem>
               );
             })}
-          </div>
+          </RevealSection>
         )}
       </div>
 
@@ -328,7 +337,7 @@ export default function CoursesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="site-kicker">{t("batchesPage.createModal.kicker", "Create Course")}</p>
-                    <h2 className="font-display mt-4 text-2xl font-black text-slate-950 md:text-3xl">
+                    <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
                       {t("batchesPage.createModal.title", "Add new course details")}
                     </h2>
                     <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -448,7 +457,7 @@ export default function CoursesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="site-kicker">{t("batchesPage.editModal.kicker", "Modify Course")}</p>
-                    <h2 className="font-display mt-4 text-2xl font-black text-slate-950 md:text-3xl">
+                    <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
                       {t("batchesPage.editModal.title", "Update course information")}
                     </h2>
                     <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -515,7 +524,7 @@ export default function CoursesPage() {
                       />
 
                       <div className="space-y-1.5 md:col-span-2">
-                        <label className="ml-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                        <label className="ml-1 text-xs font-extrabold uppercase tracking-wider text-slate-500">
                           {t("batchesPage.form.visibility", "Visibility Status")}
                         </label>
                         <div className="flex flex-wrap gap-3">

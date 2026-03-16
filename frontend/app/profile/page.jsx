@@ -8,6 +8,7 @@ import { CardSkeleton, InlineLoader } from "@/components/loaders/AppLoader";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import Avatar from "@/components/Avatar";
 import { FloatingInput } from "@/components/forms/FloatingField";
 import { useUpdateCurrentUserMutation } from "@/lib/features/auth/authApi";
 import {
@@ -104,15 +105,6 @@ const ROLE_THEME = {
   },
 };
 
-/* ─── Helpers ─── */
-function initialsFromName(name) {
-  return String(name || "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("");
-}
 
 function extractErrorMessage(error, t) {
   if (!error) return t("profilePage.messages.requestFailed", "Request failed.");
@@ -135,22 +127,22 @@ function formatDate(dateString, t) {
 function StatCard({ label, value, loading, borderClass, icon, t }) {
   return (
     <article
-      className={`relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] border-l-4 ${borderClass}`}
+      className={`relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3 md:p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] border-l-4 ${borderClass} transition-all`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2 md:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-          <div className="mt-2 min-h-[38px]">
+          <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+          <div className="mt-1 md:mt-2 min-h-[32px] md:min-h-[38px]">
             {loading ? (
               <InlineLoader label={t ? t("profilePage.misc.loading", "Loading…") : "Loading…"} className="mt-1" />
             ) : (
-              <p className="text-3xl font-black text-slate-900">{value}</p>
+              <p className="text-lg md:text-xl font-extrabold text-slate-900">{value}</p>
             )}
           </div>
         </div>
         {icon ? (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-            {icon}
+          <div className="flex h-8 w-8 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            {icon && Object.assign({}, icon, { props: { ...icon.props, className: "h-4 w-4 md:h-5 md:w-5" } })}
           </div>
         ) : null}
       </div>
@@ -171,6 +163,8 @@ export default function ProfilePage() {
     fullName: "",
     phone: "",
     facebookProfileId: "",
+    varsity: "",
+    experience: "",
   });
   const [profileAsset, setProfileAsset] = useState(null);
   const [imageTouched, setImageTouched] = useState(false);
@@ -191,6 +185,8 @@ export default function ProfilePage() {
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
       facebookProfileId: currentUser.facebookProfileId || "",
+      varsity: currentUser.varsity || "",
+      experience: currentUser.experience || "",
     });
     setProfileAsset(
       currentUser.profilePhoto?.url
@@ -251,9 +247,11 @@ export default function ProfilePage() {
     return (
       form.fullName.trim() !== String(currentUser.fullName || "").trim() ||
       form.phone.trim() !== String(currentUser.phone || "").trim() ||
-      form.facebookProfileId.trim() !== String(currentUser.facebookProfileId || "").trim()
+      form.facebookProfileId.trim() !== String(currentUser.facebookProfileId || "").trim() ||
+      form.varsity.trim() !== String(currentUser.varsity || "").trim() ||
+      form.experience.trim() !== String(currentUser.experience || "").trim()
     );
-  }, [currentUser, form.facebookProfileId, form.fullName, form.phone]);
+  }, [currentUser, form.facebookProfileId, form.fullName, form.phone, form.varsity, form.experience]);
 
   const canSaveProfile = Boolean(currentUser) && (textChanged || imageChanged) && !savingProfile;
   const previewPhotoUrl = imageTouched ? profileAsset?.url || "" : photoUrl;
@@ -269,6 +267,8 @@ export default function ProfilePage() {
       fullName: form.fullName.trim(),
       phone: form.phone.trim(),
       facebookProfileId: form.facebookProfileId.trim(),
+      varsity: form.varsity.trim(),
+      experience: form.experience.trim(),
     };
     if (!payload.fullName) {
       const validationMessage = t("profilePage.messages.nameReq", "Full name is required.");
@@ -303,6 +303,8 @@ export default function ProfilePage() {
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
       facebookProfileId: currentUser.facebookProfileId || "",
+      varsity: currentUser.varsity || "",
+      experience: currentUser.experience || "",
     });
     setProfileAsset(
       currentUser.profilePhoto?.url
@@ -419,50 +421,23 @@ export default function ProfilePage() {
     <RequireAuth>
       <section className="site-shell min-h-screen pb-14">
         <div className="container-page py-8 md:py-10">
-          <header
-            className={`mb-6 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-gradient-to-r ${theme.gradientSubtle} p-5 md:p-6`}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 ${theme.accentBg} ${theme.accent}`}>
-                  {theme.icon}
-                  <span className="text-[11px] font-black uppercase tracking-[0.14em]">{t("profilePage.layout.profileCenter", "Profile Center")}</span>
-                </div>
-                <h1 className="mt-3 text-3xl font-black text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif] md:text-4xl">
-                  {t(theme.titleKey, theme.defaultTitle)}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-600">{t(theme.subtitleKey, theme.defaultSubtitle)}</p>
-              </div>
-              {currentUser?.createdAt ? (
-                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white px-4 py-2.5 text-right">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("profilePage.layout.memberSince", "Member Since")}</p>
-                  <p className="mt-1 text-sm font-black text-slate-900">{formatDate(currentUser.createdAt, t)}</p>
-                </div>
-              ) : null}
-            </div>
-          </header>
 
-          <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] md:p-6">
+          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <aside className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 md:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
               <div className="flex flex-col items-center text-center">
-                <div className={`rounded-full p-1 bg-gradient-to-br ${theme.gradient}`}>
-                  {previewPhotoUrl ? (
-                    <img
-                      src={previewPhotoUrl}
-                      alt={displayName || t("profilePage.misc.userFallback", "User")}
-                      className="h-24 w-24 rounded-full border-4 border-white object-cover md:h-28 md:w-28"
-                    />
-                  ) : (
-                    <div className={`flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br ${theme.iconBg} text-2xl font-black text-white md:h-28 md:w-28`}>
-                      {initialsFromName(displayName) || "U"}
-                    </div>
-                  )}
+                <div className={`rounded-full p-0.5 md:p-1 bg-gradient-to-br ${theme.gradient}`}>
+                  <Avatar
+                    src={previewPhotoUrl}
+                    name={displayName || "User"}
+                    className="h-20 w-20 rounded-full border-2 md:border-4 border-white md:h-28 md:w-28"
+                    fallbackClassName={`bg-gradient-to-br ${theme.iconBg} text-base md:text-lg font-extrabold text-white`}
+                  />
                 </div>
 
-                <h2 className="mt-3 text-xl font-black text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
+                <h2 className="mt-2 md:mt-3 text-lg md:text-xl font-extrabold text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
                   {displayName || t("profilePage.misc.loading", "Loading…")}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">{currentUser?.email || ""}</p>
+                <p className="mt-0.5 md:mt-1 text-xs md:text-sm text-slate-400 font-medium">{currentUser?.email || ""}</p>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -480,28 +455,28 @@ export default function ProfilePage() {
                 ) : null}
               </div>
 
-              <dl className="mt-5 space-y-3 border-t border-slate-200 pt-4">
+              <dl className="mt-4 md:mt-5 space-y-2 md:space-y-3 border-t border-slate-200 pt-3 md:pt-4">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.phone", "Phone")}</dt>
-                  <dd className="text-sm font-semibold text-slate-700">{currentUser?.phone || t("profilePage.misc.notSet", "Not set")}</dd>
+                  <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.phone", "Phone")}</dt>
+                  <dd className="text-xs md:text-sm font-semibold text-slate-700">{currentUser?.phone || t("profilePage.misc.notSet", "Not set")}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.facebookId", "Facebook ID")}</dt>
-                  <dd className="truncate text-sm font-semibold text-slate-700">
+                  <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.facebookId", "Facebook ID")}</dt>
+                  <dd className="truncate text-xs md:text-sm font-semibold text-slate-700">
                     {currentUser?.facebookProfileId || t("profilePage.misc.notSet", "Not set")}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.role", "Role")}</dt>
-                  <dd className="text-sm font-semibold capitalize text-slate-700">{role || t("profilePage.misc.studentFallback", "student")}</dd>
+                  <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.role", "Role")}</dt>
+                  <dd className="text-xs md:text-sm font-semibold capitalize text-slate-700">{role || t("profilePage.misc.studentFallback", "student")}</dd>
                 </div>
               </dl>
             </aside>
 
             <div className="space-y-6">
               <section>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("profilePage.layout.overview", "Overview")}</p>
-                <div className={`mt-3 grid gap-4 ${stats.length === 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3"}`}>
+                <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.layout.overview", "Overview")}</p>
+                <div className={`mt-3 grid grid-cols-2 gap-3 md:gap-4 ${stats.length === 4 ? "xl:grid-cols-4" : "md:grid-cols-3"}`}>
                   {stats.map((item, idx) => (
                     <StatCard
                       key={idx}
@@ -517,17 +492,17 @@ export default function ProfilePage() {
               </section>
 
               <section className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] md:p-6">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${theme.iconBg} text-white`}>
+                <div className="mb-4 md:mb-5 flex items-center gap-3">
+                  <div className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br ${theme.iconBg} text-white`}>
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
+                    <h2 className="text-base md:text-lg font-extrabold text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
                       {t("profilePage.layout.personalInfo", "Personal Information")}
                     </h2>
-                    <p className="text-xs text-slate-500">{t("profilePage.layout.updateDesc", "Update your profile details and photo.")}</p>
+                    <p className="text-[11px] md:text-xs text-slate-500">{t("profilePage.layout.updateDesc", "Update your profile details and photo.")}</p>
                   </div>
                 </div>
 
@@ -576,7 +551,7 @@ export default function ProfilePage() {
 
                         <div className="min-h-[72px]">
                           <div className="relative rounded-xl border border-slate-300 bg-slate-50 px-3 pt-5 pb-2 text-sm text-slate-600">
-                            <p className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-[11px] font-black uppercase tracking-[0.12em] text-[var(--action-start)]">
+                            <p className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--action-start)]">
                               {t("profilePage.form.email", "Email")}
                             </p>
                             <p className="truncate">{currentUser.email || t("profilePage.misc.notProvided", "Not provided")}</p>
@@ -609,6 +584,35 @@ export default function ProfilePage() {
                             hint={t("profilePage.form.fbHint", "Facebook profile ID")}
                           />
                         </div>
+
+                        {staffRole && (
+                          <>
+                            <div>
+                              <FloatingInput
+                                label={t("profilePage.form.varsity", "Varsity / University")}
+                                value={form.varsity}
+                                onChange={(e) => {
+                                  setForm((prev) => ({ ...prev, varsity: e.target.value }));
+                                  setSaveError("");
+                                  setSaveSuccess("");
+                                }}
+                                hint={t("profilePage.form.varsityHint", "University info for homepage card")}
+                              />
+                            </div>
+                            <div>
+                              <FloatingInput
+                                label={t("profilePage.form.experience", "Experience")}
+                                value={form.experience}
+                                onChange={(e) => {
+                                  setForm((prev) => ({ ...prev, experience: e.target.value }));
+                                  setSaveError("");
+                                  setSaveSuccess("");
+                                }}
+                                hint={t("profilePage.form.experienceHint", "e.g. '12+ Years of Experience'")}
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
 

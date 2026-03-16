@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectToken } from "@/lib/features/auth/authSlice";
+import Avatar from "@/components/Avatar";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import {
   deleteImageFromCloudinary,
@@ -101,7 +102,6 @@ export default function ImageUploadField({
 
     const confirmed = await requestDeleteConfirmation({
       title: t("uploadField.removeConfirm.title"),
-      message: t("uploadField.removeConfirm.message"),
       approveLabel: t("uploadField.removeConfirm.approveLabel"),
     });
 
@@ -134,7 +134,7 @@ export default function ImageUploadField({
 
   return (
     <div className={`rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-slate-50 p-3 shadow-[0_4px_10px_rgba(15,23,42,0.08)] ${className}`}>
-      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{resolvedLabel}</p>
+      <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">{resolvedLabel}</p>
       <p className="mt-1 text-[11px] font-semibold text-slate-500">{pixelHint}</p>
 
       {!isConfigured ? (
@@ -193,11 +193,14 @@ export default function ImageUploadField({
       ) : null}
 
       {asset?.url ? (
-        <img
-          src={asset.url}
-          alt={resolvedPreviewAlt}
-          className={previewClassName || "mt-3 h-20 w-20 rounded-xl border border-slate-200 object-cover"}
-        />
+        <div className="mt-3">
+          <Avatar
+            src={asset.url}
+            name={resolvedPreviewAlt}
+            className={previewClassName || "h-20 w-20 rounded-xl border border-slate-200"}
+            fallbackClassName="bg-slate-200 text-xs font-bold text-slate-500"
+          />
+        </div>
       ) : null}
       {popupNode}
     </div>

@@ -2,40 +2,60 @@
 
 export default function AuthSkeleton() {
   return (
-    <div className="container-page py-10" role="status" aria-live="polite">
-      <div className="mx-auto max-w-4xl">
-        {/* Shimmering Header */}
-        <div className="relative mb-8 h-48 w-full overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-slate-200 shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-        </div>
-
-        {/* Shimmering Body Sections */}
-        <div className="grid gap-6 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="relative h-64 overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-white p-6 shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
-              <div className="mb-4 h-4 w-1/2 rounded-full bg-slate-100" />
-              <div className="mb-2 h-3 w-full rounded-full bg-slate-50" />
-              <div className="mb-2 h-3 w-5/6 rounded-full bg-slate-50" />
-              <div className="mt-auto h-8 w-1/3 rounded-lg bg-slate-100" />
-              {/* Shimmer overlay */}
-              <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <div className="flex items-center gap-3 rounded-full border border-slate-300 bg-white px-5 py-3 shadow-[0_4px_10px_rgba(15,23,42,0.1)]">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-            <span className="text-sm font-bold text-slate-600">Verifying session...</span>
-          </div>
-        </div>
+    <div
+      className="flex min-h-[60vh] flex-col items-center justify-center gap-5"
+      role="status"
+      aria-live="polite"
+    >
+      {/* Logo mark pulse */}
+      <div className="relative flex h-16 w-16 items-center justify-center">
+        {/* Outer ring pulse */}
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-20" />
+        {/* Inner ring */}
+        <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-emerald-100 bg-white shadow-[0_4px_14px_rgba(16,185,129,0.15)]">
+          <svg
+            className="h-5 w-5 animate-spin text-emerald-500"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-20"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+            <path
+              className="opacity-90"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+        </span>
       </div>
 
-      <style jsx global>{`
-        @keyframes shimmer {
-          100% {
-            transform: translateX(100%);
-          }
+      {/* Label */}
+      <div className="flex flex-col items-center gap-1 text-center">
+        <p className="text-sm font-bold text-slate-700">Verifying session</p>
+        <p className="text-xs text-slate-400">Just a moment…</p>
+      </div>
+
+      {/* Dot trail */}
+      <div className="flex items-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+            style={{ animation: `bounce 1.2s ${i * 0.2}s infinite` }}
+          />
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+          40% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>

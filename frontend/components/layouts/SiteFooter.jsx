@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
@@ -14,7 +14,19 @@ const DEFAULT_FOOTER_LINKS = [
   { href: "/contact-us", labelKey: "navbar.contact" },
 ];
 
+/** Converts a raw phone number (digits only) to a wa.me link */
+function toWaLink(raw = "") {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}`;
+}
+
 export default function SiteFooter() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
   const { t } = useSiteLanguage();
@@ -41,7 +53,7 @@ export default function SiteFooter() {
     general.siteTagline ||
     t("footer.defaultDescription");
   const footerCopyright = general.footerCopyright || t("footer.defaultCopyright");
-  const footerSiteName = general.siteName || "HSC Academic & Admission Care";
+  const footerSiteName = "HSC Academic and Admission Care";
   const footerLinksSource = configuredLinks.length ? configuredLinks : DEFAULT_FOOTER_LINKS;
 
   const footerLinks = useMemo(
@@ -68,7 +80,7 @@ export default function SiteFooter() {
     },
     {
       id: "whatsapp",
-      href: contact.whatsapp,
+      href: toWaLink(contact.whatsapp),
       label: t("footer.whatsapp"),
       icon: (
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -118,11 +130,11 @@ export default function SiteFooter() {
         <div className="container-page relative py-8 md:py-10">
           <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-12 md:gap-y-16">
             <div className="lg:col-span-4">
-              <p className="font-display text-3xl font-extrabold tracking-tight text-white">
+              <p className="font-display text-3xl font-extrabold tracking-tight text-emerald-100">
                 {footerSiteName}
               </p>
               <p className="mt-5 text-sm leading-relaxed text-slate-400">
-                {footerDescription}
+                We will keep our promises 
               </p>
               {socialLinks.length ? (
                 <div className="mt-8 flex flex-wrap gap-4">
@@ -143,7 +155,7 @@ export default function SiteFooter() {
             </div>
 
             <div className="lg:col-span-2">
-              <p className="text-sm font-bold uppercase tracking-wider text-emerald-100">
+              <p className="font-display text-[13px] font-black uppercase tracking-[0.14em] text-emerald-100">
                 {t("footer.explore")}
               </p>
               <ul className="mt-6 flex flex-col gap-3">
@@ -213,7 +225,7 @@ export default function SiteFooter() {
 
           <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
             <p className="text-sm text-slate-500">
-              © {new Date().getFullYear()} {footerSiteName}. {footerCopyright}
+              © {mounted ? new Date().getFullYear() : ""} {footerSiteName}. {mounted ? footerCopyright : ""}
             </p>
             <p className="text-sm tracking-wide text-slate-500">
               {t("footer.developedBy")}{" "}

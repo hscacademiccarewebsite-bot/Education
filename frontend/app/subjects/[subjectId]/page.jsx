@@ -42,50 +42,57 @@ function MessageBanner({ tone, children }) {
 
 function ChapterDirectoryCard({ chapter, index, canManage, onEdit, onDelete, deletingChapter, t }) {
   return (
-    <article className="group rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]">
+    <article className="relative group overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+      <div className="absolute left-0 top-0 h-full w-1 rounded-r bg-emerald-400 opacity-60 transition-opacity group-hover:opacity-100" />
+      
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-black text-white">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <span className="inline-flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs sm:text-sm font-black text-white shadow-sm">
             {String(index + 1).padStart(2, "0")}
           </span>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <ChapterIcon className="h-5 w-5" />
-          </span>
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("subjectDetails.chapterCard.unit", "Chapter Unit")}</p>
-            <h3 className="mt-1 truncate text-base font-black text-slate-950 md:text-lg">{chapter.title}</h3>
+            <p className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("subjectDetails.chapterCard.unit", "Chapter Unit")}</p>
+            <h3 className="mt-1 truncate text-base sm:text-lg font-black text-slate-950">{chapter.title}</h3>
           </div>
         </div>
 
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">{t("subjectDetails.chapterCard.activeNode", "Active Node")}</span>
+        <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-700 shadow-sm">
+          {t("subjectDetails.chapterCard.activeNode", "Active Node")}
+        </span>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
-          <SubjectIcon className="h-3.5 w-3.5" />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50/50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 backdrop-blur-sm">
+          <SubjectIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Subject Layer
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
-          <ChapterIcon className="h-3.5 w-3.5" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50/50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 backdrop-blur-sm">
+          <ChapterIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Chapter Layer
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={`/chapters/${chapter._id}`} className="site-button-primary px-4 py-2 text-xs">{t("subjectDetails.actions.openChapter", "Open Chapter")}</Link>
+      <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
+        <Link href={`/chapters/${chapter._id}`} className="site-button-primary px-4 py-1.5 sm:px-5 sm:py-2 text-[11px] sm:text-xs">
+          {t("subjectDetails.actions.openChapter", "Open Chapter")}
+        </Link>
         {canManage ? (
           <>
             <button
               type="button"
               onClick={() => onEdit(chapter)}
-              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
-            >{t("subjectDetails.actions.edit", "Edit")}</button>
+              className="site-button-secondary px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em]"
+            >
+              {t("subjectDetails.actions.edit", "Edit")}
+            </button>
             <button
               type="button"
               onClick={() => onDelete(chapter)}
               disabled={deletingChapter}
-              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-60"
-            >{t("subjectDetails.actions.delete", "Delete")}</button>
+              className="site-button-secondary px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("subjectDetails.actions.delete", "Delete")}
+            </button>
           </>
         ) : null}
       </div>
@@ -216,7 +223,7 @@ export default function SubjectDetailsPage() {
   const handleDeleteChapter = async (chapter) => {
     const confirmed = await requestDeleteConfirmation({
       title: t("subjectDetails.messages.deleteConfirmTitle", `Delete "${chapter.title}"?`, { title: chapter.title }),
-      message: t("subjectDetails.messages.deleteConfirmMsg", "All videos inside this chapter will be removed permanently. Type DELETE to continue."),
+      message: t("subjectDetails.messages.deleteConfirmMsg", "All chapters and videos inside this subject will be removed permanently."),
       approveLabel: t("subjectDetails.messages.deleteBtn", "Delete Chapter"),
     });
     if (!confirmed) {
@@ -247,7 +254,7 @@ export default function SubjectDetailsPage() {
   if (subjectLoading) {
     return (
       <RequireAuth>
-        <section className="container-page py-10">
+        <section className="container-page py-8 sm:py-10">
           <CardSkeleton />
         </section>
       </RequireAuth>
@@ -257,7 +264,7 @@ export default function SubjectDetailsPage() {
   if (!subject || subjectIsError) {
     return (
       <RequireAuth>
-        <section className="container-page py-10">
+        <section className="container-page py-8 sm:py-10">
           <MessageBanner tone="error">
             {subjectError?.data?.message || t("subjectDetails.messages.notFound", "Subject not found or access denied.")}
           </MessageBanner>
@@ -268,29 +275,31 @@ export default function SubjectDetailsPage() {
 
   return (
     <RequireAuth>
-      <section className="container-page py-8 md:py-10">
-        <div className="space-y-4">
+      <section className="container-page py-6 sm:py-8 md:py-10">
+        <div className="space-y-3 sm:space-y-4">
           <p className="site-kicker">{t("subjectDetails.layout.subject", "Subject")}</p>
-          <h1 className="font-display text-3xl font-black tracking-tight text-slate-950 md:text-[42px]">
+          <h1 className="font-display text-[22px] sm:text-[28px] font-extrabold tracking-tight text-slate-950 md:text-[42px] leading-tight">
             {subject.title}
           </h1>
-          <p className="max-w-3xl text-sm leading-7 text-slate-600 md:text-base">{t("subjectDetails.layout.desc", "Manage chapter structure and keep content flow clean.")}</p>
-          <div className="flex flex-wrap gap-2.5">
+          <p className="max-w-3xl text-xs sm:text-sm leading-[1.6] sm:leading-7 text-slate-600 md:text-base">
+            {t("subjectDetails.layout.desc", "Manage chapter structure and keep content flow clean.")}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1">
             <Link
               href={subject?.batch ? `/courses/${subject.batch}` : "/courses"}
-              className="site-button-secondary"
+              className="site-button-secondary !px-3 !py-1.5 text-[9px] sm:text-[11px] sm:!px-4 sm:!py-2"
             >
               Back To Course
             </Link>
             {canManage ? (
-              <button type="button" onClick={openCreatePanel} className="site-button-primary">
+              <button type="button" onClick={openCreatePanel} className="site-button-primary !px-3 !py-1.5 text-[9px] sm:text-[11px] sm:!px-4 sm:!py-2">
                 {showChapterForm && !editingChapterId ? t("subjectDetails.actions.closePopup", "Close Popup") : t("subjectDetails.actions.createChapter", "Create Chapter")}
               </button>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 sm:mt-5 space-y-4">
           {chaptersIsError ? (
             <MessageBanner tone="warning">
               {chaptersError?.data?.message || t("subjectDetails.messages.loadError", "Unable to load chapters.")}
@@ -298,33 +307,33 @@ export default function SubjectDetailsPage() {
           ) : null}
         </div>
 
-        <div className="mt-8">
+        <div className="mt-6 sm:mt-8">
           <section className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="site-kicker">{t("subjectDetails.layout.chapterDirectory", "Chapter Directory")}</p>
-                <h2 className="font-display mt-4 text-3xl font-black text-slate-950">{t("subjectDetails.layout.chapterMap", "Chapter map")}</h2>
+                <h2 className="font-display mt-3 sm:mt-4 text-lg sm:text-xl font-extrabold text-slate-950">{t("subjectDetails.layout.chapterMap", "Chapter map")}</h2>
               </div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">
                 {chapters.length} {t("subjectDetails.layout.total", "total")}</p>
             </div>
 
             {chaptersLoading ? (
-              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
+              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-4 sm:p-5">
                 <ListSkeleton rows={3} />
               </div>
             ) : chapters.length === 0 ? (
-              <div className="site-panel rounded-[clamp(8px,5%,12px)] px-5 py-12 text-center">
-                <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                  <ChapterIcon className="h-6 w-6" />
+              <div className="site-panel rounded-[clamp(8px,5%,12px)] px-4 sm:px-5 py-10 sm:py-12 text-center shadow-sm">
+                <span className="mx-auto inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <ChapterIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </span>
-                <p className="font-display mt-4 text-2xl font-black text-slate-950">{t("subjectDetails.layout.noChapters", "No chapters yet")}</p>
-                <p className="mt-3 text-sm text-slate-600">
+                <p className="font-display mt-3 sm:mt-4 text-base sm:text-lg font-extrabold text-slate-950">{t("subjectDetails.layout.noChapters", "No chapters yet")}</p>
+                <p className="mt-2 sm:mt-3 text-[13px] sm:text-sm text-slate-600">
                   Create the first chapter to continue the subject structure.
                 </p>
               </div>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {chapters.map((chapter, index) => (
                   <ChapterDirectoryCard
                     key={chapter._id}
@@ -354,7 +363,7 @@ export default function SubjectDetailsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="site-kicker">{editingChapterId ? t("subjectDetails.layout.updateChapter", "Update Chapter") : t("subjectDetails.actions.createChapter", "Create Chapter")}</p>
-                  <h2 className="font-display mt-4 text-2xl font-black text-slate-950 md:text-3xl">
+                  <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
                     {editingChapterId ? t("subjectDetails.layout.editMetadata", "Edit chapter metadata") : t("subjectDetails.layout.registerNew", "Register new chapter")}
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -390,7 +399,7 @@ export default function SubjectDetailsPage() {
                 />
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     Structure Tip
                   </p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">

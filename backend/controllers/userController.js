@@ -135,7 +135,7 @@ class UserController {
 
   static async updateCurrentUser(req, res) {
     try {
-      const { fullName, phone, facebookProfileId, profilePhoto, removeProfilePhoto } = req.body;
+      const { fullName, phone, facebookProfileId, varsity, experience, profilePhoto, removeProfilePhoto } = req.body;
 
       if (fullName !== undefined) {
         const normalizedName = String(fullName).trim();
@@ -154,6 +154,14 @@ class UserController {
 
       if (facebookProfileId !== undefined) {
         req.user.facebookProfileId = String(facebookProfileId || "").trim();
+      }
+
+      if (varsity !== undefined) {
+        req.user.varsity = String(varsity || "").trim();
+      }
+
+      if (experience !== undefined) {
+        req.user.experience = String(experience || "").trim();
       }
 
       const shouldRemoveProfilePhoto = Boolean(removeProfilePhoto);

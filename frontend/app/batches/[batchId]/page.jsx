@@ -80,50 +80,57 @@ function studentActionLabel(status, t) {
 
 function SubjectDirectoryCard({ subject, index, canManage, onEdit, onDelete, deletingSubject, t }) {
   return (
-    <article className="group rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)]">
+    <article className="relative group overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+      <div className="absolute left-0 top-0 h-full w-1 rounded-r bg-emerald-400 opacity-60 transition-opacity group-hover:opacity-100" />
+      
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-black text-white">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <span className="inline-flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs sm:text-sm font-black text-white shadow-sm">
             {String(index + 1).padStart(2, "0")}
           </span>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <SubjectIcon className="h-5 w-5" />
-          </span>
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.subjectCard.node", "Subject Node")}</p>
-            <h3 className="mt-1 truncate text-base font-black text-slate-950 md:text-lg">{subject.title}</h3>
+            <p className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.subjectCard.node", "Subject Node")}</p>
+            <h3 className="mt-1 truncate text-base sm:text-lg font-black text-slate-950">{subject.title}</h3>
           </div>
         </div>
 
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">{t("batchDetails.subjectCard.active", "Active")}</span>
+        <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-700 shadow-sm">
+          {t("batchDetails.subjectCard.active", "Active")}
+        </span>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
-          <SubjectIcon className="h-3.5 w-3.5" />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50/50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 backdrop-blur-sm">
+          <SubjectIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Subject Layer
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
-          <ChapterIcon className="h-3.5 w-3.5" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50/50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 backdrop-blur-sm">
+          <ChapterIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Next: Chapters
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={`/subjects/${subject._id}`} className="site-button-primary px-4 py-2 text-xs">{t("batchDetails.actions.openSubject", "Open Subject")}</Link>
+      <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
+        <Link href={`/subjects/${subject._id}`} className="site-button-primary px-4 py-1.5 sm:px-5 sm:py-2 text-[11px] sm:text-xs">
+          {t("batchDetails.actions.openSubject", "Open Subject")}
+        </Link>
         {canManage ? (
           <>
             <button
               type="button"
               onClick={() => onEdit(subject)}
-              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
-            >{t("batchDetails.actions.edit", "Edit")}</button>
+              className="site-button-secondary px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em]"
+            >
+              {t("batchDetails.actions.edit", "Edit")}
+            </button>
             <button
               type="button"
               onClick={() => onDelete(subject)}
               disabled={deletingSubject}
-              className="site-button-secondary px-4 py-2 text-xs font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-60"
-            >{t("batchDetails.actions.delete", "Delete")}</button>
+              className="site-button-secondary px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("batchDetails.actions.delete", "Delete")}
+            </button>
           </>
         ) : null}
       </div>
@@ -270,7 +277,7 @@ export default function BatchDetailsPage() {
     const confirmed = await requestDeleteConfirmation({
       title: t("batchDetails.messages.deleteConfirmTitle", `Delete "${subject.title}"?`, { title: subject.title }),
       message:
-        t("batchDetails.messages.deleteConfirmMsg", "All chapters and videos inside this subject will be removed permanently. Type DELETE to continue."),
+        t("batchDetails.messages.deleteConfirmMsg", "All chapters and videos inside this subject will be removed permanently."),
       approveLabel: t("batchDetails.messages.deleteBtn", "Delete Subject"),
     });
     if (!confirmed) {
@@ -380,79 +387,98 @@ export default function BatchDetailsPage() {
       <section className="container-page space-y-6 py-8 md:py-10">
         <div className="grid gap-6 border-b border-slate-200 pb-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
           <section className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white shadow-[0_12px_24px_rgba(15,23,42,0.08)]">
-            <div className="grid gap-6 p-5 md:p-7 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">{t("batchDetails.layout.courseDetails", "Course Details")}</span>
+            <div className="flex flex-col gap-5 p-5 md:gap-7 md:p-7 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+              
+              {/* Image (Mobile: Top, Desktop: Right) */}
+              <div className="order-first relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-100 lg:order-last">
+                <img
+                  src={batch?.banner?.url || batch?.thumbnail?.url || COURSE_FALLBACK}
+                  alt={batch.name}
+                  className="h-[180px] w-full object-cover sm:h-[220px] md:h-[240px] lg:h-[175px]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-900/10 to-transparent" />
+                <p className="absolute bottom-2 left-2 rounded-full bg-white/95 px-2.5 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700 shadow-sm backdrop-blur-sm">
+                  {t("batchDetails.layout.coursePreview", "Course Preview")}
+                </p>
+              </div>
+
+              {/* Text Content (Mobile: Bottom, Desktop: Left) */}
+              <div className="order-last lg:order-first">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-600">
+                    {t("batchDetails.layout.courseDetails", "Course Details")}
+                  </span>
                   <span
-                    className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${courseStatusTone}`}
+                    className={`rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.16em] ${courseStatusTone}`}
                   >
                     {courseStatus}
                   </span>
                 </div>
 
-                <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+                <h1 className="mt-2.5 text-[20px] sm:text-[26px] font-black leading-tight tracking-tight text-slate-950 md:text-3xl">
                   {batch.name}
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+                <p className="mt-1.5 sm:mt-3 max-w-3xl text-[12px] sm:text-[15px] leading-[1.5] sm:leading-7 text-slate-600 md:text-base">
                   {batch.description ||
                     t("batchDetails.layout.defaultDesc", "This course is organized by subject, chapter, and video with guided academic progression.")}
                 </p>
 
-                <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-1.5 sm:gap-2.5">
                   <Link
                     href="/courses"
-                    className="site-button-secondary inline-flex items-center gap-2"
+                    className="site-button-secondary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-[9px] sm:text-sm sm:!px-4 sm:!py-2"
                   >
-                    <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                    </svg>{t("batchDetails.actions.allCourses", "All Courses")}</Link>
+                    </svg>
+                    {t("batchDetails.actions.allCourses", "All Courses")}
+                  </Link>
                   {batch.facebookGroupUrl ? (
                     <a
                       href={batch.facebookGroupUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="site-button-secondary inline-flex items-center gap-2"
+                      className="site-button-secondary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-[9px] sm:text-sm sm:!px-4 sm:!py-2"
                     >
-                      <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h9m-9 4.5h6m-7.5 7.5h12a1.5 1.5 0 0 0 1.5-1.5V6A1.5 1.5 0 0 0 18 4.5H6A1.5 1.5 0 0 0 4.5 6v12A1.5 1.5 0 0 0 6 19.5Z" />
-                      </svg>{t("batchDetails.actions.fbGroup", "Facebook Group")}</a>
+                      </svg>
+                      {t("batchDetails.actions.fbGroup", "Facebook Group")}
+                    </a>
                   ) : null}
                   {canManage ? (
-                    <button type="button" onClick={openCreatePanel} className="site-button-primary">
+                    <button type="button" onClick={openCreatePanel} className="site-button-primary !px-3 !py-1.5 text-[9px] sm:text-sm sm:!px-4 sm:!py-2">
                       {showSubjectForm && !editingSubjectId ? t("batchDetails.actions.closePopup", "Close Popup") : t("batchDetails.actions.createSubject", "Create Subject")}
                     </button>
                   ) : null}
                 </div>
               </div>
-
-              <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-100">
-                <img
-                  src={batch?.banner?.url || batch?.thumbnail?.url || COURSE_FALLBACK}
-                  alt={batch.name}
-                  className="h-[145px] w-full object-cover md:h-[175px]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-slate-900/5 to-transparent" />
-                <p className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-700">{t("batchDetails.layout.coursePreview", "Course Preview")}</p>
-              </div>
             </div>
 
-            <div className="border-t border-slate-200 px-5 py-4 md:px-7">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.layout.quickFacts", "Quick Facts")}</p>
-              <dl className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
-                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.monthlyFee", "Monthly Fee")}</dt>
-                  <dd className="mt-1 text-sm font-black text-slate-900">{batch.monthlyFee || 0} BDT</dd>
+            <div className="border-t border-slate-200/80 bg-slate-50/30 px-4 py-3 sm:py-5 md:px-7">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 sm:text-[10px]">
+                {t("batchDetails.layout.quickFacts", "Quick Facts")}
+              </p>
+              <dl className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-3">
+                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200/80 bg-white px-2.5 py-2 sm:px-4 sm:py-3 shadow-sm">
+                  <dt className="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                    {t("batchDetails.layout.monthlyFee", "Monthly Fee")}
+                  </dt>
+                  <dd className="mt-0.5 sm:mt-1 text-xs sm:text-base font-extrabold text-slate-900">{batch.monthlyFee || 0} BDT</dd>
                 </div>
-                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
-                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.visibility", "Visibility")}</dt>
-                  <dd className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-700">
+                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200/80 bg-white px-2.5 py-2 sm:px-4 sm:py-3 shadow-sm">
+                  <dt className="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                    {t("batchDetails.layout.visibility", "Visibility")}
+                  </dt>
+                  <dd className="mt-1 sm:mt-1.5 text-[10px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-slate-700">
                     {courseStatus}
                   </dd>
                 </div>
-                <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 px-3 py-2.5">
-                  <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.subjects", "Subjects")}</dt>
-                  <dd className="mt-1 text-sm font-black text-slate-900">
+                <div className="col-span-1 rounded-[clamp(8px,5%,12px)] border border-slate-200/80 bg-white px-2.5 py-2 sm:px-4 sm:py-3 shadow-sm">
+                  <dt className="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                    {t("batchDetails.layout.subjects", "Subjects")}
+                  </dt>
+                  <dd className="mt-0.5 sm:mt-1 text-xs sm:text-base font-extrabold text-slate-900">
                     {canAccessCourseContent ? subjects.length : t("batchDetails.layout.locked", "Locked")}
                   </dd>
                 </div>
@@ -461,9 +487,9 @@ export default function BatchDetailsPage() {
           </section>
 
           <aside className="space-y-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_22px_rgba(15,23,42,0.08)] md:p-6 xl:sticky xl:top-24">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("batchDetails.layout.accessEnrollment", "Access & Enrollment")}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("batchDetails.layout.accessEnrollment", "Access & Enrollment")}</p>
             <span
-              className={`inline-flex rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em] ${accessTone}`}
+              className={`inline-flex rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] ${accessTone}`}
             >
               {accessLabel}
             </span>
@@ -506,9 +532,9 @@ export default function BatchDetailsPage() {
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <p className="site-kicker">{t("batchDetails.layout.subjectDirectory", "Subject Directory")}</p>
-                  <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">{t("batchDetails.layout.courseSubjects", "Course subjects")}</h2>
+                  <h2 className="mt-3 text-lg font-extrabold text-slate-950 md:text-xl">{t("batchDetails.layout.courseSubjects", "Course subjects")}</h2>
                 </div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">
                   {subjects.length} {t("batchDetails.layout.total", "total")}</p>
               </div>
 
@@ -521,7 +547,7 @@ export default function BatchDetailsPage() {
                   <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                     <SubjectIcon className="h-6 w-6" />
                   </span>
-                  <p className="mt-4 text-2xl font-black text-slate-950">{t("batchDetails.layout.noSubjects", "No subjects yet")}</p>
+                  <p className="mt-4 text-lg font-extrabold text-slate-950">{t("batchDetails.layout.noSubjects", "No subjects yet")}</p>
                   <p className="mt-3 text-sm text-slate-600">{t("batchDetails.layout.createFirstSubject", "Create the first subject to begin structuring this course.")}</p>
                 </div>
               ) : (
@@ -545,7 +571,7 @@ export default function BatchDetailsPage() {
         ) : (
           <div className="mt-8 border-y border-slate-200 py-8">
             <p className="site-kicker">{t("batchDetails.layout.courseContent", "Course Content")}</p>
-            <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">{t("batchDetails.layout.contentAppearsHere", "Content will appear here after access approval")}</h2>
+            <h2 className="mt-3 text-lg font-extrabold text-slate-950 md:text-xl">{t("batchDetails.layout.contentAppearsHere", "Content will appear here after access approval")}</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
               Once your access is approved, you will see all course subjects and can continue into
               chapters and lessons from this section.
@@ -565,7 +591,7 @@ export default function BatchDetailsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="site-kicker">{editingSubjectId ? t("batchDetails.layout.updateSubject", "Update Subject") : t("batchDetails.actions.createSubject", "Create Subject")}</p>
-                  <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">
+                  <h2 className="mt-3 text-lg font-extrabold text-slate-950 md:text-xl">
                     {editingSubjectId ? t("batchDetails.layout.editMetadata", "Edit subject metadata") : t("batchDetails.layout.registerNew", "Register new subject")}
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -601,7 +627,7 @@ export default function BatchDetailsPage() {
                 />
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     Naming Tip
                   </p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">

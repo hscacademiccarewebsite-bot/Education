@@ -8,6 +8,7 @@ import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { ListSkeleton } from "@/components/loaders/AppLoader";
+import Avatar from "@/components/Avatar";
 import { useReviewEnrollmentRequestMutation } from "@/lib/features/enrollment/enrollmentApi";
 import { useGetUserDetailsQuery } from "@/lib/features/user/userApi";
 import { ROLES } from "@/lib/utils/roleUtils";
@@ -15,14 +16,6 @@ import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
-function initialsFromName(name) {
-  return String(name || "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("");
-}
 
 function formatDateTime(value, t) {
   if (!value) return t ? t("userDetails.misc.na", "N/A") : "N/A";
@@ -171,24 +164,19 @@ export default function UserDetailsPage() {
           ) : (
             <>
               <div className="mt-6 flex flex-wrap items-start gap-4">
-                {user.profilePhoto?.url ? (
-                  <img
-                    src={user.profilePhoto.url}
-                    alt={user.fullName || "User profile"}
-                    className="h-16 w-16 rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-slate-900 text-base font-black text-white">
-                    {initialsFromName(user.fullName) || "U"}
-                  </div>
-                )}
+                <Avatar
+                  src={user.profilePhoto?.url}
+                  name={user.fullName || "User"}
+                  className="h-16 w-16 rounded-xl"
+                  fallbackClassName="bg-slate-900 text-base font-extrabold text-white"
+                />
                 <div className="min-w-0">
-                  <h2 className="text-2xl font-black text-slate-950 md:text-3xl">{user.fullName || t("userDetails.messages.unnamedUser", "Unnamed User")}</h2>
+                  <h2 className="text-lg font-extrabold text-slate-950 md:text-xl">{user.fullName || t("userDetails.messages.unnamedUser", "Unnamed User")}</h2>
                   <p className="mt-1 break-all text-sm text-slate-600">{user.email || t("userDetails.messages.noEmail", "No email")}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <RoleBadge role={user.role} />
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${
                         user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
                       }`}
                     >
@@ -200,26 +188,26 @@ export default function UserDetailsPage() {
 
               <div className={`mt-6 grid gap-3 sm:grid-cols-2 ${isStudentUser ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
                 <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.relatedCourses", "Related Courses")}</p>
-                  <p className="mt-2 text-xl font-black text-slate-950">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.relatedCourses", "Related Courses")}</p>
+                  <p className="mt-2 text-xl font-extrabold text-slate-950">
                     {summary?.courses?.totalRelatedCourses || relatedCourses.length}
                   </p>
                 </article>
                 <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollments", "Enrollments")}</p>
-                  <p className="mt-2 text-xl font-black text-slate-950">{summary?.enrollment?.total || enrollments.length}</p>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollments", "Enrollments")}</p>
+                  <p className="mt-2 text-xl font-extrabold text-slate-950">{summary?.enrollment?.total || enrollments.length}</p>
                 </article>
                 {isStudentUser ? (
                   <>
                     <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalDue", "Total Due")}</p>
-                      <p className="mt-2 text-xl font-black text-slate-950">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalDue", "Total Due")}</p>
+                      <p className="mt-2 text-xl font-extrabold text-slate-950">
                         {formatAmount(summary?.payments?.totalDue || 0)}
                       </p>
                     </article>
                     <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalPaid", "Total Paid")}</p>
-                      <p className="mt-2 text-xl font-black text-slate-950">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalPaid", "Total Paid")}</p>
+                      <p className="mt-2 text-xl font-extrabold text-slate-950">
                         {formatAmount(summary?.payments?.totalPaid || 0)}
                       </p>
                     </article>
@@ -229,7 +217,7 @@ export default function UserDetailsPage() {
 
               <div className="mt-5 grid gap-5 lg:grid-cols-2">
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.personalDetails", "Personal Details")}</h3>
+                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.personalDetails", "Personal Details")}</h3>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
                       <dt className="font-semibold text-slate-500">{t("userDetails.layout.name", "Name")}</dt>
@@ -259,7 +247,7 @@ export default function UserDetailsPage() {
                 </section>
 
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.courseLinks", "Course Links")}</h3>
+                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.courseLinks", "Course Links")}</h3>
                   {relatedCourses.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noRelatedCourses", "No related courses for this user.")}</p>
                   ) : (
@@ -268,12 +256,12 @@ export default function UserDetailsPage() {
                         <article key={course._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
-                              <p className="text-sm font-black text-slate-900">{course.name}</p>
+                              <p className="text-sm font-extrabold text-slate-900">{course.name}</p>
                               <p className="text-xs text-slate-600">
                                 {course.slug || t("userDetails.misc.noSlug", "no-slug")} | {formatAmount(course.monthlyFee || 0, course.currency)}
                               </p>
                             </div>
-                            <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-700">
+                            <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
                               {course.status}
                             </span>
                           </div>
@@ -296,7 +284,7 @@ export default function UserDetailsPage() {
 
               <div className={`mt-5 grid gap-5 ${isStudentUser ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollmentHistory", "Enrollment History")}</h3>
+                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollmentHistory", "Enrollment History")}</h3>
                   {enrollments.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noEnrollments", "No enrollment history.")}</p>
                   ) : (
@@ -305,13 +293,13 @@ export default function UserDetailsPage() {
                         <article key={item._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
-                              <p className="text-sm font-black text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
+                              <p className="text-sm font-extrabold text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
                               <p className="mt-1 text-xs text-slate-600">{t("userDetails.misc.applied", "Applied")}: {formatDateTime(item.createdAt, t)}</p>
                               <p className="mt-0.5 text-xs text-slate-600">{t("userDetails.misc.reviewed", "Reviewed")}: {formatDateTime(item.reviewedAt, t)}</p>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-2">
                               <span
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${enrollmentStatusClass(item.status)}`}
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${enrollmentStatusClass(item.status)}`}
                               >
                                 {item.status}
                               </span>
@@ -320,7 +308,7 @@ export default function UserDetailsPage() {
                                   type="button"
                                   onClick={() => handleKickOut(item)}
                                   disabled={kickingOutEnrollmentId === item._id}
-                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
                                 >
                                   {kickingOutEnrollmentId === item._id ? t("userDetails.actions.processing", "Processing...") : t("userDetails.actions.kickOut", "Kick Out")}
                                 </button>
@@ -338,7 +326,7 @@ export default function UserDetailsPage() {
 
                 {isStudentUser ? (
                   <section className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.paymentHistory", "Payment History")}</h3>
+                    <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.paymentHistory", "Payment History")}</h3>
                     {payments.length === 0 ? (
                       <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noPayments", "No payment records.")}</p>
                     ) : (
@@ -347,7 +335,7 @@ export default function UserDetailsPage() {
                           <article key={item._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <div className="flex flex-wrap items-start justify-between gap-2">
                               <div>
-                                <p className="text-sm font-black text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
+                                <p className="text-sm font-extrabold text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
                                 <p className="mt-1 text-xs text-slate-600">
                                   {t("userDetails.misc.cycle", "Cycle")}: {item.billingMonth}/{item.billingYear} | {formatAmount(item.amount, item.currency)}
                                 </p>
@@ -356,7 +344,7 @@ export default function UserDetailsPage() {
                                 </p>
                               </div>
                               <span
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${paymentStatusClass(item.status)}`}
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${paymentStatusClass(item.status)}`}
                               >
                                 {item.status}
                               </span>

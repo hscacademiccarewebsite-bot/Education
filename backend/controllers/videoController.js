@@ -1,6 +1,7 @@
 const Video = require("../model/videoSchema");
 const Chapter = require("../model/chapterSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
+const Notification = require("../model/notificationSchema");
 const { canAccessBatch, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 
 const buildFacebookVideoUrl = (facebookVideoId) => {
@@ -97,6 +98,42 @@ class VideoController {
         isPublished,
         createdBy: req.user._id,
       });
+
+      // --- Broadcast Notification to Students ---
+      if (video.isPublished) {
+        try {
+          // Store IDs as strings to ensure valid URLs even after population
+          const bId = String(chapter.batch);
+          const sId = String(chapter.subject);
+          const cId = String(chapter._id);
+
+          // Find all students approved for this batch
+          const enrollments = await EnrollmentRequest.find({
+            batch: bId,
+            status: "approved",
+          }).select("student");
+
+          if (enrollments.length > 0) {
+            // Populate to get the name for the message
+            await chapter.populate("batch", "name");
+            const batchName = chapter.batch?.name || "your course";
+
+            const newNotifications = enrollments.map((enrollment) => ({
+              recipient: enrollment.student,
+              title: "New Video Uploaded",
+              message: `A new video "${title}" was just added to ${batchName}.`,
+              type: "new_video",
+              link: `/chapters/${cId}`,
+            }));
+
+            // Bulk insert for efficiency
+            await Notification.insertMany(newNotifications);
+            console.log(`Successfully sent ${newNotifications.length} notifications for new video.`);
+          }
+        } catch (notifErr) {
+          console.error("Failed to broadcast new_video notifications:", notifErr);
+        }
+      }
 
       return res.status(201).json({
         success: true,

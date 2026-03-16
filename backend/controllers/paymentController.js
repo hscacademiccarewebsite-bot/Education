@@ -3,6 +3,7 @@ const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
 const User = require("../model/userSchema");
 const { canAccessBatch, isAdmin, isValidObjectId } = require("../utils/batchAccess");
+const Notification = require("../model/notificationSchema");
 const { getBkashToken, createBkashPayment, executeBkashPayment } = require("../utils/bkash");
 
 const buildDueDateUTC = (year, month, day) => {
@@ -150,6 +151,7 @@ class PaymentController {
       const month = Number(req.body.billingMonth || now.getUTCMonth() + 1);
       const batchId = req.body.batchId;
       const billingMonthStart = new Date(Date.UTC(year, month - 1, 1));
+      const nextMonthStart = new Date(Date.UTC(year, month, 1));
 
       if (!Number.isInteger(year) || year < 2000 || year > 2100) {
         return res.status(400).json({
@@ -236,12 +238,12 @@ class PaymentController {
           return false;
         }
 
-        // Billing starts from the month AFTER approval (enrollment month is free).
+        // In post-payment model, students enrolled ANYTIME during the month pay on next month start.
         const approvedAt = item.approvedAt || item.reviewedAt || item.createdAt;
         if (!approvedAt) {
           return false;
         }
-        return new Date(approvedAt) < billingMonthStart;
+        return new Date(approvedAt) < nextMonthStart;
       });
 
       if (eligibleEnrollments.length === 0) {
@@ -254,7 +256,8 @@ class PaymentController {
 
       const operations = eligibleEnrollments.map((enrollment) => {
         const batch = batchMap.get(String(enrollment.batch));
-        const dueDate = buildDueDateUTC(year, month, batch?.paymentDueDay || 1);
+        // Due date is in the month FOLLOWING the teaching month.
+        const dueDate = buildDueDateUTC(year, month + 1, batch?.paymentDueDay || 1);
 
         return {
           updateOne: {
@@ -280,6 +283,29 @@ class PaymentController {
       });
 
       const result = await PaymentRecord.bulkWrite(operations);
+
+      // --- Broadcast "Payment Due" Notifications ---
+      if (result.upsertedCount > 0) {
+        try {
+          const Notification = require("../model/notificationSchema");
+          const monthName = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", { month: "long" });
+
+          const dueNotifications = eligibleEnrollments.map((env) => ({
+            recipient: env.student,
+            title: "New Payment Due",
+            message: `Monthly fee for ${monthName} ${year} is now due. Please complete your payment.`,
+            type: "payment_due",
+            link: "/payments",
+          }));
+
+          // Bulk insert notifications
+          await Notification.insertMany(dueNotifications, { ordered: false });
+          console.log(`Generated ${dueNotifications.length} payment due notifications.`);
+        } catch (notifErr) {
+          // ignore duplicate errors if some already have it
+          console.error("Failed to broadcast monthly due notifications:", notifErr);
+        }
+      }
 
       return res.status(200).json({
         success: true,
@@ -340,6 +366,19 @@ class PaymentController {
       payment.note = note || payment.note;
       await payment.save();
 
+      try {
+        const monthName = new Date(Date.UTC(payment.billingYear, payment.billingMonth - 1, 1)).toLocaleDateString("en-US", { month: "long" });
+        await Notification.create({
+          recipient: payment.student,
+          title: "Offline Payment Verified",
+          message: `Your manual payment of ${payment.amount} BDT for ${monthName} ${payment.billingYear} has been approved by an administrator.`,
+          type: "offline_payment_verified",
+          link: "/payments"
+        });
+      } catch (notifErr) {
+        console.error("Failed to create offline payment notification:", notifErr);
+      }
+
       return res.status(200).json({
         success: true,
         message: "Payment marked as paid offline.",
@@ -349,6 +388,74 @@ class PaymentController {
       return res.status(500).json({
         success: false,
         message: "Failed to mark payment offline.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async waivePayment(req, res) {
+    try {
+      const { paymentId } = req.params;
+      const { note } = req.body;
+
+      if (!isValidObjectId(paymentId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid paymentId.",
+        });
+      }
+
+      const payment = await PaymentRecord.findById(paymentId);
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: "Payment record not found.",
+        });
+      }
+
+      if (payment.status !== "due") {
+        return res.status(400).json({
+          success: false,
+          message: "Only due payments can be waived.",
+        });
+      }
+
+      const hasAccess = isAdmin(req.user) || (await canAccessBatch(req.user, payment.batch));
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden to waive payment for this batch.",
+        });
+      }
+
+      payment.status = "waived";
+      payment.paymentMethod = "manual_adjustment";
+      payment.paidBy = req.user._id;
+      payment.note = note || "Payment waived by staff";
+      await payment.save();
+
+      try {
+        const monthName = new Date(Date.UTC(payment.billingYear, payment.billingMonth - 1, 1)).toLocaleDateString("en-US", { month: "long" });
+        await Notification.create({
+          recipient: payment.student,
+          title: "Payment Waived",
+          message: `Your monthly fee for ${monthName} ${payment.billingYear} has been waived.`,
+          type: "payment_waived",
+          link: "/payments"
+        });
+      } catch (notifErr) {
+        console.error("Failed to create waive payment notification:", notifErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment marked as waived.",
+        data: payment,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to waive payment.",
         error: error.message,
       });
     }
@@ -448,8 +555,14 @@ class PaymentController {
         });
       }
 
-      const idToken = await getBkashToken();
-      const bkashResponse = await createBkashPayment(payment, idToken);
+      // Use a timestamp to foil "Duplicate for all transactions"
+      const merchantInvoiceNumber = `${payment._id.toString()}_${Math.floor(Date.now() / 1000)}`;
+
+      const bkashResponse = await createBkashPayment({
+        amount: payment.amount,
+        payerReference: payment._id.toString(), // Internal tracking ID sent back on callback URL
+        merchantInvoiceNumber: merchantInvoiceNumber // Strict bKash uniqueness
+      });
 
       if (bkashResponse && bkashResponse.bkashURL) {
         return res.status(200).json({
@@ -458,12 +571,9 @@ class PaymentController {
         });
       }
 
-      return res.status(400).json({
-        success: false,
-        message: "Failed to initialize bKash checkout",
-        bkashResponse,
-      });
+      throw new Error("bKash gateway did not return a valid redirect URL.");
     } catch (error) {
+      console.error("[Controller Create Error]:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to create bKash checkout URL.",
@@ -499,33 +609,85 @@ class PaymentController {
       }
 
       // Execute Bkash Transaction
-      const idToken = await getBkashToken();
-      const executeResponse = await executeBkashPayment(paymentID, idToken);
+      let executeResponse;
+      try {
+        executeResponse = await executeBkashPayment(paymentID);
+      } catch (err) {
+        // If it's already completed at the gateway but we missed it, treat as success for recovery
+        if (err.message.includes("already been completed") || err.message.includes("2062")) {
+          // Fallback to minimal data if we can't get the full payload during recovery
+          executeResponse = {
+            statusCode: "0000",
+            transactionStatus: "Completed",
+            paymentID: paymentID,
+            trxID: "RECOVERED_" + Date.now().toString(),
+            merchantInvoiceNumber: paymentRecord.merchantInvoiceNumber
+          };
+        } else {
+          throw err;
+        }
+      }
 
-      // Verify Status
-      if (executeResponse && executeResponse.statusCode === "0000" && executeResponse.transactionStatus === "Completed") {
+      // Verify Status Complete (0000 = Success, 2029 = Duplicate execution, 2062 = Already completed)
+      const isSuccess = executeResponse && executeResponse.statusCode === "0000" && executeResponse.transactionStatus === "Completed";
+      const isRecovered = executeResponse && (executeResponse.statusCode === "2029" || executeResponse.statusCode === "2062");
+
+      if (isSuccess || isRecovered) {
         paymentRecord.status = "paid_online";
         paymentRecord.paymentMethod = "bkash";
-        paymentRecord.bkashPaymentId = executeResponse.paymentID;
-        paymentRecord.bkashTransactionId = executeResponse.trxID;
-        paymentRecord.merchantInvoiceNumber = executeResponse.merchantInvoiceNumber;
-        paymentRecord.paidAt = executeResponse.paymentExecuteTime ? new Date(executeResponse.paymentExecuteTime) : new Date();
+        paymentRecord.bkashPaymentId = executeResponse.paymentID || paymentID;
+        paymentRecord.bkashTransactionId = executeResponse.trxID || ("RECOVERED_" + Date.now().toString());
+        paymentRecord.merchantInvoiceNumber = executeResponse.merchantInvoiceNumber || paymentRecord.merchantInvoiceNumber;
+
+        // bKash sends non-standard "2026-03-14T20:12:54:406 GMT+0600" where the last colon before ms breaks 'new Date()'.
+        // We normalize it to "2026-03-14T20:12:54.406 GMT+0600" first.
+        let parsedDate = new Date();
+        if (executeResponse.paymentExecuteTime) {
+          const rawDateStr = executeResponse.paymentExecuteTime;
+          const normalizedDateStr = rawDateStr.replace(/:(\d{3})\sGMT/, '.$1 GMT');
+          const attemptedDate = new Date(normalizedDateStr);
+          if (!isNaN(attemptedDate.getTime())) {
+            parsedDate = attemptedDate;
+          }
+        }
+
+        paymentRecord.paidAt = parsedDate;
         await paymentRecord.save();
+
+        // --- Notification Triggers ---
+        try {
+          // 1. Notify Student
+          const monthName = new Date(Date.UTC(paymentRecord.billingYear, paymentRecord.billingMonth - 1, 1)).toLocaleDateString("en-US", { month: "long" });
+          await Notification.create({
+            recipient: paymentRecord.student,
+            title: "Payment Successful",
+            message: `Your payment of ${paymentRecord.amount} BDT for ${monthName} ${paymentRecord.billingYear} was successful.`,
+            type: "payment_success",
+            link: "/payments"
+          });
+
+          // 2. Notify Global Admins
+          await Notification.create({
+            isGlobalAdmin: true,
+            title: "New Payment Received",
+            message: `A payment of ${paymentRecord.amount} BDT was received.`,
+            type: "payment_success",
+            link: "/payments",
+          });
+        } catch (notifErr) {
+          console.error("Failed to create notifications for bKash success:", notifErr);
+        }
 
         return res.status(200).json({
           success: true,
           message: "Payment successfully verified and executed.",
           data: paymentRecord,
         });
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: executeResponse.statusMessage || "bKash payment verification failed.",
-          bkashResponse: executeResponse,
-        });
       }
 
+      throw new Error(`bKash declined: ${executeResponse?.statusMessage || "Unknown Gateway Error"} (${executeResponse?.statusCode})`);
     } catch (error) {
+      console.error("[Controller Execute Error]:", error);
       return res.status(500).json({
         success: false,
         message: "Execution failed.",

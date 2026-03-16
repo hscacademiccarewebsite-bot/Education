@@ -1,78 +1,84 @@
 const axios = require('axios');
 
-const BKASH_BASE_URL = process.env.BKASH_BASE_URL || 'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized';
-const BKASH_APP_KEY = process.env.BKASH_APP_KEY;
-const BKASH_APP_SECRET = process.env.BKASH_APP_SECRET;
-const BKASH_USERNAME = process.env.BKASH_USERNAME;
-const BKASH_PASSWORD = process.env.BKASH_PASSWORD;
-
-async function getBkashToken() {
+const getBkashToken = async () => {
   try {
-    const { data } = await axios.post(`${BKASH_BASE_URL}/checkout/token/grant`, {
-      app_key: BKASH_APP_KEY,
-      app_secret: BKASH_APP_SECRET
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        username: BKASH_USERNAME,
-        password: BKASH_PASSWORD
+    const response = await axios.post(
+      'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/token/grant',
+      {
+        app_key: process.env.BKASH_APP_KEY,
+        app_secret: process.env.BKASH_APP_SECRET
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'username': process.env.BKASH_USERNAME,
+          'password': process.env.BKASH_PASSWORD
+        }
       }
-    });
-    return data.id_token;
-  } catch (error) {
-    console.error('Bkash get token error:', error?.response?.data || error.message);
-    throw new Error('Failed to communicate with bKash API');
-  }
-}
+    );
+    return response.data.id_token;
 
-async function createBkashPayment(paymentRecord, idToken) {
+  } catch (error) {
+    console.error("Error getting token:", error.message);
+  }
+};
+
+const createBkashPayment = async ({ amount, payerReference, merchantInvoiceNumber }) => {
   try {
-    const amountStr = Number(paymentRecord.amount).toFixed(2);
-    
-    const { data } = await axios.post(`${BKASH_BASE_URL}/checkout/create`, {
-      // Tokenized checkout requires mode "0001" per bKash docs.
-      mode: '0001',
-      payerReference: paymentRecord.student.toString(),
-      callbackURL: `${process.env.FRONTEND_URL}/payments/bkash-callback`,
-      amount: amountStr,
-      currency: paymentRecord.currency || 'BDT',
-      intent: 'sale',
-      merchantInvoiceNumber: paymentRecord._id.toString()
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        authorization: idToken,
-        'x-app-key': BKASH_APP_KEY
+    const token = await getBkashToken();
+    const response = await axios.post(
+      'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/create',
+      {
+        mode: '0011',
+        payerReference: payerReference.toString(),
+        callbackURL: `${process.env.FRONTEND_URL}/payments/bkash-callback?paymentId=${payerReference}`,
+        amount: Number(amount).toFixed(2),
+        currency: 'BDT',
+        intent: 'sale',
+        merchantInvoiceNumber: merchantInvoiceNumber.toString()
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': token,
+          'x-app-key': process.env.BKASH_APP_KEY
+        }
       }
-    });
+    );
 
-    return data;
+    return response.data;
   } catch (error) {
-    console.error('Bkash create payment error:', error?.response?.data || error.message);
-    throw new Error('Failed to create bKash payment');
+    console.error("Error creating payment:", error.message);
+    throw error;
   }
-}
+};
 
-async function executeBkashPayment(paymentID, idToken) {
+const executeBkashPayment = async (paymentID) => {
   try {
-    const { data } = await axios.post(`${BKASH_BASE_URL}/checkout/execute`, {
-      paymentID
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        authorization: idToken,
-        'x-app-key': BKASH_APP_KEY
+    const token = await getBkashToken();
+    const response = await axios.post(
+      'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/execute',
+      {
+        paymentID
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': token,
+          'x-app-key': process.env.BKASH_APP_KEY
+        }
       }
-    });
+    );
 
-    return data;
+    return response.data;
   } catch (error) {
-    console.error('Bkash execute err:', error?.response?.data || error.message);
-    throw new Error('Failed to execute bKash payment');
+    console.error("Error executing payment:", error.message);
+    throw error;
   }
-}
+};
 
-module.exports = { getBkashToken, createBkashPayment, executeBkashPayment };
+module.exports = {
+  getBkashToken,
+  createBkashPayment,
+  executeBkashPayment
+};

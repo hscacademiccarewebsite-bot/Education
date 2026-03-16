@@ -37,13 +37,14 @@ const footerLinkSchema = new mongoose.Schema(
 
 const generalSectionSchema = new mongoose.Schema(
   {
-    siteName: { type: String, trim: true },
     siteTagline: { type: String, trim: true },
     footerText: { type: String, trim: true },
     footerCopyright: { type: String, trim: true },
     footerLinks: { type: [footerLinkSchema], default: () => [] },
     logo: { type: cloudinaryAssetSchema, default: undefined },
     logoUrl: { type: String, trim: true },
+    gpa5Count: { type: Number, default: 0, min: 0 },
+    publicAdmissionCount: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -56,6 +57,7 @@ const contactSectionSchema = new mongoose.Schema(
     facebookPage: { type: String, trim: true },
     whatsapp: { type: String, trim: true },
     officeHours: { type: String, trim: true },
+    mapEmbedUrl: { type: String, trim: true },
   },
   { _id: false }
 );

@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import RequireAuth from "@/components/RequireAuth";
-import ImageUploadField from "@/components/uploads/ImageUploadField";
 import { InlineLoader } from "@/components/loaders/AppLoader";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { FloatingInput, FloatingTextarea } from "@/components/forms/FloatingField";
@@ -13,157 +12,120 @@ import {
 } from "@/lib/features/home/homeApi";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { useSelector } from "react-redux";
+import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 
-function toFooterLinksText(links) {
-  if (!Array.isArray(links)) {
-    return "";
-  }
+/* ════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════ */
 
-  return links
-    .map((link) => {
-      const label = String(link?.label || "").trim();
-      const href = String(link?.href || "").trim();
-      if (!label || !href) {
-        return "";
-      }
-      return `${label} | ${href}${link?.requiresAuth ? " | auth" : ""}`;
-    })
-    .filter(Boolean)
-    .join("\n");
+/** Build a canonical wa.me link from a raw phone number string */
+function toWaLink(raw = "") {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}`;
 }
 
-function parseFooterLinksText(value) {
-  return String(value || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [labelPart, hrefPart, accessPart] = line.split("|").map((item) => item.trim());
-      const label = String(labelPart || "").trim();
-      const href = String(hrefPart || "").trim();
-      if (!label || !href) {
-        return null;
-      }
-      if (!href.startsWith("/")) {
-        return null;
-      }
-      return {
-        label,
-        href,
-        requiresAuth: /^(auth|private|protected|member)$/i.test(String(accessPart || "")),
-      };
-    })
-    .filter(Boolean);
+function settingsToForm(settings) {
+  return {
+    gpa5Count: String(settings?.general?.gpa5Count ?? ""),
+    publicAdmissionCount: String(settings?.general?.publicAdmissionCount ?? ""),
+    contactEmail: settings?.contact?.email || "",
+    contactPhone: settings?.contact?.phone || "",
+    contactAddress: settings?.contact?.address || "",
+    contactOfficeHours: settings?.contact?.officeHours || "",
+    contactFacebookPage: settings?.contact?.facebookPage || "",
+    contactMapEmbedUrl: settings?.contact?.mapEmbedUrl || "",
+    // store as plain number; wa.me link is generated on the fly everywhere
+    contactWhatsapp: settings?.contact?.whatsapp || "",
+  };
 }
 
-const EMPTY_FORM = {
-  siteName: "",
-  siteTagline: "",
-  footerText: "",
-  footerCopyright: "",
-  footerLinks: "",
-  logoAsset: null,
-  logoTouched: false,
-  contactEmail: "",
-  contactPhone: "",
-  contactAddress: "",
-  contactOfficeHours: "",
-  contactFacebookPage: "",
-  contactWhatsapp: "",
-};
+const EMPTY_FORM = settingsToForm(null);
 
-function MessageBanner({ tone, children }) {
-  const classes =
-    tone === "error"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : "border-emerald-200 bg-emerald-50 text-emerald-700";
-
-  return (
-    <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${classes}`}>
-      {children}
-    </div>
-  );
+function isFormDirty(form, baseline) {
+  return Object.keys(form).some((k) => form[k] !== baseline[k]);
 }
+
+/* ════════════════════════════════════════════
+   SMALL UI COMPONENTS
+════════════════════════════════════════════ */
 
 function SectionCard({ eyebrow, title, description, children }) {
   return (
-    <article className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-            {eyebrow}
-          </p>
-          <h2 className="font-display mt-3 text-2xl font-black text-slate-950">{title}</h2>
-          {description ? <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p> : null}
-        </div>
+    <article className="site-panel overflow-hidden rounded-[clamp(8px,5%,12px)]">
+      <div className="border-b border-slate-100 px-5 py-4 md:px-6">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">{eyebrow}</p>
+        <h2 className="mt-1 text-base font-black text-slate-900">{title}</h2>
+        {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
       </div>
-      <div className="mt-5">{children}</div>
+      <div className="p-5 md:p-6">{children}</div>
     </article>
   );
 }
 
+/* ════════════════════════════════════════════
+   PAGE
+════════════════════════════════════════════ */
 export default function SiteSettingsPage() {
-  const { data, isLoading, isError, refetch } = useGetAdminSiteSettingsQuery();
+  // ── RTK Query (Redux) ──────────────────────────────────────
+  const isInitialized = useSelector(selectIsAuthInitialized);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  const { data, isLoading, isError, refetch } = useGetAdminSiteSettingsQuery(undefined, {
+    skip: !isInitialized || !isAuthenticated,
+  });
   const [updateSiteSettings, { isLoading: saving }] = useUpdateAdminSiteSettingsMutation();
 
+  // ── Local form state ───────────────────────────────────────
   const [form, setForm] = useState(EMPTY_FORM);
-  const [error, setError] = useState("");
+  // Baseline tracks what was last loaded from the server
+  const [baseline, setBaseline] = useState(EMPTY_FORM);
+  const [saveError, setSaveError] = useState("");
   const { showSuccess, showError, popupNode } = useActionPopup();
-  const { t, language } = useSiteLanguage();
+  const { language } = useSiteLanguage();
 
   const settings = data?.data;
   const metadata = settings?.metadata || {};
 
+  // ── Sync Redux data → form whenever the server response changes ──
   useEffect(() => {
-    if (!settings) {
-      return;
-    }
-
-    setForm({
-      siteName: settings?.general?.siteName || "",
-      siteTagline: settings?.general?.siteTagline || "",
-      footerText: settings?.general?.footerText || "",
-      footerCopyright: settings?.general?.footerCopyright || "",
-      footerLinks: toFooterLinksText(settings?.general?.footerLinks),
-      logoAsset: settings?.general?.logoUrl
-        ? {
-            url: settings.general.logoUrl,
-            publicId: settings?.general?.logo?.publicId || "",
-          }
-        : null,
-      logoTouched: false,
-      contactEmail: settings?.contact?.email || "",
-      contactPhone: settings?.contact?.phone || "",
-      contactAddress: settings?.contact?.address || "",
-      contactOfficeHours: settings?.contact?.officeHours || "",
-      contactFacebookPage: settings?.contact?.facebookPage || "",
-      contactWhatsapp: settings?.contact?.whatsapp || "",
-    });
+    if (!settings) return;
+    const initialForm = settingsToForm(settings);
+    setForm(initialForm);
+    setBaseline(initialForm);
   }, [settings]);
 
   const lastUpdatedText = useMemo(() => {
-    if (!metadata?.updatedAt) {
-      return t("siteSettingsPage.notUpdatedYet");
-    }
+    if (!metadata?.updatedAt) return "Not saved yet";
     return new Date(metadata.updatedAt).toLocaleString(language === "bn" ? "bn-BD" : "en-US");
-  }, [language, metadata?.updatedAt, t]);
+  }, [language, metadata?.updatedAt]);
 
-  const footerLinkCount = useMemo(
-    () => parseFooterLinksText(form.footerLinks).length,
-    [form.footerLinks]
-  );
+  // ── Dirty detection ────────────────────────────────────────
+  const isDirty = useMemo(() => isFormDirty(form, baseline), [form, baseline]);
 
+  // ── Field helper ───────────────────────────────────────────
+  const field = (key) => ({
+    value: form[key],
+    onChange: (e) => setForm((prev) => ({ ...prev, [key]: e.target.value })),
+  });
+
+  // ── Save ────────────────────────────────────────────────────
   const onSave = async (event) => {
     event.preventDefault();
-    setError("");
+    if (!isDirty) return;
+    setSaveError("");
+
+    let finalMapUrl = form.contactMapEmbedUrl.trim();
+    const iframeMatch = finalMapUrl.match(/src=["']([^"']+)["']/);
+    if (iframeMatch) {
+      finalMapUrl = iframeMatch[1];
+    }
 
     const payload = {
       general: {
-        siteName: form.siteName.trim(),
-        siteTagline: form.siteTagline.trim(),
-        footerText: form.footerText.trim(),
-        footerCopyright: form.footerCopyright.trim(),
-        footerLinks: parseFooterLinksText(form.footerLinks),
+        gpa5Count: parseInt(form.gpa5Count, 10) || 0,
+        publicAdmissionCount: parseInt(form.publicAdmissionCount, 10) || 0,
       },
       contact: {
         email: form.contactEmail.trim(),
@@ -171,298 +133,227 @@ export default function SiteSettingsPage() {
         address: form.contactAddress.trim(),
         officeHours: form.contactOfficeHours.trim(),
         facebookPage: form.contactFacebookPage.trim(),
-        whatsapp: form.contactWhatsapp.trim(),
+        mapEmbedUrl: finalMapUrl,
+        // Store raw number; wa.me links are constructed on-the-fly in the UI
+        whatsapp: form.contactWhatsapp.replace(/\D/g, ""),
       },
     };
 
-    if (form.logoTouched) {
-      if (form.logoAsset?.url) {
-        payload.general.logo = {
-          url: form.logoAsset.url,
-          publicId: form.logoAsset.publicId || "",
-        };
-      } else {
-        payload.general.removeLogo = true;
-      }
-    }
-
     try {
       await updateSiteSettings(payload).unwrap();
-      showSuccess(t("siteSettingsPage.messages.updated"));
-      setForm((prev) => ({ ...prev, logoTouched: false }));
-    } catch (saveError) {
-      const resolvedError = normalizeApiError(saveError);
-      setError(resolvedError);
-      showError(resolvedError);
+      showSuccess("Settings saved successfully.");
+      // Commit new baseline so button disables again
+      setBaseline(settingsToForm({
+        general: {
+          gpa5Count: payload.general.gpa5Count,
+          publicAdmissionCount: payload.general.publicAdmissionCount,
+        },
+        contact: {
+          email: payload.contact.email,
+          phone: payload.contact.phone,
+          address: payload.contact.address,
+          officeHours: payload.contact.officeHours,
+          facebookPage: payload.contact.facebookPage,
+          mapEmbedUrl: payload.contact.mapEmbedUrl,
+          whatsapp: payload.contact.whatsapp,
+        },
+      }));
+    } catch (err) {
+      const msg = normalizeApiError(err);
+      setSaveError(msg);
+      showError(msg);
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────
   return (
     <RequireAuth allowedRoles={["admin"]}>
       <section className="container-page py-8 md:py-10">
-        <section className="site-panel overflow-hidden rounded-[clamp(8px,5%,12px)] p-5 md:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="site-kicker">{t("siteSettingsPage.kicker")}</p>
-              <h1 className="site-title mt-4">{t("siteSettingsPage.title")}</h1>
-              <p className="site-lead mt-4 max-w-3xl">
-                {t("siteSettingsPage.subtitle")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => refetch()} className="site-button-secondary">
-                {t("siteSettingsPage.refresh")}
-              </button>
-              <Link href="/dashboard/slider-control" className="site-button-secondary">
-                {t("siteSettingsPage.sliderControl")}
-              </Link>
-              <Link href="/dashboard" className="site-button-primary">
-                {t("navbar.dashboard")}
-              </Link>
-            </div>
-          </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.lastUpdated")}</p>
-              <p className="mt-2 text-sm font-semibold text-slate-800">{lastUpdatedText}</p>
-            </div>
-            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.heroSlides")}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{Number(metadata?.heroSlidesCount || 0)}</p>
-            </div>
-            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.footerLinks")}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{footerLinkCount}</p>
-            </div>
-            <div className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("siteSettingsPage.stats.activeBrand")}</p>
-              <p className="mt-2 text-sm font-semibold text-slate-800">
-                {form.siteName || t("siteSettingsPage.defaultSiteName")}
-              </p>
-            </div>
+        {/* Header */}
+        <div className="flex flex-wrap items-start justify-between gap-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white px-6 py-5 shadow-[0_4px_14px_rgba(15,23,42,0.07)]">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Admin</p>
+            <h1 className="mt-1.5 text-xl font-black tracking-tight text-slate-900 md:text-2xl">
+              Site Settings
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Last saved: <span className="font-semibold text-slate-700">{lastUpdatedText}</span>
+            </p>
           </div>
-        </section>
-
-        <div className="mt-6 space-y-4">
-          {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => refetch()} className="site-button-secondary">
+              Refresh
+            </button>
+            <Link href="/dashboard/slider-control" className="site-button-secondary">
+              Slider Control
+            </Link>
+            <Link href="/dashboard" className="site-button-primary">
+              Dashboard
+            </Link>
+          </div>
         </div>
 
+
+
+        {/* Error banner */}
+        {saveError && (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {saveError}
+          </div>
+        )}
+
         {isLoading ? (
-          <div className="site-panel mt-8 rounded-[clamp(8px,5%,12px)] p-6">
-            <InlineLoader label={t("siteSettingsPage.loading")} />
+          <div className="mt-8 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-8">
+            <InlineLoader label="Loading settings…" />
           </div>
         ) : isError ? (
-          <div className="mt-8">
-            <MessageBanner tone="error">{t("siteSettingsPage.loadError")}</MessageBanner>
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            Failed to load settings. Please refresh.
           </div>
         ) : (
-          <form className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" onSubmit={onSave}>
-            <div className="space-y-6">
+          <form className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={onSave}>
+            <div className="space-y-5">
+
+              {/* Hero Stats */}
               <SectionCard
-                eyebrow={t("siteSettingsPage.brandSystem")}
-                title={t("siteSettingsPage.generalBranding")}
-                description={t("siteSettingsPage.generalBrandingDesc")}
+                eyebrow="Homepage"
+                title="Hero Statistics"
+                description="Shown on the homepage hero as achievement counters. Student count is sourced automatically from the database."
               >
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <FloatingInput
-                    label={t("siteSettingsPage.fields.siteName")}
-                    value={form.siteName}
-                    onChange={(event) => setForm((prev) => ({ ...prev, siteName: event.target.value }))}
-                    hint={t("siteSettingsPage.defaultSiteName")}
+                    id="gpa5Count"
+                    type="number"
+                    label="GPA 5 Achieved"
+                    hint="e.g. 200"
+                    {...field("gpa5Count")}
                   />
-
                   <FloatingInput
-                    label={t("siteSettingsPage.fields.siteTagline")}
-                    value={form.siteTagline}
-                    onChange={(event) => setForm((prev) => ({ ...prev, siteTagline: event.target.value }))}
-                    hint={t("siteSettingsPage.defaultTagline")}
+                    id="publicAdmissionCount"
+                    type="number"
+                    label="Public University Admissions"
+                    hint="e.g. 150"
+                    {...field("publicAdmissionCount")}
                   />
-
-                  <FloatingTextarea
-                    label={t("siteSettingsPage.fields.footerText")}
-                    className="md:col-span-2"
-                    value={form.footerText}
-                    onChange={(event) => setForm((prev) => ({ ...prev, footerText: event.target.value }))}
-                    rows={3}
-                    hint={t("siteSettingsPage.footerShortNote")}
-                  />
-
-                  <FloatingInput
-                    label={t("siteSettingsPage.fields.footerCopyright")}
-                    className="md:col-span-2"
-                    value={form.footerCopyright}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, footerCopyright: event.target.value }))
-                    }
-                    hint={t("footer.defaultCopyright")}
-                  />
-
-                  <div className="md:col-span-2">
-                    <FloatingTextarea
-                      label={t("siteSettingsPage.fields.footerLinks")}
-                      value={form.footerLinks}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, footerLinks: event.target.value }))
-                      }
-                      rows={5}
-                      hint={t("siteSettingsPage.footerLinksHint")}
-                    />
-                    <p className="mt-2 text-xs text-slate-500">
-                      {t("siteSettingsPage.formatLabel")}: <span className="font-bold">{t("siteSettingsPage.formatSample")}</span>
-                    </p>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <ImageUploadField
-                      label={t("siteSettingsPage.fields.siteLogo")}
-                      folder="hsc-academic/site"
-                      asset={form.logoAsset}
-                      previewAlt={t("siteSettingsPage.siteLogoPreviewAlt")}
-                      onChange={(asset) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          logoTouched: true,
-                          logoAsset: asset?.url
-                            ? { url: asset.url, publicId: asset.publicId || "" }
-                            : null,
-                        }))
-                      }
-                    />
-
-                    {form.logoAsset ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            logoTouched: true,
-                            logoAsset: null,
-                          }))
-                        }
-                        className="site-button-secondary mt-3 px-4 py-2 text-xs"
-                      >
-                        {t("siteSettingsPage.removeLogo")}
-                      </button>
-                    ) : null}
-                  </div>
                 </div>
+                <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <svg className="h-3.5 w-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Active Students count is automatic — no input needed here.
+                </p>
               </SectionCard>
 
+              {/* Contact */}
               <SectionCard
-                eyebrow={t("siteSettingsPage.supportChannels")}
-                title={t("siteSettingsPage.contactSection")}
-                description={t("siteSettingsPage.contactSectionDesc")}
+                eyebrow="Support"
+                title="Contact Information"
+                description="Displayed on the Contact Us page and in the site footer."
               >
-                <div className="grid gap-4">
-                  <FloatingInput
-                    type="email"
-                    label={t("contactPage.labels.email")}
-                    value={form.contactEmail}
-                    onChange={(event) => setForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FloatingInput id="contactEmail" type="email" label="Email" {...field("contactEmail")} />
+                  <FloatingInput id="contactPhone" label="Phone" {...field("contactPhone")} />
+                  <FloatingTextarea
+                    id="contactAddress"
+                    label="Address"
+                    className="sm:col-span-2"
+                    rows={2}
+                    {...field("contactAddress")}
                   />
-
                   <FloatingInput
-                    label={t("contactPage.labels.phone")}
-                    value={form.contactPhone}
-                    onChange={(event) => setForm((prev) => ({ ...prev, contactPhone: event.target.value }))}
+                    id="contactOfficeHours"
+                    label="Office Hours"
+                    hint="e.g. Sat–Thu, 9am–9pm"
+                    {...field("contactOfficeHours")}
                   />
-
                   <FloatingInput
-                    label={t("contactPage.labels.address")}
-                    value={form.contactAddress}
-                    onChange={(event) => setForm((prev) => ({ ...prev, contactAddress: event.target.value }))}
-                  />
-
-                  <FloatingInput
-                    label={t("contactPage.labels.officeHours")}
-                    value={form.contactOfficeHours}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, contactOfficeHours: event.target.value }))
-                    }
-                  />
-
-                  <FloatingInput
+                    id="contactFacebookPage"
                     type="url"
-                    label={t("siteSettingsPage.fields.facebookPageUrl")}
-                    value={form.contactFacebookPage}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, contactFacebookPage: event.target.value }))
-                    }
+                    label="Facebook Page URL"
+                    {...field("contactFacebookPage")}
                   />
-
-                  <FloatingInput
-                    type="url"
-                    label={t("siteSettingsPage.fields.whatsAppUrl")}
-                    value={form.contactWhatsapp}
-                    onChange={(event) => setForm((prev) => ({ ...prev, contactWhatsapp: event.target.value }))}
+                  <FloatingTextarea
+                    id="contactMapEmbedUrl"
+                    label="Google Map Embed URL (iframe src)"
+                    className="sm:col-span-2"
+                    rows={2}
+                    hint="Paste the entire Google Maps iframe embed code or just the src link"
+                    {...field("contactMapEmbedUrl")}
                   />
+                  <div>
+                    <FloatingInput
+                      id="contactWhatsapp"
+                      type="tel"
+                      label="WhatsApp Number"
+                      hint="Digits only, e.g. 8801XXXXXXXXX"
+                      {...field("contactWhatsapp")}
+                    />
+                    {form.contactWhatsapp && (
+                      <a
+                        href={toWaLink(form.contactWhatsapp)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20.52 3.48A11.86 11.86 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.59 5.95L0 24l6.34-1.66a11.89 11.89 0 005.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.17-3.45-8.42z" />
+                        </svg>
+                        Preview: {toWaLink(form.contactWhatsapp)}
+                      </a>
+                    )}
+                  </div>
                 </div>
               </SectionCard>
             </div>
 
-            <aside className="space-y-6 xl:sticky xl:top-24 xl:h-fit">
-              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-6">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  {t("siteSettingsPage.livePreview")}
-                </p>
-                <div className="mt-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center gap-4">
-                    {form.logoAsset?.url ? (
-                      <img
-                        src={form.logoAsset.url}
-                        alt={form.siteName || t("siteSettingsPage.siteLogoPreviewAlt")}
-                        className="h-14 w-14 rounded-2xl bg-white object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-200 text-lg font-black text-slate-800">
-                        {(form.siteName || t("siteSettingsPage.defaultShortName")).slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-display text-2xl font-black text-slate-900">
-                        {form.siteName || t("siteSettingsPage.defaultSiteName")}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {form.siteTagline || t("siteSettingsPage.defaultTagline")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-3 text-sm text-slate-600">
-                    <p>{form.footerText || t("siteSettingsPage.footerPreviewFallback")}</p>
-                    <p>
-                      © {new Date().getFullYear()} {form.siteName || t("siteSettingsPage.defaultSiteName")}{" "}
-                      {form.footerCopyright || t("footer.defaultCopyright")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="site-panel-muted rounded-[clamp(8px,5%,12px)] p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  {t("siteSettingsPage.formattingGuide")}
-                </p>
-                <div className="mt-3 space-y-3 text-sm text-slate-600">
-                  <p>
-                    {t("siteSettingsPage.footerLinksLabel")}: <span className="font-semibold">{t("siteSettingsPage.formatSampleShort")}</span>
-                  </p>
-                  <p>
-                    {t("siteSettingsPage.saveAppliesNote")}
-                  </p>
-                </div>
-              </div>
-
+            {/* Sidebar */}
+            <aside className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
               <div className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  {t("siteSettingsPage.publishChanges")}
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                  Publish
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {t("siteSettingsPage.publishDescription")}
+                {isDirty ? (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-600">
+                    <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+                    Unsaved changes
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-400">No changes to save.</p>
+                )}
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Changes apply instantly to the live site after saving.
                 </p>
-                <button type="submit" disabled={saving} className="site-button-primary mt-4 w-full justify-center">
-                  {saving ? t("siteSettingsPage.saving") : t("siteSettingsPage.saveSiteSettings")}
+                <button
+                  type="submit"
+                  disabled={saving || !isDirty}
+                  className={`mt-4 w-full justify-center ${
+                    isDirty ? "site-button-primary" : "site-button-secondary opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  {saving ? "Saving…" : "Save Changes"}
                 </button>
+              </div>
+
+              <div className="rounded-[clamp(8px,5%,12px)] border border-slate-100 bg-slate-50 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  What you can manage
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {[
+                    "Homepage achievement stats",
+                    "Contact page details & dynamic integrated map",
+                    "WhatsApp redirects automatically via wa.me",
+                    "Hero slider images (via Slider Control)",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-slate-600">
+                      <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </aside>
           </form>

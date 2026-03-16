@@ -20,13 +20,13 @@ router.get(
 
 router.get(
   "/review",
-  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  AuthMiddleware.requireRoles("admin", "moderator"),
   EnrollmentRequestController.listEnrollmentRequestsForReview
 );
 
 router.patch(
   "/:enrollmentId/status",
-  AuthMiddleware.requireRoles("admin", "teacher", "moderator"),
+  AuthMiddleware.requireRoles("admin", "moderator"),
   EnrollmentRequestController.reviewEnrollmentRequest
 );
 

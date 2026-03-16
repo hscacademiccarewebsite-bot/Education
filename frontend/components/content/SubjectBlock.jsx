@@ -103,7 +103,7 @@ export default function SubjectBlock({ subject, canManage }) {
               </button>
             </div>
           ) : (
-            <h3 className="text-xl font-black text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
+            <h3 className="text-xl font-extrabold text-slate-900 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
               {subject.title}
             </h3>
           )}

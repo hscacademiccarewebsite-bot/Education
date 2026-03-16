@@ -4,7 +4,6 @@ import SiteFooter from "@/components/layouts/SiteFooter";
 export default function WithNavbarLayout({ children }) {
   return (
     <main className="site-shell min-h-screen text-slate-900">
-      <Navbar />
       <div className="site-nav-offset">{children}</div>
       <SiteFooter />
     </main>

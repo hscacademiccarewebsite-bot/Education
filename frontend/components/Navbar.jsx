@@ -2,76 +2,95 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { useSelector } from "react-redux";
 import { auth } from "@/firebase.config";
-import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
+import {
+  selectIsAuthenticated,
+  selectIsAuthInitialized,
+} from "@/lib/features/auth/authSlice";
 import {
   selectCurrentUserDisplayName,
   selectCurrentUserPhotoUrl,
   selectCurrentUserRole,
 } from "@/lib/features/user/userSlice";
 import RoleBadge from "@/components/RoleBadge";
+import NotificationBell from "@/components/NotificationBell";
+import Avatar from "@/components/Avatar";
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
+// ─── Nav link definitions ─────────────────────────────────────────────────────
 const NAV_LINKS = [
   {
     href: "/",
     labelKey: "navbar.home",
-    exact: true,
     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+    exact: true,
   },
   {
     href: "/courses",
     labelKey: "navbar.courses",
-    icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
-  },
-  {
-    href: "/#about",
-    labelKey: "navbar.about",
-    icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  },
-  {
-    href: "/#faculty",
-    labelKey: "navbar.faculty",
-    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+    icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.168.477-4.5 1.253",
   },
   {
     href: "/contact-us",
     labelKey: "navbar.contact",
-    icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
+    icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
   },
 ];
 
-const DASHBOARD_LINK = {
-  href: "/dashboard",
+const DASHBOARD_LINK = { 
+  href: "/dashboard", 
   labelKey: "navbar.dashboard",
-  icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
+  icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
 };
 
-function initialsFromName(name) {
-  return String(name || "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("");
+
+function isActive(pathname, { href, exact }) {
+  return exact ? pathname === href : pathname.startsWith(href);
 }
 
-function isLinkActive(pathname, item) {
-  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
-}
-
-function NavIcon({ path, className = "" }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function NavIcon({ path, className = "h-4 w-4" }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d={path} />
     </svg>
   );
 }
 
+/** Animated hamburger / close icon */
+function Hamburger({ open }) {
+  return (
+    <div className="flex flex-col gap-[5px] items-center justify-center w-5">
+      <span
+        className={`block h-[2px] w-5 rounded-full bg-slate-700 transition-all duration-300 ${
+          open ? "translate-y-[7px] rotate-45" : ""
+        }`}
+      />
+      <span
+        className={`block h-[2px] w-5 rounded-full bg-slate-700 transition-all duration-300 ${
+          open ? "opacity-0 scale-x-0" : ""
+        }`}
+      />
+      <span
+        className={`block h-[2px] w-5 rounded-full bg-slate-700 transition-all duration-300 ${
+          open ? "-translate-y-[7px] -rotate-45" : ""
+        }`}
+      />
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function Navbar() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
@@ -89,68 +108,68 @@ export default function Navbar() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [scrolled, setScrolled] = useState(false);
-
-  const profileMenuRef = useRef(null);
-  const mobileMenuId = "site-mobile-drawer";
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    setMounted(true);
   }, []);
 
+  const profileRef = useRef(null);
+
+  // Derived values
+  const siteName = "HSC Academic and Admission Care";
+  const siteLogoUrl = mounted ? (siteSettingsData?.data?.general?.logoUrl || "/logo.png") : "/logo.png";
+  const accountLabel = mounted
+    ? (displayName || (isAuthenticated ? t("navbar.student", "Student") : ""))
+    : "";
+
+  // ── Effects ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Close everything on route change
   useEffect(() => {
     setMobileOpen(false);
     setProfileMenuOpen(false);
   }, [pathname]);
 
+  // Close profile menu on outside click
   useEffect(() => {
     if (!profileMenuOpen) return;
-    const handleClickOutside = (event) => {
-      if (!profileMenuRef.current?.contains(event.target)) {
-        setProfileMenuOpen(false);
-      }
+    const handler = (e) => {
+      if (!profileRef.current?.contains(e.target)) setProfileMenuOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [profileMenuOpen]);
 
+  // Escape key closes everything
   useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
+    const handler = (e) => {
+      if (e.key === "Escape") {
         setMobileOpen(false);
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, []);
 
+  // Lock scroll when mobile drawer is open
   useEffect(() => {
     if (!mobileOpen) return;
-    const previousOverflow = document.body.style.overflow;
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = prev;
     };
   }, [mobileOpen]);
 
-  const siteName = siteSettingsData?.data?.general?.siteName || "HSC Academic & Admission Care";
-  const siteTagline = siteSettingsData?.data?.general?.siteTagline || "Academic Platform";
-  const siteLogoUrl = siteSettingsData?.data?.general?.logoUrl || "/logo.png";
-  const accountLabel = displayName || (isAuthenticated ? t("navbar.student", "Student") : "");
-  const visibleNavLinks = useMemo(
-    () =>
-      NAV_LINKS.filter((item) => {
-        if (!item.requiresAuth) {
-          return true;
-        }
-        return isInitialized && isAuthenticated;
-      }),
-    [isAuthenticated, isInitialized]
-  );
-
-  const handleGoogleLogin = async () => {
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const handleLogin = async () => {
     setLoginError("");
     setLoginLoading(true);
     try {
@@ -158,224 +177,240 @@ export default function Navbar() {
       provider.setCustomParameters({ prompt: "select_account" });
       await signInWithPopup(auth, provider);
       router.push("/dashboard");
-    } catch (error) {
-      setLoginError(error?.message || t("navbar.loginFailed", "Login failed."));
+    } catch (err) {
+      setLoginError(err?.message || t("navbar.loginFailed", "Login failed."));
     } finally {
       setLoginLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-  };
+  const handleLogout = () => signOut(auth);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* ═══════════════════════════  HEADER  ═══════════════════════════════ */}
       <header
-        className={`fixed inset-x-0 top-0 z-[110] border-b transition-all duration-500 ${
+        className={`fixed inset-x-0 top-0 z-[110] w-full transition-all duration-500 ease-in-out ${
           scrolled
-            ? "border-white/60 bg-[rgba(232,236,236,0.9)] shadow-[0_18px_44px_rgba(15,23,42,0.1)] backdrop-blur-2xl"
-            : "border-transparent bg-[rgba(232,236,236,0.74)] backdrop-blur-xl"
+            ? "bg-white/75 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl border-b border-white/20"
+            : "bg-white border-b border-slate-100"
         }`}
       >
         <div className="container-page">
-          <div className="flex h-16 items-center gap-3 md:h-[74px] md:gap-5">
-            <Link href="/" className="group flex min-w-0 items-center gap-3 md:gap-4">
+          <div className="flex h-16 items-center gap-4 transition-all duration-300 md:h-[76px] md:gap-10">
+            {/* ── Logo / Brand ─────────────────────────────────────────── */}
+            <Link
+              href="/"
+              className="group flex shrink-0 items-center gap-3 transition-all hover:opacity-100 active:scale-95"
+              aria-label={siteName}
+            >
               <div className="relative">
-                <div className="absolute -inset-2 rounded-2xl bg-gradient-to-tr from-emerald-200/60 via-cyan-200/50 to-amber-200/50 opacity-0 blur-md transition duration-400 group-hover:opacity-100" />
+                <div className="absolute inset-0 bg-emerald-400/20 blur-xl transition-opacity opacity-0 group-hover:opacity-100" />
                 <img
                   src={siteLogoUrl}
                   alt={siteName}
-                  className="relative h-10 w-10 rounded-2xl object-cover ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-105 md:h-11 md:w-11"
+                  className="relative h-9 w-9 rounded-xl object-contain shadow-sm md:h-11 md:w-11"
                 />
               </div>
-              <div className="hidden min-w-0 flex-col md:flex">
-                <span className="font-display max-w-[230px] truncate text-[15px] font-black tracking-tight text-slate-900">
-                  {siteName}
-                </span>
-                <span className="max-w-[230px] truncate text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
-                  {siteTagline}
-                </span>
+              <div className="flex flex-col leading-[1.1]">
+                <div className="flex items-center gap-1 font-display text-[16px] font-black uppercase tracking-tight text-slate-900 md:text-[20px]">
+                  <span>HSC</span>
+                  <span className="text-emerald-600 transition-colors group-hover:text-emerald-500">Academic</span>
+                </div>
+                <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 md:text-[10px]">
+                  and Admission Care
+                </div>
               </div>
             </Link>
 
-            <nav className="hidden flex-1 justify-center lg:flex">
-              <div className="site-panel-muted relative flex items-center gap-1 rounded-[22px] border border-white/70 p-1.5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
-                {visibleNavLinks.map((item) => {
-                  const active = isLinkActive(pathname, item);
+            {/* ── Desktop Nav Links ─────────────────────────────────────── */}
+            <nav className="hidden flex-1 justify-center lg:flex" aria-label="Main navigation">
+              <ul className="flex items-center gap-10">
+                {NAV_LINKS.map((item) => {
+                  const active = isActive(pathname, item);
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`relative flex items-center gap-2 rounded-2xl px-4 py-2 text-[13px] font-black transition-all duration-200 ${
-                        active
-                          ? "bg-[linear-gradient(135deg,var(--action-start),var(--action-end))] text-white shadow-[var(--action-shadow)]"
-                          : "text-slate-600 hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
-                      }`}
-                    >
-                      <NavIcon
-                        path={item.icon}
-                        className={`h-4 w-4 ${active ? "text-white" : "text-slate-400"}`}
-                      />
-                      {t(item.labelKey)}
-                    </Link>
+                    <li key={item.href} className="relative">
+                      <Link
+                        href={item.href}
+                        className={`font-display relative flex items-center gap-2.5 px-2 py-2 text-[12px] font-bold uppercase tracking-wider transition-all duration-300 ${
+                          active
+                            ? "text-emerald-600"
+                            : "text-slate-500 hover:text-emerald-600 hover:scale-105"
+                        }`}
+                      >
+                        <NavIcon path={item.icon} className="h-4 w-4" />
+                        {t(item.labelKey)}
+                        {/* Underline for active state */}
+                        {active && (
+                          <div className="absolute -bottom-1 left-2 right-2 h-1 rounded-full bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.4)] transition-all animate-fade-in" />
+                        )}
+                      </Link>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </nav>
 
-            <div className="ml-auto hidden shrink-0 items-center gap-3 lg:flex">
+            {/* ── Right-side Actions (Desktop) ──────────────────────────── */}
+            <div className="ml-auto hidden shrink-0 items-center gap-5 lg:flex">
+              {/* Language toggle */}
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="site-button-secondary h-10 min-w-[74px] rounded-2xl px-3 text-[11px] font-black uppercase tracking-[0.14em]"
-                title={
-                  language === "bn"
-                    ? t("language.switchToEnglish")
-                    : t("language.switchToBangla")
-                }
-                aria-label={
-                  language === "bn"
-                    ? t("language.switchToEnglish")
-                    : t("language.switchToBangla")
-                }
+                className="group relative flex h-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3.5 transition-all hover:border-emerald-200 hover:bg-emerald-50/30 active:scale-95"
               >
-                {language === "bn" ? t("language.english") : t("language.bangla")}
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 group-hover:text-emerald-600">
+                  <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                  {language === "bn" ? "English" : "বাংলা"}
+                </div>
               </button>
+
+              {/* Notification bell */}
+              {isAuthenticated && <NotificationBell />}
+
+              {/* Auth / Profile */}
               {!isInitialized ? (
-                <div className="h-11 w-28 animate-pulse rounded-full bg-white/70" />
+                <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-100/80" />
               ) : !isAuthenticated ? (
                 <button
                   type="button"
-                  onClick={handleGoogleLogin}
+                  onClick={handleLogin}
                   disabled={loginLoading}
-                  className="site-button-primary h-10 gap-2 rounded-2xl px-4 text-xs active:scale-95 disabled:opacity-50"
+                  className="group relative flex h-10 items-center justify-center gap-3 overflow-hidden rounded-xl bg-slate-900 px-6 font-display text-[11px] font-bold uppercase tracking-widest text-white shadow-lg transition-all hover:bg-emerald-600 hover:shadow-emerald-200 active:scale-95 disabled:opacity-50"
                 >
-                  <NavIcon
-                    path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    className="h-4 w-4"
-                  />
-                  {loginLoading ? t("navbar.loginBusy") : t("navbar.login")}
+                  {loginLoading ? t("navbar.loginBusy", "…") : (
+                    <>
+                      <svg className="h-4 w-4 opacity-70 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      {t("navbar.login", "Login")}
+                    </>
+                  )}
                 </button>
               ) : (
-                <div className="relative" ref={profileMenuRef}>
+                <div className="relative" ref={profileRef}>
                   <button
                     type="button"
-                    onClick={() => setProfileMenuOpen((value) => !value)}
-                    className="site-panel-muted flex items-center gap-3 rounded-[18px] border border-[var(--action-soft-border)] p-1.5 pr-3 transition hover:-translate-y-0.5 hover:bg-[var(--action-soft-bg)] active:scale-95"
+                    onClick={() => setProfileMenuOpen((v) => !v)}
+                    className={`flex items-center gap-2.5 rounded-2xl border bg-white p-1 pr-3.5 transition-all duration-300 active:scale-95 ${
+                      profileMenuOpen 
+                        ? "border-emerald-200 shadow-md ring-4 ring-emerald-50" 
+                        : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md"
+                    }`}
                     aria-expanded={profileMenuOpen}
-                    aria-label={t("navbar.toggleProfileMenu")}
                   >
-                    {photoUrl ? (
-                      <img
-                        src={photoUrl}
-                        alt={accountLabel}
-                        className="h-9 w-9 rounded-xl object-cover ring-2 ring-white/70"
-                      />
-                    ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 via-teal-800 to-emerald-600 text-[11px] font-black text-white">
-                        {initialsFromName(accountLabel) || "U"}
-                      </div>
-                    )}
-                    <div className="text-left">
-                      <p className="max-w-[132px] truncate text-xs font-black text-slate-900">{accountLabel}</p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.17em] text-slate-500">
-                        {currentRole || t("navbar.student")}
-                      </p>
-                    </div>
+                    <Avatar
+                      src={photoUrl}
+                      name={accountLabel}
+                      className="h-8 w-8 rounded-xl shadow-inner"
+                      fallbackClassName="bg-emerald-50 text-emerald-600 text-[10px] font-bold"
+                    />
+                    <span className="max-w-[100px] truncate font-display text-[12px] font-bold tracking-tight text-slate-800">
+                      {accountLabel}
+                    </span>
                     <svg
-                      className={`h-3.5 w-3.5 text-slate-400 transition-transform ${profileMenuOpen ? "rotate-180" : ""}`}
+                      className={`h-3 w-3 text-slate-400 transition-transform duration-300 ${profileMenuOpen ? "rotate-180" : ""}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
-                      strokeWidth={2.5}
+                      strokeWidth={3}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
+                  {/* Dropdown Menu - Glassmorphism */}
                   {profileMenuOpen && (
-                    <div className="site-panel absolute right-0 z-[120] mt-3 w-72 rounded-[24px] p-2">
-                      <div className="mb-2 rounded-2xl bg-slate-950 px-4 py-4 text-white">
-                        <p className="truncate text-sm font-black">{accountLabel}</p>
-                        <div className="mt-2">
+                    <div className="absolute right-0 top-[calc(100%+12px)] z-[120] w-64 origin-top-right overflow-hidden rounded-2xl border border-white/20 bg-white/95 p-2 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.15)] backdrop-blur-xl animate-scale-in">
+                      {/* Header with name and role */}
+                      <div className="mb-1.5 rounded-xl bg-slate-900 px-4 py-4 text-white shadow-lg">
+                        <p className="font-display truncate text-[14px] font-bold">{accountLabel}</p>
+                        <div className="mt-1.5">
                           {currentRole ? (
                             <RoleBadge role={currentRole} />
                           ) : (
-                            <span className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white/70">
-                              {t("navbar.student")}
+                            <span className="rounded-md bg-white/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
+                              {t("navbar.student", "Student")}
                             </span>
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1">
+
+                      <div className="space-y-0.5">
                         <Link
                           href="/profile"
-                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
+                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-emerald-600"
                         >
-                          <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4 text-slate-500" />
-                          {t("navbar.profile")}
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-100 group-hover:text-emerald-600">
+                            <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4" />
+                          </div>
+                          {t("navbar.profile", "My Profile")}
                         </Link>
                         <Link
                           href={DASHBOARD_LINK.href}
-                          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
+                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-emerald-600"
                         >
-                          <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4 text-slate-500" />
-                          {t(DASHBOARD_LINK.labelKey)}
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-100 group-hover:text-emerald-600">
+                             <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4" />
+                          </div>
+                          {t(DASHBOARD_LINK.labelKey, "Dashboard")}
                         </Link>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-[var(--action-soft-text)] transition hover:bg-[var(--action-soft-bg)]"
-                      >
-                        <NavIcon
-                          path="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                          className="h-4 w-4"
-                        />
-                        {t("navbar.signOut")}
-                      </button>
+
+                      <div className="mt-1 border-t border-slate-100 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="group font-display flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-rose-600 transition-all hover:bg-rose-50"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                            <NavIcon path="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" className="h-4 w-4" />
+                          </div>
+                          {t("navbar.signOut", "Sign Out")}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setMobileOpen((value) => !value)}
-              className="ml-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)] transition hover:bg-white active:scale-90 lg:hidden"
-              aria-expanded={mobileOpen}
-              aria-controls={mobileMenuId}
-              aria-label={
-                mobileOpen
-                  ? t("navbar.closeNavigationMenu")
-                  : t("navbar.openNavigationMenu")
-              }
-            >
-              <div className="flex flex-col gap-1.5">
-                <span
-                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
-                    mobileOpen ? "translate-y-2 rotate-45" : ""
-                  }`}
-                />
-                <span
-                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
-                    mobileOpen ? "opacity-0" : ""
-                  }`}
-                />
-                <span
-                  className={`h-0.5 w-5 rounded-full bg-[var(--action-soft-text)] transition-all duration-300 ${
-                    mobileOpen ? "-translate-y-2 -rotate-45" : ""
-                  }`}
-                />
-              </div>
-            </button>
+            {/* ── Mobile Actions ─────────────────────────────────────────── */}
+            <div className="ml-auto flex items-center gap-2 lg:hidden">
+              {/* Language toggle (Mobile) */}
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 text-[10px] font-bold uppercase tracking-wider text-emerald-600 transition-all active:scale-90"
+              >
+                <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-3.5 w-3.5" />
+                <span>{language === "bn" ? "EN" : "বাং"}</span>
+              </button>
+
+              {/* Mobile burger */}
+              <button
+                type="button"
+                onClick={() => setMobileOpen((v) => !v)}
+                className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white transition-all active:scale-95 ${
+                  mobileOpen 
+                    ? "border-emerald-200 shadow-emerald-50 shadow-lg" 
+                    : "border border-slate-200 shadow-sm"
+                }`}
+                aria-label={mobileOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileOpen}
+              >
+                <Hamburger open={mobileOpen} />
+              </button>
+            </div>
           </div>
 
-          {loginError ? (
-            <div className="pb-3">
-              <div className="mx-auto flex max-w-lg items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">
+          {/* Login error banner */}
+          {loginError && (
+            <div className="pb-3 px-4 md:px-6">
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[11px] font-bold text-rose-700 shadow-sm animate-shake">
                 <NavIcon
                   path="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                   className="h-4 w-4 shrink-0"
@@ -383,155 +418,185 @@ export default function Navbar() {
                 {loginError}
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       </header>
 
+      {/* ═════════════════════════  MOBILE DRAWER  ══════════════════════════ */}
       <div
-        className={`fixed inset-0 z-[130] lg:hidden ${
+        className={`fixed inset-0 z-[1000] lg:hidden ${
           mobileOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
         aria-hidden={!mobileOpen}
       >
+        {/* Backdrop */}
         <button
           type="button"
-          onClick={() => setMobileOpen(false)}
-          className={`absolute inset-0 bg-slate-950/35 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity duration-500 ${
             mobileOpen ? "opacity-100" : "opacity-0"
           }`}
-          aria-label={t("navbar.closeMobileNavigation")}
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close navigation"
         />
 
-        <aside
-          id={mobileMenuId}
-          className={`site-panel absolute right-0 top-0 flex h-full w-[min(90vw,360px)] flex-col border-l border-white/60 transition-transform duration-300 ${
-            mobileOpen ? "translate-x-0" : "translate-x-full"
+        {/* Drawer panel */}
+        <div
+          className={`absolute inset-y-0 right-0 flex h-full w-[75vw] max-w-[300px] flex-col bg-white transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            mobileOpen ? "translate-x-0 shadow-[-20px_0_60px_rgba(15,23,42,0.1)]" : "translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
-            <div>
-              <p className="font-display text-sm font-black text-slate-900">
-                {t("navbar.navigation")}
-              </p>
-              <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {t("navbar.mainMenu")}
-              </p>
-            </div>
+          {/* Drawer header */}
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-6">
+            <Link href="/" className="flex items-center gap-3 active:scale-95 transition">
+              <img
+                src={siteLogoUrl}
+                alt={siteName}
+                className="h-9 w-9 rounded-xl object-contain shadow-sm"
+              />
+              <div className="flex flex-col leading-tight">
+                <div className="flex items-center gap-1.5 font-display text-[16px] font-black uppercase tracking-tight text-slate-800">
+                  <span>HSC</span>
+                  <span className="text-emerald-600">Academic</span>
+                </div>
+                <div className="font-display text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  and Admission Care
+                </div>
+              </div>
+            </Link>
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)] text-[var(--action-soft-text)] transition hover:bg-white hover:text-[var(--action-start)]"
-              aria-label={t("navbar.closeMobileNavigation")}
+              className="group flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-emerald-100 hover:text-emerald-600 active:scale-90"
+              aria-label="Close"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5">
-            <div className="grid gap-2">
-              {visibleNavLinks.map((item) => {
-                const active = isLinkActive(pathname, item);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
-                      active
-                        ? "bg-[linear-gradient(135deg,var(--action-start),var(--action-end))] text-white"
-                        : "bg-white text-slate-700 hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
-                    }`}
-                  >
-                    <NavIcon path={item.icon} className={`h-5 w-5 ${active ? "text-white" : "text-slate-400"}`} />
-                    {t(item.labelKey)}
-                  </Link>
-                );
-              })}
-            </div>
+          {/* Drawer body */}
+          <div className="flex-1 overflow-y-auto px-5 py-8 space-y-1.5 custom-scrollbar">
+            <p className="px-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">{t("navbar.navigation", "Explore")}</p>
 
-            <div className="mt-6 border-t border-slate-200/70 pt-6">
+            {/* Nav links */}
+            {NAV_LINKS.map((item, idx) => {
+              const active = isActive(pathname, item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`font-display relative flex items-center gap-4 rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                    mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+                  } transition-delay-${idx * 100} ${
+                    active
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                  }`}
+                >
+                  <NavIcon path={item.icon} className={`h-4 w-4 ${active ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  {t(item.labelKey)}
+                  {active && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  )}
+                </Link>
+              );
+            })}
+
+            {isAuthenticated && (
+              <>
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className={`font-display relative flex items-center gap-4 rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                    mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+                  } transition-delay-300 ${
+                    pathname === "/profile"
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                  }`}
+                >
+                  <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className={`h-4 w-4 ${pathname === "/profile" ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  {t("navbar.profile", "Profile")}
+                  {pathname === "/profile" && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  )}
+                </Link>
+
+                <Link
+                  href={DASHBOARD_LINK.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`font-display group flex items-center gap-4 rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                    mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+                  } transition-delay-400 ${
+                    isActive(pathname, DASHBOARD_LINK)
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                  }`}
+                >
+                  <NavIcon path={DASHBOARD_LINK.icon} className={`h-4 w-4 ${isActive(pathname, DASHBOARD_LINK) ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  {t(DASHBOARD_LINK.labelKey)}
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Drawer footer */}
+          <div className="border-t border-slate-100 p-6 space-y-5 bg-slate-50/50">
+            {isAuthenticated && (
+              <div className="flex items-center gap-3 px-1">
+                <Avatar
+                  src={photoUrl}
+                  name={accountLabel}
+                  className="h-10 w-10 rounded-xl"
+                  fallbackClassName="bg-emerald-100 text-emerald-700 font-bold text-[10px]"
+                />
+                <div className="min-w-0">
+                  <p className="font-display truncate text-[13px] font-black text-slate-800">{accountLabel}</p>
+                  <p className="font-display text-[9px] font-bold uppercase tracking-wider text-emerald-600">
+                    {currentRole || t("navbar.student", "Student")}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!isInitialized ? (
+               <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-100" />
+            ) : !isAuthenticated ? (
               <button
                 type="button"
-                onClick={toggleLanguage}
-                className="site-button-secondary mb-3 flex h-10 w-full items-center justify-center rounded-2xl text-[11px] font-black uppercase tracking-[0.14em]"
-                title={
-                  language === "bn"
-                    ? t("language.switchToEnglish")
-                    : t("language.switchToBangla")
-                }
+                onClick={handleLogin}
+                disabled={loginLoading}
+                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl bg-slate-900 text-[13px] font-bold uppercase tracking-widest text-white transition-all hover:bg-emerald-600 active:scale-95"
               >
-                {language === "bn" ? t("language.english") : t("language.bangla")}
-              </button>
-              {!isInitialized ? (
-                <div className="h-12 animate-pulse rounded-2xl bg-white" />
-              ) : !isAuthenticated ? (
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={loginLoading}
-                  className="site-button-primary flex h-10 w-full items-center justify-center gap-2 text-xs disabled:opacity-50"
-                >
-                  <NavIcon
-                    path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    className="h-4 w-4"
-                  />
-                  {loginLoading ? t("navbar.loginPending") : t("navbar.login")}
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
-                    <div className="flex items-center gap-3">
-                      {photoUrl ? (
-                        <img
-                          src={photoUrl}
-                          alt={accountLabel}
-                          className="h-10 w-10 rounded-xl object-cover ring-2 ring-white/60"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-xs font-black">
-                          {initialsFromName(accountLabel) || "U"}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black">{accountLabel}</p>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
-                          {currentRole || t("navbar.student")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3">{currentRole ? <RoleBadge role={currentRole} /> : null}</div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href="/profile"
-                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
-                    >
-                      <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4 text-slate-500" />
-                      {t("navbar.profile")}
-                    </Link>
-                    <Link
-                      href={DASHBOARD_LINK.href}
-                      className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-[var(--action-soft-bg)] hover:text-[var(--action-soft-text)]"
-                    >
-                      <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4 text-slate-500" />
-                      {t(DASHBOARD_LINK.labelKey)}
-                    </Link>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="site-button-secondary flex h-10 w-full items-center justify-center text-xs"
-                  >
-                    {t("navbar.signOut")}
-                  </button>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 group-hover:bg-white/20">
+                   <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                   </svg>
                 </div>
-              )}
-            </div>
+                {t("navbar.login", "Login")}
+              </button>
+            ) : null}
+
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="font-display flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-50 text-[10px] font-bold uppercase tracking-widest text-rose-600 transition active:scale-95 hover:bg-rose-100"
+              >
+                <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                {t("navbar.signOut", "Sign Out")}
+              </button>
+            )}
+            
+            <p className="pt-1 text-center text-[7px] font-bold uppercase tracking-[0.3em] text-slate-300">
+               Premium Education Experience
+            </p>
           </div>
-        </aside>
+        </div>
       </div>
     </>
   );

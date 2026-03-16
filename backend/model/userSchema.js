@@ -43,6 +43,18 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Teacher's university/varsity information
+    varsity: {
+      type: String,
+      trim: true,
+    },
+
+    // Teacher's years of experience (e.g. "12+ Years")
+    experience: {
+      type: String,
+      trim: true,
+    },
+
     profilePhoto: cloudinaryAssetSchema,
 
     isActive: {

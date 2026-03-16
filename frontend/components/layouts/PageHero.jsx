@@ -1,5 +1,6 @@
 export default function PageHero({
   eyebrow,
+  titleAccent,
   title,
   description,
   actions = null,
@@ -13,13 +14,16 @@ export default function PageHero({
       <div className={`relative grid gap-6 ${aside ? "xl:grid-cols-[minmax(0,1.3fr)_340px]" : ""}`}>
         <div>
           {eyebrow ? <p className="site-kicker">{eyebrow}</p> : null}
-          <h1 className="site-title mt-4">{title}</h1>
+          <h1 className="site-title mt-4">
+            {titleAccent && <span className="text-emerald-600">{titleAccent} </span>}
+            {title}
+          </h1>
           {description ? <p className="site-lead mt-4">{description}</p> : null}
           {actions ? <div className="mt-6 flex flex-wrap gap-3">{actions}</div> : null}
         </div>
 
         {aside ? (
-          <div className="rounded-[clamp(8px,5%,12px)] border border-slate-700 bg-slate-900 p-5 text-white shadow-[0_8px_18px_rgba(15,23,42,0.28)]">
+          <div className="site-panel border shadow-md p-5 bg-white/50 backdrop-blur-sm">
             {aside}
           </div>
         ) : null}

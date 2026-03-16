@@ -47,16 +47,36 @@ export default function LanguageProvider({ children }) {
 
   const locale = useMemo(() => getLocale(language), [language]);
 
-  const t = (path, fallback = "") => {
+  const t = (path, fallback = "", values = null) => {
+    let actualFallback = fallback;
+    let actualValues = values;
+    
+    // Support t("key", { param: "value" }) shorthand where fallback is omitted
+    if (typeof fallback === "object" && fallback !== null) {
+      actualValues = fallback;
+      actualFallback = "";
+    }
+
+    let result = undefined;
     const localized = getValueByPath(locale, path);
     if (localized !== undefined) {
-      return localized;
+      result = localized;
+    } else {
+      const defaultValue = getValueByPath(LOCALES[DEFAULT_LANGUAGE], path);
+      if (defaultValue !== undefined) {
+        result = defaultValue;
+      } else {
+        result = actualFallback || path;
+      }
     }
-    const defaultValue = getValueByPath(LOCALES[DEFAULT_LANGUAGE], path);
-    if (defaultValue !== undefined) {
-      return defaultValue;
+
+    if (actualValues && typeof result === "string") {
+      Object.keys(actualValues).forEach((key) => {
+        result = result.replace(new RegExp(`{${key}}`, "g"), String(actualValues[key]));
+      });
     }
-    return fallback || path;
+
+    return result;
   };
 
   const contextValue = useMemo(

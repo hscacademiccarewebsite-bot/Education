@@ -95,6 +95,15 @@ export const paymentApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Payment", id: "MY" }, { type: "Payment", id: "GLOBAL" }],
     }),
+
+    waivePayment: builder.mutation({
+      query: ({ paymentId, note }) => ({
+        url: `/payments/${paymentId}/waive`,
+        method: "PATCH",
+        body: { note },
+      }),
+      invalidatesTags: [{ type: "Payment", id: "GLOBAL" }, { type: "Payment", id: "MY" }],
+    }),
   }),
 });
 
@@ -107,4 +116,5 @@ export const {
   useMarkPaymentOnlinePaidMutation,
   useCreateBkashPaymentMutation,
   useExecuteBkashPaymentMutation,
+  useWaivePaymentMutation,
 } = paymentApi;

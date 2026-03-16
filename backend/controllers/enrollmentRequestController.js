@@ -367,6 +367,22 @@ class EnrollmentRequestController {
 
       await enrollment.save();
 
+      // --- Notification Trigger ---
+      if (status === "approved") {
+        try {
+          const Notification = require("../model/notificationSchema");
+          await Notification.create({
+            recipient: enrollment.student,
+            title: "Enrollment Approved!",
+            message: `Your enrollment for "${enrollment.batch?.name || "the course"}" has been approved. Welcome aboard!`,
+            type: "system",
+            link: "/payments",
+          });
+        } catch (notifErr) {
+          console.error("Failed to create enrollment approval notification:", notifErr);
+        }
+      }
+
       return res.status(200).json({
         success: true,
         message: `Enrollment request ${status}.`,

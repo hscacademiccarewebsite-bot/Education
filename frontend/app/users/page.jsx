@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
+import { useSelector } from "react-redux";
+import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { ListSkeleton } from "@/components/loaders/AppLoader";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
@@ -49,12 +51,20 @@ export default function UsersPage() {
   const { showSuccess, showError, popupNode } = useActionPopup();
   const { t } = useSiteLanguage();
 
+  const isInitialized = useSelector(selectIsAuthInitialized);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const usersSkip = !isInitialized || !isAuthenticated;
+
   const {
     data: usersData,
     isLoading,
     refetch: refetchUsers,
-  } = useListUsersQuery(roleFilter ? { role: roleFilter } : {});
-  const { data: batchesData } = useListBatchesQuery();
+  } = useListUsersQuery(roleFilter ? { role: roleFilter } : {}, {
+    skip: usersSkip,
+  });
+  const { data: batchesData } = useListBatchesQuery(undefined, {
+    skip: usersSkip,
+  });
   const [updateUserRole] = useUpdateUserRoleMutation();
   const [assignBatchesToStaff] = useAssignBatchesToStaffMutation();
 
@@ -187,7 +197,9 @@ export default function UsersPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="site-kicker">{t("usersPage.kicker")}</p>
-              <h1 className="site-title mt-4">{t("usersPage.title")}</h1>
+              <h1 className="site-title mt-4">
+                <span className="text-emerald-600">Users</span> Management
+              </h1>
               <p className="site-lead mt-3 max-w-3xl">
                 {t("usersPage.subtitle")}
               </p>
@@ -204,7 +216,7 @@ export default function UsersPage() {
 
           <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_130px]">
             <div>
-              <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 {t("usersPage.searchUsers")}
               </label>
               <input
@@ -216,7 +228,7 @@ export default function UsersPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 {t("usersPage.roleFilter")}
               </label>
               <select
@@ -258,7 +270,7 @@ export default function UsersPage() {
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="px-5 py-12 text-center md:px-6">
-              <p className="text-lg font-black text-slate-900">{t("usersPage.emptyTitle")}</p>
+              <p className="text-lg font-extrabold text-slate-900">{t("usersPage.emptyTitle")}</p>
               <p className="mt-2 text-sm text-slate-600">{t("usersPage.emptySubtitle")}</p>
             </div>
           ) : (
@@ -267,7 +279,7 @@ export default function UsersPage() {
                 <div className="max-h-[70vh] overflow-auto">
                   <table className="min-w-[1060px] w-full border-collapse text-left">
                     <thead className="sticky top-0 z-10 bg-slate-50">
-                      <tr className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      <tr className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                         <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.user")}</th>
                         <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.email")}</th>
                         <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.role")}</th>
@@ -285,11 +297,11 @@ export default function UsersPage() {
                       <tr key={user._id} className="align-top bg-white transition-colors hover:bg-slate-50/60">
                         <td className="border border-slate-200 px-4 py-4 md:px-6">
                           <div className="flex items-center gap-3">
-                            <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white">
+                            <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs font-extrabold text-white">
                               {initialsFromName(user.fullName) || "U"}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-900">{user.fullName || t("usersPage.unnamedUser")}</p>
+                              <p className="truncate text-sm font-extrabold text-slate-900">{user.fullName || t("usersPage.unnamedUser")}</p>
                               {user.phone ? <p className="truncate text-xs text-slate-500">{user.phone}</p> : null}
                             </div>
                           </div>
@@ -318,7 +330,7 @@ export default function UsersPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <RoleBadge role={user.role} />
                             <span
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${
                                 user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
                               }`}
                             >
@@ -364,7 +376,7 @@ export default function UsersPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="site-kicker">{t("usersPage.courseAssignment")}</p>
-                  <h2 className="mt-3 text-2xl font-black text-slate-950 md:text-3xl">
+                  <h2 className="mt-3 text-lg font-extrabold text-slate-950 md:text-xl">
                     {activeAssignmentUser.fullName || t("usersPage.unnamedUser")}
                   </h2>
                   <p className="mt-2 text-sm text-slate-600">
@@ -386,7 +398,7 @@ export default function UsersPage() {
 
               <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     {t("usersPage.searchCourses")}
                   </label>
                   <input

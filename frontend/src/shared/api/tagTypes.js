@@ -7,5 +7,6 @@ export const API_TAG_TYPES = Object.freeze([
   "Enrollment",
   "Payment",
   "Public",
+  "Notification",
 ]);
 
