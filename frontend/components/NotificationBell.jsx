@@ -54,7 +54,7 @@ export default function NotificationBell() {
       try {
         await markAsRead(notif._id).unwrap();
       } catch (err) {
-        console.error("Failed to mark as read", err);
+        console.error("Failed to mark as read ", err);
       }
     }
     
