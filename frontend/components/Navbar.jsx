@@ -279,7 +279,7 @@ export default function Navbar() {
                   type="button"
                   onClick={handleLogin}
                   disabled={loginLoading}
-                  className="group relative flex h-10 items-center justify-center gap-3 overflow-hidden rounded-xl bg-slate-900 px-6 font-display text-[11px] font-bold uppercase tracking-widest text-white shadow-lg transition-all hover:bg-emerald-600 hover:shadow-emerald-200 active:scale-95 disabled:opacity-50"
+                  className="group relative flex h-10 items-center justify-center gap-3 overflow-hidden rounded-xl bg-emerald-600 px-6 font-display text-[11px] font-bold uppercase tracking-widest text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                 >
                   {loginLoading ? t("navbar.loginBusy", "…") : (
                     <>
@@ -568,7 +568,7 @@ export default function Navbar() {
                 type="button"
                 onClick={handleLogin}
                 disabled={loginLoading}
-                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl bg-slate-900 text-[13px] font-bold uppercase tracking-widest text-white transition-all hover:bg-emerald-600 active:scale-95"
+                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl bg-emerald-600 text-[13px] font-bold uppercase tracking-widest text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-95"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 group-hover:bg-white/20">
                    <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
