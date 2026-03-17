@@ -16,6 +16,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const noteRoutes = require("./routes/noteRoutes");
 const communityRoutes = require("./routes/communityRoutes");
+const { initializeScheduler } = require("./utils/scheduler");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
@@ -46,7 +47,15 @@ app.use("/api/chapters", chapterRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/public", publicRoutes);
+// Duplicate removed from here, managed below for clarity.
+app.use("/api/v1/community", communityRoutes);
+app.use("/api/v1/shared-notes", require("./routes/sharedNoteRoutes"));
+app.use("/api/shared-notes", require("./routes/sharedNoteRoutes"));
+app.use("/api/v1/batch", batchRoutes);
+app.use("/api/v1/enrollments", enrollmentRequestRoutes);
 app.use("/api/enrollments", enrollmentRequestRoutes);
+app.use("/api/v1/enrollment", enrollmentRequestRoutes);
+app.use("/api/enrollment", enrollmentRequestRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notes", noteRoutes);
@@ -63,6 +72,8 @@ const startServer = async () => {
     await connectDB();
     app.listen(PORT, () => {
         console.log(`Server is listening on port ${PORT}`);
+        // Initialize background tasks for auto-expiration cleanup
+        initializeScheduler();
     });
 };
 

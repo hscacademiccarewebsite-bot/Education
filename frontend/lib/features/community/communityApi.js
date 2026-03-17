@@ -7,6 +7,25 @@ export const communityApi = baseApi.injectEndpoints({
         url: "/community/posts",
         params,
       }),
+      // Only cache based on the filter (author, etc), not the page
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        const { page, limit, ...rest } = queryArgs || {};
+        return `${endpointName}-${JSON.stringify(rest)}`;
+      },
+      // Merge incoming data into the cache
+      merge: (currentCache, newItems, { arg }) => {
+        if (arg.page === 1) {
+          return newItems;
+        }
+        return {
+          ...newItems,
+          data: [...currentCache.data, ...newItems.data],
+        };
+      },
+      // Refetch when the page changes
+      forceRefetch({ currentArg, previousArg }) {
+        return currentArg?.page !== previousArg?.page;
+      },
       providesTags: (result) =>
         result
           ? [

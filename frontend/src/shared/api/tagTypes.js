@@ -11,5 +11,5 @@ export const API_TAG_TYPES = Object.freeze([
   "Note",
   "Community",
   "Comment",
+  "SharedNote",
 ]);
-

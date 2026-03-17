@@ -7,8 +7,11 @@ import { useLikePostMutation, useDeletePostMutation } from "@/lib/features/commu
 import CommentSection from "./CommentSection";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function PostCard({ post, onEdit }) {
+  const { t } = useSiteLanguage();
   const searchParams = useSearchParams();
   const params = useParams();
   const targetPostId = searchParams.get("postId") || params.postId;
@@ -20,10 +23,22 @@ export default function PostCard({ post, onEdit }) {
 
   const [likePost] = useLikePostMutation();
   const [deletePost] = useDeletePostMutation();
+  const { showSuccess, requestDeleteConfirmation } = useActionPopup();
   const [showComments, setShowComments] = useState(
     String(post._id) === String(targetPostId) || (!!targetCommentId && String(post._id) === String(targetPostId))
   );
   const [showOptions, setShowOptions] = useState(false);
+  const optionsRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (optionsRef.current && !optionsRef.current.contains(e.target)) {
+        setShowOptions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     if (String(post._id) === String(targetPostId)) {
@@ -44,7 +59,8 @@ export default function PostCard({ post, onEdit }) {
   };
 
   return (
-    <div ref={postRef} className="mb-4 rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+    <div ref={postRef} className="mb-4 rounded-xl lg:rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+
       {/* Post Header */}
       <div className="flex items-center gap-3 p-4 pb-2">
         <Avatar
@@ -53,12 +69,13 @@ export default function PostCard({ post, onEdit }) {
           className="h-10 w-10 rounded-full"
         />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <h4 className="font-display text-[14px] font-bold text-slate-800 truncate">
               {post.author?.fullName}
             </h4>
             {post.author?.role && <RoleBadge role={post.author.role} />}
           </div>
+
           <div className="flex items-center gap-1.5 mt-0.5">
             <p className="text-[12px] font-medium text-slate-500 hover:underline cursor-pointer">
               {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
@@ -66,7 +83,7 @@ export default function PostCard({ post, onEdit }) {
             <span className="text-[10px] text-slate-400">•</span>
             <div 
               className="text-slate-400 tooltip-trigger"
-              title={post.privacy === "enrolled_members" ? "Enrolled Members" : "Public"}
+              title={post.privacy === "enrolled_members" ? t("community.privacy.enrolled") : t("community.privacy.public")}
             >
               {post.privacy === "enrolled_members" ? (
                 <svg className="h-[13px] w-[13px]" fill="currentColor" viewBox="0 0 24 24">
@@ -83,7 +100,7 @@ export default function PostCard({ post, onEdit }) {
 
         {/* Options Menu (Three Dots) - Only for author */}
         {isAuthor && (
-          <div className="relative">
+          <div className="relative" ref={optionsRef}>
             <button 
               onClick={() => setShowOptions(!showOptions)}
               className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
@@ -102,22 +119,29 @@ export default function PostCard({ post, onEdit }) {
                   }}
                   className="w-full text-left px-4 py-2 text-[13px] font-bold text-slate-600 hover:bg-slate-50"
                 >
-                  Edit Post
+                  {t("community.editPost")}
                 </button>
                 <button
                   onClick={async () => {
-                    if (confirm("Are you sure you want to delete this post? This will also remove all comments.")) {
+                    setShowOptions(false);
+                    const confirmed = await requestDeleteConfirmation({
+                      title: t("community.deleteConfirmTitle"),
+                      message: t("community.deleteConfirmMsg"),
+                      approveLabel: t("community.deleteApprove")
+                    });
+
+                    if (confirmed) {
                       try {
                         await deletePost(post._id).unwrap();
+                        showSuccess(t("community.postDeleted"));
                       } catch (err) {
                         console.error("Failed to delete post:", err);
                       }
                     }
-                    setShowOptions(false);
                   }}
                   className="w-full text-left px-4 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50"
                 >
-                  Delete Post
+                  {t("community.deletePost")}
                 </button>
               </div>
             )}
@@ -134,7 +158,7 @@ export default function PostCard({ post, onEdit }) {
 
       {/* Post Images */}
       {post.images && post.images.length > 0 && (
-        <div className="mt-2 border-y border-slate-50">
+        <div className="mt-2 border-y border-slate-50 overflow-hidden">
           <div className={`grid gap-0.5 ${post.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {post.images.map((img, idx) => (
               <img
@@ -169,7 +193,7 @@ export default function PostCard({ post, onEdit }) {
                 onClick={() => setShowComments(!showComments)}
                 className="hover:underline"
               >
-                {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}
+                {post.commentsCount} {post.commentsCount === 1 ? t("community.comment") : t("community.comments")}
               </button>
             )}
           </div>
@@ -195,7 +219,7 @@ export default function PostCard({ post, onEdit }) {
               d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
             />
           </svg>
-          Like
+          {t("community.like")}
         </button>
         <button
           onClick={() => setShowComments(!showComments)}
@@ -204,7 +228,7 @@ export default function PostCard({ post, onEdit }) {
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          Comment
+          {t("community.comment")}
         </button>
       </div>
 

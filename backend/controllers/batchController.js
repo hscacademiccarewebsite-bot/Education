@@ -214,7 +214,7 @@ class BatchController {
       }
 
       const updatedBatch = await Batch.findByIdAndUpdate(batchId, payload, {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       });
 
@@ -288,7 +288,7 @@ class BatchController {
       const batch = await Batch.findByIdAndUpdate(
         batchId,
         { teachers: teacherIds, moderators: moderatorIds },
-        { new: true, runValidators: true }
+        { returnDocument: "after", runValidators: true }
       )
         .populate("teachers", "fullName email role")
         .populate("moderators", "fullName email role");

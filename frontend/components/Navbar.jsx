@@ -219,10 +219,11 @@ export default function Navbar() {
                 />
               </div>
               <div className="flex flex-col leading-[1.1]">
-                <div className="flex items-center gap-1 font-display text-[16px] font-black uppercase tracking-tight text-slate-900 md:text-[20px]">
+                <div className="flex items-center gap-0.5 sm:gap-1 font-display text-[14px] sm:text-[16px] font-black uppercase tracking-tight text-slate-900 md:text-[20px]">
                   <span>HSC</span>
                   <span className="text-[var(--page-teal)] transition-colors group-hover:text-[var(--action-hover-start)]">Academic</span>
                 </div>
+
                 <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 md:text-[10px]">
                   and Admission Care
                 </div>
@@ -388,7 +389,8 @@ export default function Navbar() {
             </div>
 
             {/* ── Mobile Actions ─────────────────────────────────────────── */}
-            <div className="ml-auto flex items-center gap-2 lg:hidden">
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:hidden">
+
               {/* Language toggle (Mobile) */}
               <button
                 type="button"
@@ -398,6 +400,10 @@ export default function Navbar() {
                 <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-3.5 w-3.5" />
                 <span>{language === "bn" ? "EN" : "বাং"}</span>
               </button>
+
+              {/* Notification bell (Mobile) */}
+              {isAuthenticated && isInitialized && <NotificationBell />}
+
 
               {/* Mobile burger */}
               <button

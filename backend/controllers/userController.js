@@ -268,7 +268,7 @@ class UserController {
       const targetUser = await User.findByIdAndUpdate(
         userId,
         { role },
-        { new: true, runValidators: true }
+        { returnDocument: "after", runValidators: true }
       );
 
       if (!targetUser) {

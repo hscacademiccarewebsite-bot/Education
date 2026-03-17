@@ -72,10 +72,11 @@ const NotificationIcon = ({ type }) => {
   };
 
   return (
-    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${style}`}>
+    <div className={`flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-xl md:rounded-2xl border ${style}`}>
       {getSvg()}
     </div>
   );
+
 };
 
 export default function NotificationsPage() {
@@ -121,27 +122,50 @@ export default function NotificationsPage() {
 
   return (
     <div className="site-shell min-h-screen">
-      <div className="site-nav-offset container-page pb-12 pt-1 md:pt-4">
+
+
+      <div className="site-nav-offset container-page pb-12 pt-4 md:pt-4 mt-5">
+        {/* Mobile Back Button */}
+        <div className="mb-4 lg:hidden">
+          <button 
+            onClick={() => router.back()}
+            className="group flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm border border-slate-200 group-active:scale-95 transition-all">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </div>
+            <span className="text-[13px] font-bold">Go Back</span>
+          </button>
+        </div>
+
         <RevealSection noStagger>
-          <RevealItem as="header" className="mb-4 site-panel p-4 shadow-[0_8px_30px_rgba(15,23,42,0.03)] md:p-8">
+
+          <RevealItem as="header" className="mb-6 px-2 p-2 md:px-0">
+
+
+
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="max-w-2xl">
-                <h1 className="site-title text-lg md:text-2xl">
+                <h1 className="site-title text-xl md:text-3xl">
                   <span className="text-emerald-600">{t("notificationsPage.header.accent", "Latest")} </span>
                   {t("notificationsPage.header.title", "Notifications")}
                 </h1>
-                <p className="site-lead mt-1 text-[10px] md:text-[11px] font-medium opacity-70">
+                <p className="site-lead mt-2 text-[11px] md:text-sm font-medium opacity-70">
                   {t("notificationsPage.header.description", "Keep track of your learning progress and important updates.")}
                 </p>
+
               </div>
 
               {/* Filter Pills - Responsive sizing */}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2 pt-1 md:pt-0">
                 {filters.map((filter) => (
                   <button
                     key={filter.id}
                     onClick={() => setActiveFilter(filter.id)}
-                    className={`h-7 md:h-7.5 rounded-full px-3.5 md:px-4 text-[8px] md:text-[9px] font-black uppercase tracking-wider transition-all border ${
+                    className={`h-7.5 md:h-8 rounded-full px-4 text-[9px] md:text-[10px] font-black uppercase tracking-wider transition-all border ${
+
                       activeFilter === filter.id
                         ? "bg-emerald-600 text-white border-emerald-600 shadow-md scale-105"
                         : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
@@ -181,11 +205,12 @@ export default function NotificationsPage() {
                     key={notif._id}
                     as="button"
                     onClick={() => handleNotificationClick(notif)}
-                    className={`group flex w-full items-start gap-3.5 p-4 text-left transition-all hover:bg-slate-50/40 md:gap-4 md:p-5 ${
+                    className={`group flex w-full items-start gap-4 p-4 text-left transition-all hover:bg-slate-50/40 md:p-5 ${
                       !notif.isRead ? "bg-emerald-50/5" : ""
                     }`}
                   >
                     <NotificationIcon type={notif.type} />
+
                     
                     <div className="min-w-0 flex-1 pt-0.5">
                       <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">

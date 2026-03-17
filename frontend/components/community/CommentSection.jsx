@@ -9,11 +9,10 @@ import {
 } from "@/lib/features/community/communityApi";
 import { useSearchUsersQuery } from "@/lib/features/user/userApi";
 import { useSelector } from "react-redux";
-import {
-  selectCurrentUserDisplayName,
-  selectCurrentUserPhotoUrl,
-} from "@/lib/features/user/userSlice";
+import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl } from "@/lib/features/user/userSlice";
 import CommentItem from "./CommentItem";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -110,6 +109,7 @@ function clearEditor(el) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function CommentSection({ postId }) {
+  const { t } = useSiteLanguage();
   const editorRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -143,6 +143,7 @@ export default function CommentSection({ postId }) {
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
+  const { showSuccess } = useActionPopup();
 
   // ── Mention detection ────────────────────────────────────────────────────
   const detectMention = useCallback(() => {
@@ -250,6 +251,7 @@ export default function CommentSection({ postId }) {
         parentId: replyingTo?._id,
         images: image ? [image] : [],
       }).unwrap();
+      showSuccess(t("community.commentAdded"));
       handleReset();
     } catch (err) {
       console.error("Failed to add comment:", err);
@@ -300,19 +302,27 @@ export default function CommentSection({ postId }) {
   };
 
   // ── Comments tree ────────────────────────────────────────────────────────
-  const { topLevelComments, repliesMap } = useMemo(() => {
+  const topLevelComments = useMemo(() => {
     const comments = commentsData?.data || [];
-    const topLevel = [];
-    const replies = {};
+    const map = {};
+    const roots = [];
+
+    // Initialize map with all comments, adding an empty replies array to each
     comments.forEach((c) => {
-      if (c.parentId) {
-        if (!replies[c.parentId]) replies[c.parentId] = [];
-        replies[c.parentId].push(c);
+      map[c._id] = { ...c, replies: [] };
+    });
+
+    // Build the tree
+    comments.forEach((c) => {
+      if (c.parentId && map[c.parentId]) {
+        map[c.parentId].replies.push(map[c._id]);
       } else {
-        topLevel.push(c);
+        // If no parentId, or parent not found in this dataset, it's a root
+        roots.push(map[c._id]);
       }
     });
-    return { topLevelComments: topLevel, repliesMap: replies };
+
+    return roots;
   }, [commentsData]);
 
   // ── Paste handler: strip formatting ──────────────────────────────────────
@@ -345,9 +355,34 @@ export default function CommentSection({ postId }) {
   }, []);
 
   return (
-    <div className="px-4 py-3 space-y-3">
-      {/* ── Comment Input ── */}
-      <div className="flex gap-2.5 items-start">
+    <div className="px-4 py-3 flex flex-col gap-4">
+      {/* ── Comment List ── */}
+      <div className="space-y-1">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-6 gap-2">
+            <div className="h-4 w-4 border-2 border-[#0866FF] border-t-transparent animate-spin rounded-full" />
+            <span className="text-[13px] text-[#65676B]">{t("community.loadingComments")}</span>
+          </div>
+        ) : topLevelComments.length === 0 ? (
+          <p className="text-center text-[13px] text-[#8A8D91] py-4">
+            {t("community.noComments")}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {topLevelComments.map((comment) => (
+              <CommentItem
+                key={comment._id}
+                comment={comment}
+                replies={comment.replies}
+                onReply={handleReplyClick}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Comment Input at Bottom ── */}
+      <div className="flex gap-2.5 items-start pt-3 border-t border-[#E4E6EB]">
         <Avatar
           src={userPhotoUrl}
           name={userDisplayName}
@@ -358,8 +393,7 @@ export default function CommentSection({ postId }) {
           {replyingTo && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-[#E7F3FF] rounded-lg text-[12px] text-[#0866FF]">
               <span className="font-medium">
-                Replying to{" "}
-                <span className="font-bold">{replyingTo.author?.fullName}</span>
+                {t("community.replyingTo", { name: replyingTo.author?.fullName })}
               </span>
               <button
                 onClick={() => {
@@ -390,12 +424,12 @@ export default function CommentSection({ postId }) {
               onBlur={handleEditorBlur}
               onPaste={handlePaste}
               className="min-h-[36px] max-h-[160px] overflow-y-auto w-full rounded-full bg-[#F0F2F5] px-4 py-[8px] text-[15px] text-[#050505] leading-snug outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-[#8A8D91] empty:before:pointer-events-none break-words custom-scrollbar"
-              data-placeholder={replyingTo ? "Write a reply…" : "Write a comment…"}
+              data-placeholder={replyingTo ? t("community.replyPlaceholder", { name: replyingTo.author?.fullName }) : t("community.writeComment")}
               style={{ wordBreak: "break-word" }}
             />
 
-            {/* Send button — only when content exists */}
-            {!editorEmpty && (
+            {/* Send button — only when content exists (text or image) */}
+            {(!editorEmpty || !!image) && (
               <button
                 type="button"
                 onClick={handleSubmit}
@@ -420,7 +454,7 @@ export default function CommentSection({ postId }) {
               >
                 <div className="px-3 py-2 border-b border-[#E4E6EB]">
                   <span className="text-[11px] font-bold text-[#8A8D91] uppercase tracking-wider">
-                    Suggestions
+                    {t("community.suggestions")}
                     {isSearching && (
                       <span className="ml-2 inline-block h-2 w-2 border border-[#8A8D91] border-t-transparent animate-spin rounded-full align-middle" />
                     )}
@@ -465,7 +499,7 @@ export default function CommentSection({ postId }) {
             <button
               type="button"
               onClick={() => setShowImageUpload(!showImageUpload)}
-              className={`flex items-center gap-1 text-[12px] font-semibold px-2 py-1 rounded-md transition-colors ${
+              className={`flex items-center gap-1.5 text-[12px] font-bold px-2 py-1 rounded-md transition-colors ${
                 showImageUpload
                   ? "text-[#0866FF] bg-[#E7F3FF]"
                   : "text-[#65676B] hover:bg-[#F0F2F5]"
@@ -479,7 +513,7 @@ export default function CommentSection({ postId }) {
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              Photo
+              {t("community.attachPhoto")}
             </button>
           </div>
 
@@ -493,29 +527,6 @@ export default function CommentSection({ postId }) {
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── Comment List ── */}
-      <div className="space-y-1 pt-1">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-6 gap-2">
-            <div className="h-4 w-4 border-2 border-[#0866FF] border-t-transparent animate-spin rounded-full" />
-            <span className="text-[13px] text-[#65676B]">Loading comments…</span>
-          </div>
-        ) : topLevelComments.length === 0 ? (
-          <p className="text-center text-[13px] text-[#8A8D91] py-4">
-            No comments yet. Be the first to comment!
-          </p>
-        ) : (
-          topLevelComments.map((comment) => (
-            <CommentItem
-              key={comment._id}
-              comment={comment}
-              replies={repliesMap[comment._id]}
-              onReply={handleReplyClick}
-            />
-          ))
-        )}
       </div>
     </div>
   );

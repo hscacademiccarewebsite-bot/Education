@@ -4,12 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import Avatar from "@/components/Avatar";
 import { useCreatePostMutation, useUpdatePostMutation } from "@/lib/features/community/communityApi";
 import { useSelector } from "react-redux";
-import {
-  selectCurrentUserDisplayName,
-  selectCurrentUserPhotoUrl,
-} from "@/lib/features/user/userSlice";
+import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
+import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import CreateSharedNote from "./CreateSharedNote";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
 
 export default function CreatePost({ 
   post = null, 
@@ -23,6 +23,7 @@ export default function CreatePost({
   const [privacy, setPrivacy] = useState("public");
   const [enrolledBatches, setEnrolledBatches] = useState([]);
   const [localIsOpen, setLocalIsOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showPrivacyDropdown, setShowPrivacyDropdown] = useState(false);
   const privacyDropdownRef = useRef(null);
@@ -31,14 +32,27 @@ export default function CreatePost({
   const [createPost, { isLoading: isCreating }] = useCreatePostMutation();
   const [updatePost, { isLoading: isUpdating }] = useUpdatePostMutation();
   const textareaRef = useRef(null);
+  const { showSuccess, showError } = useActionPopup();
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
+  const userRole = useSelector(selectCurrentUserRole);
 
   const activeIsOpen = post ? isOpen : (isTriggerVisible ? localIsOpen : isOpen);
+  const isStaff = ["admin", "teacher", "moderator"].includes(userRole);
   
-  const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, { skip: !activeIsOpen });
-  const approvedEnrollments = myEnrollmentsData?.data?.filter(e => e.status === "approved") || [];
+  const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, { 
+    skip: !activeIsOpen || isStaff 
+  });
+  
+  const { data: allBatchesData } = useListBatchesQuery({}, { 
+    skip: !activeIsOpen || !isStaff 
+  });
+
+  const availableCourses = isStaff 
+    ? (allBatchesData?.data || [])
+    : (myEnrollmentsData?.data?.filter(e => e.status === "approved").map(e => e.batch) || []);
+
   const activeIsLoading = isCreating || isUpdating;
 
   useEffect(() => {
@@ -68,7 +82,7 @@ export default function CreatePost({
     e.preventDefault();
     if (!content.trim() && !image) return;
     if (privacy === "enrolled_members" && enrolledBatches.length === 0) {
-      alert("Please select at least one course to share with.");
+      showError("Please select at least one course to share with.");
       return;
     }
 
@@ -89,6 +103,8 @@ export default function CreatePost({
           images: image ? [image] : [],
         }).unwrap();
       }
+
+      showSuccess(`Post ${isEditMode ? "updated" : "created"} successfully!`);
       handleClose();
     } catch (err) {
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} post:`, err);
@@ -139,18 +155,21 @@ export default function CreatePost({
     <>
       {/* Trigger Bar - Only visible if not in edit mode and specifically requested */}
       {!isEditMode && isTriggerVisible && (
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center gap-4">
+        <div className="mb-4 lg:mb-6 rounded-xl lg:rounded-2xl border border-slate-200 bg-white p-2.5 lg:p-3 shadow-sm transition-all hover:shadow-md">
+
+          <div className="flex items-center gap-3 lg:gap-4">
             <div className="relative">
-              <Avatar src={userPhotoUrl} name={userDisplayName} className="h-11 w-11 rounded-full border-2 border-white ring-1 ring-slate-100" />
+              <Avatar src={userPhotoUrl} name={userDisplayName} className="h-10 w-10 lg:h-11 lg:w-11 rounded-full border border-white ring-1 ring-slate-100" />
+
               <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
             </div>
             <button
               onClick={handleOpen}
-              className="flex-1 rounded-full bg-slate-50 px-5 py-3 text-left text-[15px] font-medium text-slate-500 transition-all hover:bg-slate-100/80 active:scale-[0.99]"
+              className="flex-1 rounded-full bg-slate-50 px-4 lg:px-5 py-2.5 lg:py-3 text-left text-[14px] lg:text-[15px] font-medium text-slate-500 transition-all hover:bg-slate-100/80 active:scale-[0.99]"
             >
               {`What's on your mind, ${userDisplayName?.split(" ")[0]}?`}
             </button>
+
           </div>
           <div className="mt-4 flex items-center gap-2 border-t border-slate-50 pt-3">
             <button
@@ -158,24 +177,41 @@ export default function CreatePost({
                 handleOpen();
                 setShowImageUpload(true);
               }}
-              className="group flex flex-1 items-center justify-center gap-3 rounded-xl py-2.5 text-[14px] font-bold text-slate-600 transition-all hover:bg-slate-50 active:bg-slate-100"
+              className="group flex flex-1 items-center justify-center gap-2 rounded-xl py-1.5 text-[14px] font-bold text-slate-600 transition-all hover:bg-slate-50 active:bg-slate-100"
             >
+
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 transition-colors group-hover:bg-emerald-100">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="h-4 w-4 lg:h-5 lg:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span>Photo</span>
+              <span className="text-[13px] lg:text-[14px]">Photo</span>
+            </button>
+
+            <div className="h-8 w-[1px] bg-slate-100" />
+            <button
+              onClick={() => setIsNoteModalOpen(true)}
+              className="group flex flex-1 items-center justify-center gap-2 rounded-xl py-1.5 text-[14px] font-bold text-slate-600 transition-all hover:bg-slate-50 active:bg-slate-100"
+            >
+
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <span className="text-[13px]">Post a Note</span>
             </button>
           </div>
         </div>
       )}
 
+      <CreateSharedNote isOpen={isNoteModalOpen} onClose={() => setIsNoteModalOpen(false)} />
+
       {/* Professional Modal */}
       {activeIsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
           <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity animate-fade-in"
+            className="absolute inset-0 h-screen w-screen bg-slate-900/40 backdrop-blur-md transition-opacity animate-fade-in"
             onClick={handleClose}
           />
           
@@ -183,9 +219,10 @@ export default function CreatePost({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
               <div className="w-8" />
-              <h2 className="font-display text-[20px] font-black tracking-tight text-[#147b79]">
+              <h2 className="font-display text-[18px] lg:text-[20px] font-black tracking-tight text-[#147b79]">
                 {isEditMode ? "Edit Post" : "Create Post"}
               </h2>
+
               <button 
                 onClick={handleClose}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all active:scale-90"
@@ -295,26 +332,26 @@ export default function CreatePost({
                 {privacy === "enrolled_members" && (
                   <div className="mb-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
                     <p className="text-[12px] font-bold text-slate-700 mb-2">Select courses to share with:</p>
-                    {approvedEnrollments.length === 0 ? (
-                      <p className="text-[12px] text-slate-500">You are not approved in any courses yet.</p>
+                    {availableCourses.length === 0 ? (
+                      <p className="text-[12px] text-slate-500">No courses available to share with.</p>
                     ) : (
                       <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
-                        {approvedEnrollments.map((enrollment) => (
-                          <label key={enrollment.batch?._id} className="flex items-center gap-2 cursor-pointer group">
+                        {availableCourses.map((course) => (
+                          <label key={course?._id} className="flex items-center gap-2 cursor-pointer group">
                             <input
                               type="checkbox"
-                              checked={enrolledBatches.includes(enrollment.batch?._id)}
+                              checked={enrolledBatches.includes(course?._id)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setEnrolledBatches([...enrolledBatches, enrollment.batch?._id]);
+                                  setEnrolledBatches([...enrolledBatches, course?._id]);
                                 } else {
-                                  setEnrolledBatches(enrolledBatches.filter(id => id !== enrollment.batch?._id));
+                                  setEnrolledBatches(enrolledBatches.filter(id => id !== course?._id));
                                 }
                               }}
                               className="w-4 h-4 rounded text-[#147b79] border-slate-300 focus:ring-[#147b79]"
                             />
                             <span className="text-[13px] text-slate-700 group-hover:text-slate-900 line-clamp-1 flex-1">
-                              {enrollment.batch?.name || "Unknown Course"}
+                              {course?.name || "Unknown Course"}
                             </span>
                           </label>
                         ))}

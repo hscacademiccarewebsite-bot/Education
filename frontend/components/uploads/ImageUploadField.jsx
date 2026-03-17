@@ -11,6 +11,11 @@ import {
   uploadImageToCloudinary,
 } from "@/lib/utils/cloudinaryUpload";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { resizeImage } from "@/lib/utils/imageResizer";
+
+const GENERAL_LIMIT = 500 * 1024; // 500 KB
+const SLIDER_LIMIT = 3 * 1024 * 1024; // 3 MB
+const COURSE_LIMIT = 1.5 * 1024 * 1024; // 1.5 MB
 
 function defaultPixelHint(folder, label, t) {
   const folderName = String(folder || "").toLowerCase();
@@ -74,12 +79,29 @@ export default function ImageUploadField({
 
     setError("");
     setUploading(true);
-    setUploadStage(t("uploadField.stage.preparing"));
     setProgress(5);
 
     try {
-      const uploaded = await uploadImageToCloudinary(file, folder, {
-        onProgress: (value) => setProgress(value),
+      let finalFile = file;
+      const folderName = String(folder || "").toLowerCase();
+      let limit = GENERAL_LIMIT;
+
+      if (folderName.includes("slider")) {
+        limit = SLIDER_LIMIT;
+      } else if (folderName.includes("course")) {
+        limit = COURSE_LIMIT;
+      }
+
+      if (file.size > limit) {
+        setUploadStage("Resizing large image...");
+        finalFile = await resizeImage(file, limit);
+        setProgress(15);
+      }
+
+      setUploadStage(t("uploadField.stage.preparing"));
+
+      const uploaded = await uploadImageToCloudinary(finalFile, folder, {
+        onProgress: (value) => setProgress(Math.max(15, value)),
         onStage: (value) => setUploadStage(value),
         token,
       });

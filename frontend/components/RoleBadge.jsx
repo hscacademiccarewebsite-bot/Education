@@ -1,18 +1,18 @@
 export default function RoleBadge({ role }) {
-  const roleLabel = role?.toUpperCase() || "UNKNOWN";
+  const isVerified = ["admin", "teacher", "moderator"].includes(role?.toLowerCase());
 
-  const roleColorMap = {
-    admin: "bg-rose-100 text-rose-700 border-rose-200",
-    teacher: "bg-sky-100 text-sky-700 border-sky-200",
-    moderator: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    student: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  };
-
-  const classes = roleColorMap[role] || "bg-slate-100 text-slate-700 border-slate-200";
+  if (!isVerified) return null;
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${classes}`}>
-      {roleLabel}
+    <span className="inline-flex items-center ml-1" title={role}>
+      <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0866FF] shadow-sm">
+        <svg className="h-2 w-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
     </span>
   );
 }
+
+
+

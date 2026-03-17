@@ -123,12 +123,13 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-[150] w-[340px] origin-top-right rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 focus:outline-none">
+        <div className="fixed sm:absolute inset-x-4 sm:inset-auto sm:right-0 top-16 sm:top-12 z-[150] sm:w-[340px] origin-top-right rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 focus:outline-none animate-scale-in">
+
           <div className="flex items-center justify-between px-3 pb-2 pt-2">
-            <h3 className="font-display font-extrabold text-slate-800">Notifications</h3>
+            <h3 className="font-display font-extrabold text-slate-800">{t("notifications.title")}</h3>
             {unreadCount > 0 && (
               <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                {unreadCount} new
+                {unreadCount} {t("notifications.new")}
               </span>
             )}
           </div>
@@ -136,7 +137,7 @@ export default function NotificationBell() {
           <div className="mt-1 flex max-h-[380px] flex-col overflow-y-auto">
             {isLoading ? (
               <div className="flex h-32 items-center justify-center text-sm font-medium text-slate-400">
-                Loading...
+                {t("dashboard.loading")}
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
@@ -145,8 +146,8 @@ export default function NotificationBell() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-slate-500">You're all caught up!</p>
-                <p className="mt-1 text-xs text-slate-400">No new notifications right now.</p>
+                <p className="text-sm font-medium text-slate-500">{t("notifications.empty")}</p>
+                <p className="mt-1 text-xs text-slate-400">{t("notifications.emptyDesc")}</p>
               </div>
             ) : (
               notifications.map((notif) => (
@@ -183,7 +184,7 @@ export default function NotificationBell() {
               onClick={() => setIsOpen(false)}
               className="group flex w-full items-center justify-center rounded-xl py-2.5 text-xs font-bold text-[var(--action-start)] transition hover:bg-slate-50"
             >
-              See all notifications
+              {t("notifications.seeAll")}
             </Link>
           </div>
         </div>

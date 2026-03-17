@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import RoleBadge from "@/components/RoleBadge";
+import ImageUploadField from "@/components/uploads/ImageUploadField";
+
 import {
   useLikeCommentMutation,
   useUpdateCommentMutation,
@@ -12,6 +15,7 @@ import {
 import { useSearchUsersQuery } from "@/lib/features/user/userApi";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
+import { useActionPopup } from "@/components/feedback/useActionPopup";
 
 // ─── Render stored comment content (mention tokens → styled spans) ────────────
 function renderContent(content) {
@@ -135,9 +139,12 @@ export default function CommentItem({ comment, replies = [], onReply }) {
   const [likeComment, { isLoading: isLiking }] = useLikeCommentMutation();
   const [updateComment, { isLoading: isUpdating }] = useUpdateCommentMutation();
   const [deleteComment] = useDeleteCommentMutation();
+  const { showSuccess, requestDeleteConfirmation } = useActionPopup();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
+  const [editImage, setEditImage] = useState(comment.images?.[0] || null);
+  const [showEditImageUpload, setShowEditImageUpload] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showAllReplies, setShowAllReplies] = useState(false);
 
@@ -251,18 +258,31 @@ export default function CommentItem({ comment, replies = [], onReply }) {
   const handleUpdate = async () => {
     const editor = editRef.current;
     const finalContent = getEditorTextValue(editor);
-    if (!finalContent.trim()) return;
+    if (!finalContent.trim() && !editImage) return;
     try {
-      await updateComment({ commentId: comment._id, content: finalContent }).unwrap();
+      await updateComment({ 
+        commentId: comment._id, 
+        content: finalContent,
+        images: editImage ? [editImage] : []
+      }).unwrap();
       setIsEditing(false);
+      setShowEditImageUpload(false);
     } catch (err) {
       console.error("Failed to update comment:", err);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this comment?")) return;
-    try { await deleteComment(comment._id).unwrap(); }
+    const confirmed = await requestDeleteConfirmation({
+      title: "Delete Comment",
+      message: "Are you sure you want to delete this comment?",
+      approveLabel: "Yes, Delete"
+    });
+    if (!confirmed) return;
+    try { 
+      await deleteComment(comment._id).unwrap(); 
+      showSuccess("Comment deleted successfully.");
+    }
     catch (err) { console.error("Failed to delete comment:", err); }
   };
 
@@ -291,18 +311,15 @@ export default function CommentItem({ comment, replies = [], onReply }) {
             {/* Author name */}
             <span className="block text-[13px] font-bold text-[#050505] leading-tight hover:underline cursor-pointer pr-8">
               {comment.author?.fullName}
-              {comment.author?.role === "admin" && (
-                <span className="ml-1.5 text-[10px] font-bold text-[#0866FF] bg-[#E7F3FF] px-1.5 py-0.5 rounded-full align-middle">
-                  Admin
-                </span>
-              )}
+              {comment.author?.role && <RoleBadge role={comment.author.role} />}
             </span>
+
 
             {/* Options button (author only) - Moved inside bubble */}
             {isAuthor && !isEditing && (
               <div
                 ref={optionsRef}
-                className="absolute right-1 top-1 opacity-0 group-hover/bubble:opacity-100 transition-opacity"
+                className="absolute right-1 top-1 transition-opacity"
               >
                 <button
                   onClick={() => setShowOptions(!showOptions)}
@@ -400,6 +417,34 @@ export default function CommentItem({ comment, replies = [], onReply }) {
                   )}
                 </div>
 
+                {/* Edit Mode Image Upload */}
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditImageUpload(!showEditImageUpload)}
+                    className={`flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-md w-fit transition-colors ${
+                      showEditImageUpload || editImage
+                        ? "text-[#0866FF] bg-[#E7F3FF]"
+                        : "text-[#65676B] hover:bg-[#F0F2F5]"
+                    }`}
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {editImage ? "Change Photo" : "Add Photo"}
+                  </button>
+
+                  {(showEditImageUpload || editImage) && (
+                    <div className="rounded-xl border border-dashed border-[#E4E6EB] p-2 bg-[#F7F8FA]">
+                      <ImageUploadField
+                        asset={editImage}
+                        onChange={setEditImage}
+                        folder="community-comments"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => setIsEditing(false)}
@@ -479,19 +524,47 @@ export default function CommentItem({ comment, replies = [], onReply }) {
 
         {/* Replies */}
         {hasReplies && (
-          <div className="mt-2 space-y-1 pl-2 border-l-2 border-[#E4E6EB]">
-            {visibleReplies.map((reply) => (
-              <CommentItem key={reply._id} comment={reply} onReply={onReply} />
-            ))}
-            {replies.length > 2 && (
+          <div className="mt-1.5 pl-2 border-l-2 border-[#E4E6EB] ml-1">
+            {!showAllReplies ? (
               <button
-                onClick={() => setShowAllReplies((v) => !v)}
-                className="text-[12px] font-bold text-[#65676B] hover:underline px-1 py-0.5 mt-0.5"
+                onClick={() => setShowAllReplies(true)}
+                className="flex items-center gap-2 text-[12.5px] font-bold text-[#65676B] hover:underline px-1 py-1 group/replies"
               >
-                {showAllReplies
-                  ? "Hide replies"
-                  : `View ${replies.length - 2} more repl${replies.length - 2 === 1 ? "y" : "ies"}`}
+                <div className="flex items-center justify-center w-4 h-4">
+                  <svg 
+                    className="h-3.5 w-3.5 rotate-180 text-[#8A8D91]" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 10h10a8 8 0 018 8v2" />
+                  </svg>
+                </div>
+                <span>
+                  {replies.length === 1 
+                    ? "View 1 reply" 
+                    : `View ${replies.length} replies`}
+                </span>
               </button>
+            ) : (
+              <div className="space-y-1">
+                {replies.map((reply) => (
+                  <CommentItem 
+                    key={reply._id} 
+                    comment={reply} 
+                    replies={reply.replies || []} 
+                    onReply={onReply} 
+                  />
+                ))}
+                {replies.length > 2 && (
+                  <button
+                    onClick={() => setShowAllReplies(false)}
+                    className="text-[12px] font-bold text-[#65676B] hover:underline px-1 py-0.5 mt-0.5"
+                  >
+                    Hide replies
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

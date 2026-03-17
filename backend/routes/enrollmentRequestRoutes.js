@@ -14,7 +14,6 @@ router.post(
 
 router.get(
   "/my",
-  AuthMiddleware.requireRoles("student"),
   EnrollmentRequestController.getMyEnrollmentRequests
 );
 

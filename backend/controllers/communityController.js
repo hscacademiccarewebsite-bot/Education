@@ -3,6 +3,7 @@ const CommunityComment = require("../model/communityCommentSchema");
 const Notification = require("../model/notificationSchema");
 const User = require("../model/userSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
+const { deleteCloudinaryAssetByPublicId } = require("../utils/cloudinaryAsset");
 
 // Helper to get batch IDs a student is approved for
 async function getStudentBatchIds(studentId) {
@@ -63,18 +64,38 @@ class CommunityController {
 
       // Build privacy filter
       let query = {};
+
+      // Filter by author if requested
+      if (req.query.author) {
+        const targetAuthor = req.query.author === "me" ? req.user._id : req.query.author;
+        query.author = targetAuthor;
+      }
+
       if (req.user.role === "student") {
         const myBatchIds = await getStudentBatchIds(req.user._id);
-        query = {
+        const privacyQuery = {
           $or: [
             { privacy: "public" },
             { author: req.user._id },
-            { 
-              privacy: "enrolled_members", 
-              enrolledBatches: { $in: myBatchIds } 
+            {
+              privacy: "enrolled_members",
+              enrolledBatches: { $in: myBatchIds }
             }
           ]
         };
+
+        if (query.author) {
+          // If filtering by author, we still need to respect privacy if they are looking at someone else's posts
+          // But if they are looking at "me", privacy is guaranteed by 'author: req.user._id'
+          query = {
+            $and: [
+              { author: query.author },
+              privacyQuery
+            ]
+          };
+        } else {
+          query = privacyQuery;
+        }
       }
 
       const posts = await CommunityPost.find(query)
@@ -174,7 +195,21 @@ class CommunityController {
       }
 
       post.content = content || post.content;
-      if (images) post.images = images;
+      if (images) {
+        // Find images that were removed
+        const oldImages = post.images || [];
+        const newImages = images || [];
+
+        const removedImages = oldImages.filter(oldImg =>
+          !newImages.some(newImg => newImg.publicId === oldImg.publicId)
+        );
+
+        for (const img of removedImages) {
+          if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+        }
+
+        post.images = images;
+      }
 
       await post.save();
 
@@ -187,6 +222,42 @@ class CommunityController {
       console.error("[Edit Post Error]:", error);
       res.status(500).json({ success: false, message: "Failed to update post." });
     }
+  }
+
+  // Helper for cascading deletion of a post and its associated data
+  static async _performPostCleanup(post) {
+    const postId = post._id;
+
+    // 1. Delete associated images from Cloudinary
+    if (post.images && post.images.length > 0) {
+      for (const img of post.images) {
+        if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+      }
+    }
+
+    // 2. Fetch all comments to delete their images and notifications
+    const comments = await CommunityComment.find({ post: postId });
+    for (const comment of comments) {
+      if (comment.images && comment.images.length > 0) {
+        for (const img of comment.images) {
+          if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+        }
+      }
+    }
+
+    // 3. Delete all comments associated with this post
+    await CommunityComment.deleteMany({ post: postId });
+
+    // 4. Delete all notifications associated with this post or its comments
+    await Notification.deleteMany({
+      $or: [
+        { "metadata.postId": postId },
+        { link: { $regex: new RegExp(`/community/posts/${postId}`) } }
+      ]
+    });
+
+    // 5. Finally delete the post document
+    await CommunityPost.findByIdAndDelete(postId);
   }
 
   // Delete a post
@@ -204,19 +275,42 @@ class CommunityController {
         return res.status(403).json({ success: false, message: "Unauthorized to delete this post." });
       }
 
-      // Delete the post
-      await CommunityPost.findByIdAndDelete(postId);
-
-      // Delete all comments associated with this post
-      await CommunityComment.deleteMany({ post: postId });
+      // Use the cleanup helper for cascading delete
+      await CommunityController._performPostCleanup(post);
 
       res.status(200).json({
         success: true,
-        message: "Post deleted successfully.",
+        message: "Post and all associated data deleted successfully.",
       });
     } catch (error) {
       console.error("[Delete Post Error]:", error);
       res.status(500).json({ success: false, message: "Failed to delete post." });
+    }
+  }
+
+  // Automatically cleanup posts that have reached their expiration date (Scheduled Task)
+  static async cleanupExpiredPosts() {
+    try {
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+      // Find posts where createdAt is older than 2 years
+      const expiredPosts = await CommunityPost.find({ createdAt: { $lt: twoYearsAgo } });
+      
+      if (expiredPosts.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      console.log(`[Scheduled Cleanup]: Deleting ${expiredPosts.length} expired posts.`);
+
+      for (const post of expiredPosts) {
+        await CommunityController._performPostCleanup(post);
+      }
+
+      return { success: true, count: expiredPosts.length };
+    } catch (error) {
+      console.error("[Scheduled Cleanup Error]:", error);
+      throw error;
     }
   }
 
@@ -301,7 +395,7 @@ class CommunityController {
           // Avoid duplicate notification if already notified as post author/parent author
           const isPostAuthor = String(post.author) === String(mentionId);
           // (Simple check for now, could be more robust)
-          
+
           await Notification.create({
             recipient: mentionId,
             title: "New Mention",
@@ -384,7 +478,7 @@ class CommunityController {
         comment.likes = comment.likes.filter((id) => String(id) !== String(userId));
       } else {
         comment.likes.push(userId);
-        
+
         // Notify comment author
         if (String(comment.author) !== String(userId)) {
           await Notification.create({
@@ -427,8 +521,22 @@ class CommunityController {
       }
 
       comment.content = content || comment.content;
-      if (images) comment.images = images;
-      
+      if (images) {
+        // Find images that were removed
+        const oldImages = comment.images || [];
+        const newImages = images || [];
+
+        const removedImages = oldImages.filter(oldImg =>
+          !newImages.some(newImg => newImg.publicId === oldImg.publicId)
+        );
+
+        for (const img of removedImages) {
+          if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+        }
+
+        comment.images = images;
+      }
+
       await comment.save();
 
       res.status(200).json({
@@ -477,11 +585,33 @@ class CommunityController {
         }
       }
 
-      await CommunityComment.findByIdAndDelete(commentId);
-      
-      // Also delete all replies to this comment (recursively or just one level?)
-      // For simplicity, let's delete the first level. In a full system, you'd want recursion.
+      // 1. Delete associated images from Cloudinary
+      if (comment.images && comment.images.length > 0) {
+        for (const img of comment.images) {
+          if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+        }
+      }
+
+      // 2. Handle replies (and their images/notifications)
+      const replies = await CommunityComment.find({ parentId: commentId });
+      for (const reply of replies) {
+        if (reply.images && reply.images.length > 0) {
+          for (const img of reply.images) {
+            if (img.publicId) await deleteCloudinaryAssetByPublicId(img.publicId);
+          }
+        }
+        // Delete notifications for replies
+        await Notification.deleteMany({ "metadata.commentId": reply._id });
+      }
+
+      // 3. Delete replies from DB
       await CommunityComment.deleteMany({ parentId: commentId });
+
+      // 4. Delete notifications for this comment
+      await Notification.deleteMany({ "metadata.commentId": commentId });
+
+      // 5. Delete the comment itself
+      await CommunityComment.findByIdAndDelete(commentId);
 
       res.status(200).json({
         success: true,
@@ -507,7 +637,7 @@ class CommunityController {
         const myBatchIds = await getStudentBatchIds(req.user._id);
         // Does the post's target batches intersect with my approved batches?
         const hasAccess = post.enrolledBatches.some(batchId => myBatchIds.includes(String(batchId)));
-        
+
         if (!hasAccess) {
           return res.status(403).json({ success: false, message: "You do not have permission to view this post. You must be enrolled in the target course." });
         }

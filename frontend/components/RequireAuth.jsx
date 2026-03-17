@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useGetCurrentUserQuery } from "@/lib/features/auth/authApi";
@@ -10,11 +10,16 @@ import AuthSkeleton from "@/components/loaders/AuthSkeleton";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function RequireAuth({ children, allowedRoles }) {
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
   const currentUser = useSelector(selectCurrentUser);
   const { t } = useSiteLanguage();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data, isLoading, isFetching, isError } = useGetCurrentUserQuery(undefined, {
     skip: !isAuthenticated || Boolean(currentUser),
@@ -23,6 +28,7 @@ export default function RequireAuth({ children, allowedRoles }) {
   const resolvedUser = currentUser || data?.data;
 
   useEffect(() => {
+    if (!mounted) return;
     // If auth state is settled and user is definitely not logged in, boot to home.
     if (isInitialized && !isAuthenticated) {
       router.replace("/");
@@ -45,8 +51,8 @@ export default function RequireAuth({ children, allowedRoles }) {
     }
   }, [isError, router]);
 
-  // Phase 1: Waiting for Firebase to tell us IF someone is here.
-  if (!isInitialized) {
+  // Phase 1: Waiting for Firebase to tell us IF someone is here or waiting for client mount.
+  if (!mounted || !isInitialized) {
     return <AuthSkeleton />;
   }
 
