@@ -7,9 +7,13 @@ import {
   FileText, 
   UserCircle 
 } from "lucide-react";
+import { communityApi } from "@/lib/features/community/communityApi";
+import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
 
 export default function CommunityShortcuts() {
   const router = useRouter();
+  const prefetchCommunity = communityApi.usePrefetch("getPosts");
+  const prefetchSharedNotes = sharedNotesApi.usePrefetch("getSharedNotes");
 
   const shortcuts = [
     {
@@ -17,18 +21,21 @@ export default function CommunityShortcuts() {
       icon: <BookOpen className="h-4 w-4" />,
       color: "bg-indigo-50 text-indigo-600",
       path: "/community/my-notes",
+      onMouseEnter: () => prefetchSharedNotes({ page: 1, limit: 50, author: "me" }),
     },
     {
       title: "Shared Notes",
       icon: <BookOpen className="h-4 w-4" />,
       color: "bg-emerald-50 text-emerald-600",
       path: "/community/shared-notes",
+      onMouseEnter: () => prefetchSharedNotes({ page: 1, limit: 10 }),
     },
     {
       title: "My Posts",
       icon: <FileText className="h-4 w-4" />,
       color: "bg-indigo-100 text-indigo-600",
       path: "/community/my-posts",
+      onMouseEnter: () => prefetchCommunity({ page: 1, limit: 10, author: "me" }),
     },
     {
       title: "Profile",
@@ -44,6 +51,7 @@ export default function CommunityShortcuts() {
         <button
           key={index}
           onClick={() => router.push(shortcut.path)}
+          onMouseEnter={shortcut.onMouseEnter}
           className="group flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2 sm:p-2.5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md active:scale-95"
         >
 

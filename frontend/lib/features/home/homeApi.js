@@ -59,6 +59,29 @@ export const homeApi = baseApi.injectEndpoints({
         method: "PATCH",
         body: payload,
       }),
+      async onQueryStarted(payload, { dispatch, queryFulfilled }) {
+        const patchAdmin = dispatch(
+          homeApi.util.updateQueryData("getAdminSiteSettings", undefined, (draft) => {
+            if (draft && draft.data) {
+              // Deep merge or update specific fields
+              Object.assign(draft.data, payload);
+            }
+          })
+        );
+        const patchPublic = dispatch(
+          homeApi.util.updateQueryData("getPublicSiteSettings", undefined, (draft) => {
+            if (draft && draft.data) {
+              Object.assign(draft.data, payload);
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchAdmin.undo();
+          patchPublic.undo();
+        }
+      },
       invalidatesTags: [
         { type: "Public", id: "SITE_SETTINGS_ADMIN" },
         { type: "Public", id: "SITE_SETTINGS" },
@@ -83,6 +106,15 @@ export const homeApi = baseApi.injectEndpoints({
         method: "POST",
         body: payload,
       }),
+      async onQueryStarted(payload, { dispatch, queryFulfilled }) {
+        // We can't easily predict the new ID from the server, 
+        // but we can add a temporary item or just wait for success.
+        // For 'create', it's often safer to just invalidate, 
+        // but we can at least show a placeholder if we wanted to.
+        try {
+          await queryFulfilled;
+        } catch {}
+      },
       invalidatesTags: [{ type: "Public", id: "HERO_ADMIN" }, { type: "Public", id: "HOME" }],
     }),
 
@@ -92,6 +124,21 @@ export const homeApi = baseApi.injectEndpoints({
         method: "PATCH",
         body: payload,
       }),
+      async onQueryStarted({ slideId, ...payload }, { dispatch, queryFulfilled }) {
+        const patchAdmin = dispatch(
+          homeApi.util.updateQueryData("getAdminHeroSlides", undefined, (draft) => {
+            if (draft && draft.data) {
+              const slide = draft.data.find(s => s._id === slideId);
+              if (slide) Object.assign(slide, payload);
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchAdmin.undo();
+        }
+      },
       invalidatesTags: [{ type: "Public", id: "HERO_ADMIN" }, { type: "Public", id: "HOME" }],
     }),
 
@@ -100,6 +147,20 @@ export const homeApi = baseApi.injectEndpoints({
         url: `/public/admin/hero-slides/${slideId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(slideId, { dispatch, queryFulfilled }) {
+        const patchAdmin = dispatch(
+          homeApi.util.updateQueryData("getAdminHeroSlides", undefined, (draft) => {
+            if (draft && draft.data) {
+              draft.data = draft.data.filter(s => s._id !== slideId);
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchAdmin.undo();
+        }
+      },
       invalidatesTags: [{ type: "Public", id: "HERO_ADMIN" }, { type: "Public", id: "HOME" }],
     }),
 
@@ -109,6 +170,20 @@ export const homeApi = baseApi.injectEndpoints({
         method: "PATCH",
         body: { orderedSlideIds },
       }),
+      async onQueryStarted(orderedSlideIds, { dispatch, queryFulfilled }) {
+        const patchAdmin = dispatch(
+          homeApi.util.updateQueryData("getAdminHeroSlides", undefined, (draft) => {
+            if (draft && draft.data) {
+              draft.data.sort((a, b) => orderedSlideIds.indexOf(a._id) - orderedSlideIds.indexOf(b._id));
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchAdmin.undo();
+        }
+      },
       invalidatesTags: [{ type: "Public", id: "HERO_ADMIN" }, { type: "Public", id: "HOME" }],
     }),
   }),

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useGetSharedNotesQuery, useDeleteSharedNoteMutation } from "@/lib/features/community/sharedNotesApi";
 import NoteCard from "@/components/community/NoteCard";
 import CreateSharedNote from "@/components/community/CreateSharedNote";
+import { NoteSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
@@ -121,7 +122,7 @@ export default function MyNotesPage() {
               <div className="space-y-3.5">
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="animate-pulse rounded-xl border border-slate-200 bg-white p-5 h-28 shadow-sm" />
+                    <NoteSkeleton key={i} />
                   ))
                 ) : isError ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-center shadow-sm">

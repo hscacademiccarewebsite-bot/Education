@@ -54,6 +54,33 @@ export const communityApi = baseApi.injectEndpoints({
         url: `/community/posts/${postId}/like`,
         method: "POST",
       }),
+      async onQueryStarted(postId, { dispatch, queryFulfilled }) {
+        const updatePosts = (draft) => {
+          if (!draft || !draft.data) return;
+          const post = draft.data.find((p) => p._id === postId);
+          if (post) {
+            post.isLiked = !post.isLiked;
+            post.likesCount += post.isLiked ? 1 : -1;
+          }
+        };
+
+        const patches = [
+          dispatch(communityApi.util.updateQueryData("getPosts", {}, (draft) => updatePosts(draft))),
+          dispatch(communityApi.util.updateQueryData("getPosts", { author: "me" }, (draft) => updatePosts(draft))),
+          dispatch(communityApi.util.updateQueryData("getPostById", postId, (draft) => {
+            if (draft && draft.data) {
+              draft.data.isLiked = !draft.data.isLiked;
+              draft.data.likesCount += draft.data.isLiked ? 1 : -1;
+            }
+          })),
+        ];
+
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: (result, error, arg) => [{ type: "Community", id: arg }],
     }),
     updatePost: builder.mutation({
@@ -72,6 +99,23 @@ export const communityApi = baseApi.injectEndpoints({
         url: `/community/posts/${postId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(postId, { dispatch, queryFulfilled }) {
+        const updatePosts = (draft) => {
+          if (!draft || !draft.data) return;
+          draft.data = draft.data.filter((p) => p._id !== postId);
+        };
+
+        const patches = [
+          dispatch(communityApi.util.updateQueryData("getPosts", {}, updatePosts)),
+          dispatch(communityApi.util.updateQueryData("getPosts", { author: "me" }, updatePosts)),
+        ];
+
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: [{ type: "Community", id: "LIST" }],
     }),
     getComments: builder.query({
@@ -103,6 +147,14 @@ export const communityApi = baseApi.injectEndpoints({
         url: `/community/comments/${commentId}/like`,
         method: "POST",
       }),
+      async onQueryStarted(commentId, { dispatch, queryFulfilled }) {
+        // Since we don't know the postId for getComments, we can't easily patch it without knowing the arg.
+        // However, we can use updateAllQueryData (custom logic) or just invalidate as is.
+        // For simplicity and correctness with RTK Query, we'll keep it as is unless we track active getComments args.
+        try {
+          await queryFulfilled;
+        } catch {}
+      },
       invalidatesTags: (result, error, arg) => [{ type: "Comment", id: arg }],
     }),
     updateComment: builder.mutation({
@@ -118,6 +170,30 @@ export const communityApi = baseApi.injectEndpoints({
         url: `/community/comments/${commentId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(commentId, { dispatch, queryFulfilled, getState }) {
+        // We iterate through all active getComments queries to find the one containing this comment
+        const state = getState();
+        const apiState = state[communityApi.reducerPath];
+        const commentQueries = apiState?.queries || {};
+        const activePostIds = Object.keys(commentQueries)
+          .filter(key => key.startsWith('getComments-'))
+          .map(key => JSON.parse(key.replace('getComments-', '')).postId);
+
+        const patches = activePostIds.map(postId => 
+          dispatch(
+            communityApi.util.updateQueryData("getComments", { postId }, (draft) => {
+              if (!draft || !draft.data) return;
+              draft.data = draft.data.filter((c) => c._id !== commentId);
+            })
+          )
+        );
+
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach(patch => patch.undo());
+        }
+      },
       invalidatesTags: () => [{ type: "Comment", id: "LIST" }, { type: "Community", id: "LIST" }],
     }),
   }),

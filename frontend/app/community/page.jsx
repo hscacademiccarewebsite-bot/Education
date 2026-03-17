@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useGetPostsQuery } from "@/lib/features/community/communityApi";
 import CreatePost from "@/components/community/CreatePost";
 import PostCard from "@/components/community/PostCard";
+import { PostSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,8 @@ import RoleBadge from "@/components/RoleBadge";
 import RequireAuth from "@/components/RequireAuth";
 import SharedNotesWidget from "@/components/community/SharedNotesWidget";
 import CommunityShortcuts from "@/components/community/CommunityShortcuts";
+import { communityApi } from "@/lib/features/community/communityApi";
+import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
 
 
 export default function CommunityPage() {
@@ -24,6 +27,9 @@ export default function CommunityPage() {
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
   const userRole = useSelector(selectCurrentUserRole);
+
+  const prefetchCommunity = communityApi.usePrefetch("getPosts");
+  const prefetchSharedNotes = sharedNotesApi.usePrefetch("getSharedNotes");
 
   const [page, setPage] = useState(1);
   const { data: postsData, isLoading, isFetching, isError } = useGetPostsQuery({ page, limit: 10 }, {
@@ -69,6 +75,7 @@ export default function CommunityPage() {
               <div className="space-y-1">
                 <div 
                   onClick={() => router.push("/community/my-notes")}
+                  onMouseEnter={() => prefetchSharedNotes({ page: 1, limit: 50, author: "me" })}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -80,6 +87,7 @@ export default function CommunityPage() {
                 </div>
                 <div 
                   onClick={() => router.push("/community/shared-notes")}
+                  onMouseEnter={() => prefetchSharedNotes({ page: 1, limit: 10 })}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -91,6 +99,7 @@ export default function CommunityPage() {
                 </div>
                 <div 
                   onClick={() => router.push("/community/my-posts")}
+                  onMouseEnter={() => prefetchCommunity({ page: 1, limit: 10, author: "me" })}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
@@ -134,7 +143,7 @@ export default function CommunityPage() {
             <div className="space-y-4">
               {isLoading && page === 1 ? (
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 h-64 shadow-sm" />
+                  <PostSkeleton key={i} />
                 ))
               ) : isError ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-center shadow-sm">
@@ -173,9 +182,9 @@ export default function CommunityPage() {
                     }
                   })}
 
-                  {(isFetching) && (
+                   {(isFetching) && (
                     Array.from({ length: 2 }).map((_, i) => (
-                      <div key={`skeleton-${i}`} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 h-64 shadow-sm" />
+                      <PostSkeleton key={`skeleton-${i}`} />
                     ))
                   )}
 

@@ -58,6 +58,23 @@ export const sharedNotesApi = baseApi.injectEndpoints({
         url: `/shared-notes/${noteId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(noteId, { dispatch, queryFulfilled }) {
+        const updateNotes = (draft) => {
+          if (!draft || !draft.data) return;
+          draft.data = draft.data.filter((n) => n._id !== noteId);
+        };
+
+        const patches = [
+          dispatch(sharedNotesApi.util.updateQueryData("getSharedNotes", {}, updateNotes)),
+          dispatch(sharedNotesApi.util.updateQueryData("getSharedNotes", { author: "me" }, updateNotes)),
+        ];
+
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((patch) => patch.undo());
+        }
+      },
       invalidatesTags: [{ type: "SharedNote", id: "LIST" }],
     }),
   }),

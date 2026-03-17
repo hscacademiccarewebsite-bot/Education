@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useGetPostsQuery } from "@/lib/features/community/communityApi";
 import PostCard from "@/components/community/PostCard";
 import CreatePost from "@/components/community/CreatePost";
+import { PostSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
@@ -109,7 +110,7 @@ export default function MyPostsPage() {
               <div className="space-y-4">
                 {isLoading && page === 1 ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 h-64 shadow-sm" />
+                    <PostSkeleton key={i} />
                   ))
                 ) : isError ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-center shadow-sm">
@@ -150,7 +151,7 @@ export default function MyPostsPage() {
 
                     {isFetching && (
                       Array.from({ length: 2 }).map((_, i) => (
-                        <div key={`skeleton-${i}`} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 h-64 shadow-sm" />
+                        <PostSkeleton key={`skeleton-${i}`} />
                       ))
                     )}
 

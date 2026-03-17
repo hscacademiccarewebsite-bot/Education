@@ -8,6 +8,7 @@ import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { formatDistanceToNow } from "date-fns";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useRouter } from "next/navigation";
+import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
 
 export default function SharedNotesWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function SharedNotesWidget() {
   const [deleteNote] = useDeleteSharedNoteMutation();
   const { showSuccess, showError, requestDeleteConfirmation } = useActionPopup();
   const router = useRouter();
+  const prefetchNotes = sharedNotesApi.usePrefetch("getSharedNotes");
 
   const notes = notesData?.data || [];
 
@@ -148,6 +150,7 @@ export default function SharedNotesWidget() {
             
             <button 
               onClick={() => router.push("/community/shared-notes")}
+              onMouseEnter={() => prefetchNotes({ page: 1, limit: 10 })}
               className="w-full mt-3 py-2.5 px-4 rounded-xl border border-indigo-100 bg-indigo-50/40 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2"
             >
               <span>See All Shared Notes</span>

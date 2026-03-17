@@ -389,17 +389,9 @@ export default function Navbar() {
             </div>
 
             {/* ── Mobile Actions ─────────────────────────────────────────── */}
-            <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:hidden">
+            <div className="ml-auto flex items-center gap-3 sm:gap-4 lg:hidden">
 
-              {/* Language toggle (Mobile) */}
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)]/50 px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--page-teal)] transition-all active:scale-90"
-              >
-                <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-3.5 w-3.5" />
-                <span>{language === "bn" ? "EN" : "বাং"}</span>
-              </button>
+
 
               {/* Notification bell (Mobile) */}
               {isAuthenticated && isInitialized && <NotificationBell />}
@@ -492,6 +484,25 @@ export default function Navbar() {
 
           {/* Drawer body */}
           <div className="flex-1 overflow-y-auto px-5 py-8 space-y-1.5 custom-scrollbar">
+            {/* Language toggle (Mobile Drawer) */}
+            <div className="mb-6 px-1">
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)]/30 px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-[var(--page-teal)] transition-all active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--action-soft-bg)] shadow-sm">
+                    <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-4 w-4" />
+                  </div>
+                  <span>{language === "bn" ? "Switch to English" : "বাংলায় পরিবর্তন করুন"}</span>
+                </div>
+                <div className="rounded-md bg-[var(--page-teal)]/10 px-2 py-1 text-[9px] font-black">
+                  {language === "bn" ? "EN" : "BN"}
+                </div>
+              </button>
+            </div>
+
             <p className="px-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">{t("navbar.navigation", "Explore")}</p>
 
             {/* Nav links */}
