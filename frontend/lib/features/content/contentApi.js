@@ -196,6 +196,62 @@ export const contentApi = baseApi.injectEndpoints({
         ];
       },
     }),
+    
+    // Notes
+    listNotes: builder.query({
+      query: (subjectId) => ({
+        url: `/notes?subjectId=${subjectId}`,
+        method: "GET",
+      }),
+      providesTags: (result, _, subjectId) =>
+        result?.data
+          ? [
+              ...result.data.map((note) => ({ type: "Note", id: note._id })),
+              { type: "Note", id: `LIST_${subjectId}` },
+            ]
+          : [{ type: "Note", id: `LIST_${subjectId}` }],
+    }),
+
+    createNote: builder.mutation({
+      query: (payload) => ({
+        url: "/notes",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: (_, __, payload) => [{ type: "Note", id: `LIST_${payload.subjectId}` }],
+    }),
+
+    updateNote: builder.mutation({
+      query: ({ noteId, ...payload }) => ({
+        url: `/notes/${noteId}`,
+        method: "PATCH",
+        body: payload,
+      }),
+      invalidatesTags: (_, __, arg) => {
+        const { noteId, subjectId } = normalizeArg(arg, "noteId");
+        return [
+          { type: "Note", id: noteId },
+          ...(subjectId ? [{ type: "Note", id: `LIST_${subjectId}` }] : []),
+        ];
+      },
+    }),
+
+    deleteNote: builder.mutation({
+      query: (arg) => {
+        const { noteId } = normalizeArg(arg, "noteId");
+        return {
+          url: `/notes/${noteId}`,
+          method: "DELETE",
+        };
+      },
+      invalidatesTags: (_, __, arg) => {
+        const { noteId, subjectId } = normalizeArg(arg, "noteId");
+        return [
+          { type: "Note", id: noteId },
+          ...(subjectId ? [{ type: "Note", id: `LIST_${subjectId}` }] : []),
+        ];
+      },
+    }),
   }),
 });
 
@@ -215,4 +271,8 @@ export const {
   useCreateVideoMutation,
   useUpdateVideoMutation,
   useDeleteVideoMutation,
+  useListNotesQuery,
+  useCreateNoteMutation,
+  useUpdateNoteMutation,
+  useDeleteNoteMutation,
 } = contentApi;

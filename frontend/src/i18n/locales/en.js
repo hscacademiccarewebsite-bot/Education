@@ -11,6 +11,7 @@ const en = {
     about: "About",
     faculty: "Faculty",
     contact: "Contact",
+    community: "Community",
     dashboard: "Dashboard",
     profile: "Profile",
     student: "Student",

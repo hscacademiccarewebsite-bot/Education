@@ -549,6 +549,41 @@ class UserController {
     }
   }
 
+  static async searchUsers(req, res) {
+    try {
+      const { q } = req.query;
+      const trimmed = (q || "").trim();
+
+      let users;
+      if (!trimmed) {
+        // Bare "@" — return 10 random active users
+        users = await User.find({ isActive: true })
+          .select("_id fullName profilePhoto role")
+          .limit(10)
+          .lean();
+      } else {
+        users = await User.find({
+          fullName: { $regex: trimmed, $options: "i" },
+          isActive: true,
+        })
+          .select("_id fullName profilePhoto role")
+          .limit(10)
+          .lean();
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: users,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to search users.",
+        error: error.message,
+      });
+    }
+  }
+
 }
 
 module.exports = UserController;

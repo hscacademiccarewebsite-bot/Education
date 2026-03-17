@@ -14,6 +14,7 @@ import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 /* ════════════════════════════════════════════
    HELPERS
@@ -171,28 +172,30 @@ export default function SiteSettingsPage() {
       <section className="container-page py-8 md:py-10">
 
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white px-6 py-5 shadow-[0_4px_14px_rgba(15,23,42,0.07)]">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Admin</p>
-            <h1 className="mt-1.5 text-xl font-black tracking-tight text-slate-900 md:text-2xl">
-              Site Settings
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Last saved: <span className="font-semibold text-slate-700">{lastUpdatedText}</span>
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => refetch()} className="site-button-secondary">
-              Refresh
-            </button>
-            <Link href="/dashboard/slider-control" className="site-button-secondary">
-              Slider Control
-            </Link>
-            <Link href="/dashboard" className="site-button-primary">
-              Dashboard
-            </Link>
-          </div>
-        </div>
+        <RevealSection noStagger>
+          <RevealItem className="flex flex-wrap items-start justify-between gap-4 rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white px-6 py-5 shadow-[0_4px_14px_rgba(15,23,42,0.07)]">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Admin</p>
+              <h1 className="mt-1.5 text-xl font-black tracking-tight text-slate-900 md:text-2xl">
+                Site Settings
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Last saved: <span className="font-semibold text-slate-700">{lastUpdatedText}</span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => refetch()} className="site-button-secondary">
+                Refresh
+              </button>
+              <Link href="/dashboard/slider-control" className="site-button-secondary">
+                Slider Control
+              </Link>
+              <Link href="/dashboard" className="site-button-primary">
+                Dashboard
+              </Link>
+            </div>
+          </RevealItem>
+        </RevealSection>
 
 
 
@@ -213,103 +216,107 @@ export default function SiteSettingsPage() {
           </div>
         ) : (
           <form className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={onSave}>
-            <div className="space-y-5">
+            <RevealSection className="space-y-5">
 
               {/* Hero Stats */}
-              <SectionCard
-                eyebrow="Homepage"
-                title="Hero Statistics"
-                description="Shown on the homepage hero as achievement counters. Student count is sourced automatically from the database."
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FloatingInput
-                    id="gpa5Count"
-                    type="number"
-                    label="GPA 5 Achieved"
-                    hint="e.g. 200"
-                    {...field("gpa5Count")}
-                  />
-                  <FloatingInput
-                    id="publicAdmissionCount"
-                    type="number"
-                    label="Public University Admissions"
-                    hint="e.g. 150"
-                    {...field("publicAdmissionCount")}
-                  />
-                </div>
-                <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-                  <svg className="h-3.5 w-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Active Students count is automatic — no input needed here.
-                </p>
-              </SectionCard>
+              <RevealItem>
+                <SectionCard
+                  eyebrow="Homepage"
+                  title="Hero Statistics"
+                  description="Shown on the homepage hero as achievement counters. Student count is sourced automatically from the database."
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FloatingInput
+                      id="gpa5Count"
+                      type="number"
+                      label="GPA 5 Achieved"
+                      hint="e.g. 200"
+                      {...field("gpa5Count")}
+                    />
+                    <FloatingInput
+                      id="publicAdmissionCount"
+                      type="number"
+                      label="Public University Admissions"
+                      hint="e.g. 150"
+                      {...field("publicAdmissionCount")}
+                    />
+                  </div>
+                  <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Active Students count is automatic — no input needed here.
+                  </p>
+                </SectionCard>
+              </RevealItem>
 
               {/* Contact */}
-              <SectionCard
-                eyebrow="Support"
-                title="Contact Information"
-                description="Displayed on the Contact Us page and in the site footer."
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FloatingInput id="contactEmail" type="email" label="Email" {...field("contactEmail")} />
-                  <FloatingInput id="contactPhone" label="Phone" {...field("contactPhone")} />
-                  <FloatingTextarea
-                    id="contactAddress"
-                    label="Address"
-                    className="sm:col-span-2"
-                    rows={2}
-                    {...field("contactAddress")}
-                  />
-                  <FloatingInput
-                    id="contactOfficeHours"
-                    label="Office Hours"
-                    hint="e.g. Sat–Thu, 9am–9pm"
-                    {...field("contactOfficeHours")}
-                  />
-                  <FloatingInput
-                    id="contactFacebookPage"
-                    type="url"
-                    label="Facebook Page URL"
-                    {...field("contactFacebookPage")}
-                  />
-                  <FloatingTextarea
-                    id="contactMapEmbedUrl"
-                    label="Google Map Embed URL (iframe src)"
-                    className="sm:col-span-2"
-                    rows={2}
-                    hint="Paste the entire Google Maps iframe embed code or just the src link"
-                    {...field("contactMapEmbedUrl")}
-                  />
-                  <div>
-                    <FloatingInput
-                      id="contactWhatsapp"
-                      type="tel"
-                      label="WhatsApp Number"
-                      hint="Digits only, e.g. 8801XXXXXXXXX"
-                      {...field("contactWhatsapp")}
+              <RevealItem>
+                <SectionCard
+                  eyebrow="Support"
+                  title="Contact Information"
+                  description="Displayed on the Contact Us page and in the site footer."
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FloatingInput id="contactEmail" type="email" label="Email" {...field("contactEmail")} />
+                    <FloatingInput id="contactPhone" label="Phone" {...field("contactPhone")} />
+                    <FloatingTextarea
+                      id="contactAddress"
+                      label="Address"
+                      className="sm:col-span-2"
+                      rows={2}
+                      {...field("contactAddress")}
                     />
-                    {form.contactWhatsapp && (
-                      <a
-                        href={toWaLink(form.contactWhatsapp)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline"
-                      >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M20.52 3.48A11.86 11.86 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.59 5.95L0 24l6.34-1.66a11.89 11.89 0 005.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.17-3.45-8.42z" />
-                        </svg>
-                        Preview: {toWaLink(form.contactWhatsapp)}
-                      </a>
-                    )}
+                    <FloatingInput
+                      id="contactOfficeHours"
+                      label="Office Hours"
+                      hint="e.g. Sat–Thu, 9am–9pm"
+                      {...field("contactOfficeHours")}
+                    />
+                    <FloatingInput
+                      id="contactFacebookPage"
+                      type="url"
+                      label="Facebook Page URL"
+                      {...field("contactFacebookPage")}
+                    />
+                    <FloatingTextarea
+                      id="contactMapEmbedUrl"
+                      label="Google Map Embed URL (iframe src)"
+                      className="sm:col-span-2"
+                      rows={2}
+                      hint="Paste the entire Google Maps iframe embed code or just the src link"
+                      {...field("contactMapEmbedUrl")}
+                    />
+                    <div>
+                      <FloatingInput
+                        id="contactWhatsapp"
+                        type="tel"
+                        label="WhatsApp Number"
+                        hint="Digits only, e.g. 8801XXXXXXXXX"
+                        {...field("contactWhatsapp")}
+                      />
+                      {form.contactWhatsapp && (
+                        <a
+                          href={toWaLink(form.contactWhatsapp)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.52 3.48A11.86 11.86 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.59 5.95L0 24l6.34-1.66a11.89 11.89 0 005.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.17-3.45-8.42z" />
+                          </svg>
+                          Preview: {toWaLink(form.contactWhatsapp)}
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </SectionCard>
-            </div>
+                </SectionCard>
+              </RevealItem>
+            </RevealSection>
 
             {/* Sidebar */}
-            <aside className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
-              <div className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
+            <RevealSection as="aside" noStagger className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
+              <RevealItem className="site-panel rounded-[clamp(8px,5%,12px)] p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
                   Publish
                 </p>
@@ -333,9 +340,9 @@ export default function SiteSettingsPage() {
                 >
                   {saving ? "Saving…" : "Save Changes"}
                 </button>
-              </div>
+              </RevealItem>
 
-              <div className="rounded-[clamp(8px,5%,12px)] border border-slate-100 bg-slate-50 p-5">
+              <RevealItem className="rounded-[clamp(8px,5%,12px)] border border-slate-100 bg-slate-50 p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                   What you can manage
                 </p>
@@ -354,8 +361,8 @@ export default function SiteSettingsPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            </aside>
+              </RevealItem>
+            </RevealSection>
           </form>
         )}
       </section>

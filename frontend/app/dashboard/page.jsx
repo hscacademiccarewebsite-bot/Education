@@ -17,6 +17,7 @@ import { useListUsersQuery } from "@/lib/features/user/userApi";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const ROLE_COPY = {
   admin: {
@@ -341,7 +342,8 @@ export default function DashboardPage() {
     <RequireAuth>
       <section className="site-shell min-h-screen pb-14">
         <div className="container-page py-8 md:py-10">
-          <header className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-gradient-to-br from-white via-white to-[var(--action-soft-bg)] p-5 shadow-[0_10px_26px_rgba(15,23,42,0.08)] md:p-6">
+          <RevealSection noStagger>
+            <header className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-gradient-to-br from-white via-white to-[var(--action-soft-bg)] p-5 shadow-[0_10px_26px_rgba(15,23,42,0.08)] md:p-6">
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
               <div>
                 <p className="site-kicker text-indigo-600 drop-shadow-sm">{t("dashboard.kicker")}</p>
@@ -371,7 +373,6 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-
               <aside className="rounded-[clamp(8px,5%,10px)] border border-slate-200 bg-white p-3 md:p-4 shadow-[0_6px_14px_rgba(15,23,42,0.07)]">
                 <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("dashboard.liveSnapshot")}</p>
                 <dl className="mt-1 md:mt-2 divide-y divide-slate-100">
@@ -382,24 +383,26 @@ export default function DashboardPage() {
               </aside>
             </div>
           </header>
+          </RevealSection>
 
           <section className="mt-4 md:mt-6">
-            <div className={`grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 ${adminRole ? "xl:grid-cols-4" : ""}`}>
+            <RevealSection className={`grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 ${adminRole ? "xl:grid-cols-4" : ""}`}>
               {stats.map((item) => (
-                <StatBox
-                  key={item.id}
-                  label={item.label}
-                  value={item.value}
-                  accent={item.accent}
-                  loading={item.loading}
-                  loadingLabel={t("dashboard.loading")}
-                />
+                <RevealItem key={item.id}>
+                  <StatBox
+                    label={item.label}
+                    value={item.value}
+                    accent={item.accent}
+                    loading={item.loading}
+                    loadingLabel={t("dashboard.loading")}
+                  />
+                </RevealItem>
               ))}
-            </div>
+            </RevealSection>
           </section>
 
-          <section className="mt-5 md:mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,360px)]">
-            <div className="site-panel rounded-[clamp(8px,5%,12px)] p-4 md:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+          <RevealSection className="mt-5 md:mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,360px)]">
+            <RevealItem className="site-panel rounded-[clamp(8px,5%,12px)] p-4 md:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
               <div className="mb-4 md:mb-5 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{t("dashboard.operations")}</p>
@@ -417,15 +420,17 @@ export default function DashboardPage() {
                   {t("dashboard.noRoleActions")}
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <RevealSection className="grid gap-3 sm:grid-cols-2">
                   {actions.map((item) => (
-                    <OperationsCard key={item.id} item={item} t={t} />
+                    <RevealItem key={item.id}>
+                      <OperationsCard item={item} t={t} />
+                    </RevealItem>
                   ))}
-                </div>
+                </RevealSection>
               )}
-            </div>
+            </RevealItem>
 
-            <aside className="space-y-4">
+            <RevealItem className="space-y-4">
               <section className="site-panel rounded-[clamp(8px,5%,10px)] p-4 shadow-[0_6px_14px_rgba(15,23,42,0.07)]">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t("dashboard.account")}</p>
                 <dl className="mt-2 divide-y divide-slate-100">
@@ -448,8 +453,8 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               </section>
-            </aside>
-          </section>
+            </RevealItem>
+          </RevealSection>
         </div>
       </section>
     </RequireAuth>

@@ -45,34 +45,28 @@ export default function ContactUsPage() {
 
   return (
     <section className="container-page py-8 md:py-12">
-      {/* HEADER: Compact & Refined */}
+      {/* TOP DECORATIVE BAR */}
+      <div className="h-1.5 w-32 rounded-full bg-emerald-400 mb-8" />
+
+      {/* HEADER: Redesigned based on UI mockup */}
       <RevealSection noStagger className="mb-8 md:mb-12">
         <RevealItem>
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200/60">
-            <div className="max-w-xl">
-              <span className="inline-block rounded-full bg-emerald-100/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700">
+          <div className="flex flex-col gap-6 pb-6 border-b border-slate-200/60">
+            <div className="max-w-3xl">
+              <span className="inline-block rounded-full border border-emerald-200 bg-transparent px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 mb-5">
                 {t("contactPage.eyebrow")}
               </span>
-              <h1 className="font-display mt-3 text-3xl font-black text-slate-950 sm:text-4xl">
-                {t("contactPage.title")}
+              
+              <h1 className="font-display text-3xl font-black sm:text-4xl lg:text-[40px] text-slate-950 leading-tight">
+                <span className="text-emerald-500">{t("contactPage.title").split(" ")[0]} {t("contactPage.title").split(" ")[1]}</span>
+                {" "}{t("contactPage.title").split(" ").slice(2).join(" ")}
               </h1>
-              <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+
+              <p className="mt-4 text-sm md:text-base text-slate-500 leading-relaxed max-w-2xl font-medium">
                 {t("contactPage.description")}
               </p>
             </div>
             
-            <div className="hidden lg:block">
-              <div className="flex items-center gap-4 rounded-2xl bg-slate-950 p-4 pl-6 text-white shadow-xl">
-                <div>
-                   <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">{t("contactPage.responseWindow")}</p>
-                   <p className="text-sm font-black text-white">{contact?.officeHours || t("contactPage.dailySupport")}</p>
-                </div>
-                <div className="h-8 w-px bg-white/10 mx-2" />
-                <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
-                  <Send className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
           </div>
         </RevealItem>
       </RevealSection>

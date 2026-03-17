@@ -57,6 +57,7 @@ export const selectCurrentUser = (state) => state.user.profile;
 export const selectCurrentUserRole = (state) => state.user.profile?.role;
 export const selectCurrentUserStatus = (state) => state.user.status;
 export const selectCurrentUserError = (state) => state.user.error;
+export const selectCurrentUserId = (state) => state.user.profile?._id;
 
 export const selectCurrentUserDisplayName = createSelector(
   [selectCurrentUser, (state) => state.auth.firebaseUser],

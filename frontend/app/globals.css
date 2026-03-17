@@ -116,7 +116,7 @@ body {
 
 .site-shell > *:not(header) {
   position: relative;
-  z-index: 1;
+  z-index: auto;
 }
 
 .site-panel {

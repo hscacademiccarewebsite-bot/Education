@@ -23,6 +23,7 @@ import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const MONTH_NAMES_EN = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_NAMES_BN = ["", "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
@@ -142,11 +143,8 @@ function StudentPayments({ t, language }) {
 
   const formatServiceMonth = (billingYear, billingMonth) => {
     if (!billingYear || !billingMonth) return "";
-    let year = Number(billingYear);
-    let month = Number(billingMonth) - 1;
-    if (month === 0) { month = 12; year -= 1; }
     const locale = language === "bn" ? "bn-BD" : "en-US";
-    return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric" });
+    return new Date(Date.UTC(Number(billingYear), Number(billingMonth) - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric" });
   };
 
   const handlePay = async (paymentId) => {
@@ -163,6 +161,7 @@ function StudentPayments({ t, language }) {
         throw new Error("bKash redirect URL not provided by the server.");
       }
     } catch (payError) {
+      setPayingId(null);
       const resolvedError = normalizeApiError(payError, t("paymentsPage.messages.paymentUpdateFailed", "Failed to initialize bKash payment."));
       setError(resolvedError);
       showError(resolvedError);
@@ -170,13 +169,19 @@ function StudentPayments({ t, language }) {
   };
 
   return (
-    <div className="space-y-5">
+    <RevealSection className="space-y-5">
       {/* ── Summary stats ────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatBox label={t("paymentsPage.studentStats.dueAmount")} value={formatAmount(summary.totalDue, "BDT", language)} accent="amber" />
-        <StatBox label={t("paymentsPage.studentStats.paidAmount")} value={formatAmount(summary.totalPaid, "BDT", language)} accent="emerald" />
-        <StatBox label={t("paymentsPage.studentStats.dueMonths")} value={summary.dueCount} accent="slate" />
-      </div>
+      <RevealSection className="grid gap-3 sm:grid-cols-3">
+        <RevealItem>
+          <StatBox label={t("paymentsPage.studentStats.dueAmount")} value={formatAmount(summary.totalDue, "BDT", language)} accent="amber" />
+        </RevealItem>
+        <RevealItem>
+          <StatBox label={t("paymentsPage.studentStats.paidAmount")} value={formatAmount(summary.totalPaid, "BDT", language)} accent="emerald" />
+        </RevealItem>
+        <RevealItem>
+          <StatBox label={t("paymentsPage.studentStats.dueMonths")} value={summary.dueCount} accent="slate" />
+        </RevealItem>
+      </RevealSection>
 
 
       {/* ── Course billing table ────────────────────── */}
@@ -216,7 +221,7 @@ function StudentPayments({ t, language }) {
                     <TH>{t("paymentsPage.actionLabel", "Action")}</TH>
                   </tr>
                 </thead>
-                <tbody>
+                <RevealSection as="tbody" noStagger>
                   {courseCards.filter((card) => card.currentDue).map((card) => {
                     const { batch, currentDue, dueCount } = card;
                     const amountValue = currentDue.amount;
@@ -227,7 +232,11 @@ function StudentPayments({ t, language }) {
                       : "";
 
                     return (
-                      <tr key={batch?._id || batch?.slug} className="bg-white transition-colors hover:bg-slate-50/60">
+                      <RevealItem
+                        key={batch?._id || batch?.slug}
+                        as="tr"
+                        className="bg-white transition-colors hover:bg-slate-50/60"
+                      >
                         <TD>
                           <p className="text-xs font-bold text-slate-900">
                             {batch?.name || t("paymentsPage.courseFallback", "Course")}
@@ -269,10 +278,10 @@ function StudentPayments({ t, language }) {
                             {payingId === currentDue._id ? t("paymentsPage.processing") : t("paymentsPage.payOnlineFallback", "Pay via bKash")}
                           </button>
                         </TD>
-                      </tr>
+                      </RevealItem>
                     );
                   })}
-                </tbody>
+                </RevealSection>
               </table>
             </div>
 
@@ -494,7 +503,7 @@ function StudentPayments({ t, language }) {
       </section>
 
       {popupNode}
-    </div>
+    </RevealSection>
   );
 }
 
@@ -545,6 +554,7 @@ function StaffAdminPayments({ role, t, language }) {
     { skip: staffSkip || !showGlobalLedger }
   );
 
+  const [markPaymentOfflinePaid] = useMarkPaymentOfflinePaidMutation();
   const [waivePayment, { isLoading: waiving }] = useWaivePaymentMutation();
   const [generateMonthlyDues, { isLoading: generatingDues }] = useGenerateMonthlyDuesMutation();
   const { showSuccess, showError, requestConfirmation, requestPrompt, popupNode } = useActionPopup();
@@ -668,11 +678,8 @@ function StaffAdminPayments({ role, t, language }) {
 
   const formatServiceMonth = (billingYear, billingMonth) => {
     if (!billingYear || !billingMonth) return "";
-    let year = Number(billingYear);
-    let month = Number(billingMonth) - 1;
-    if (month === 0) { month = 12; year -= 1; }
     const locale = language === "bn" ? "bn-BD" : "en-US";
-    return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric" });
+    return new Date(Date.UTC(Number(billingYear), Number(billingMonth) - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric" });
   };
 
   const methodLabel = (method) => {
@@ -683,7 +690,7 @@ function StaffAdminPayments({ role, t, language }) {
   };
 
   return (
-    <div className="space-y-5">
+    <RevealSection className="space-y-5">
       {/* ── Global stats (Admin only) ────────────────── */}
       {isAdmin(role) ? (
         <div className="grid gap-3 sm:grid-cols-3">
@@ -1050,7 +1057,7 @@ function StaffAdminPayments({ role, t, language }) {
         </aside>
       </div>
       {popupNode}
-    </div>
+    </RevealSection>
   );
 }
 
@@ -1063,35 +1070,51 @@ export default function PaymentsPage() {
 
   return (
     <RequireAuth>
-      <section className="container-page py-8 md:py-10">
-        <section className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="site-kicker">{t("paymentsPage.hero.eyebrow")}</p>
-              <h1 className="site-title mt-3">
-                {t("paymentsPage.hero.accent") && (
-                  <span className="text-emerald-600">
-                    {t("paymentsPage.hero.accent")}{" "}
-                  </span>
-                )}
-                {t("paymentsPage.hero.title")}
-              </h1>
-              <p className="site-lead mt-2">{t("paymentsPage.hero.description")}</p>
-            </div>
-            {role ? (
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-                <RoleBadge role={role} />
-              </div>
-            ) : null}
-          </div>
-        </section>
+      <section className="container-page py-10">
+        <RevealSection noStagger>
+          <div className="relative mb-12">
+            {/* Decorative Accent */}
+            <div className="h-1.5 w-32 rounded-full bg-emerald-400 mb-8" />
 
-        <div className="mt-6">
-          {isStudent(role) ? (
-            <StudentPayments t={t} language={language} />
-          ) : (
-            <StaffAdminPayments role={role} t={t} language={language} />
-          )}
+            <div className="flex flex-wrap items-start justify-between gap-6">
+              <div className="max-w-3xl">
+                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                  {t("paymentsPage.hero.badge", "Financial Desk")}
+                </span>
+
+                <h1 className="mt-6 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl lg:text-[32px] leading-tight">
+                  <span className="text-emerald-600">
+                    {t("paymentsPage.hero.accent", "Payment Dashboard")}
+                  </span>{" "}
+                  {t("paymentsPage.hero.title", "and Billing History")}
+                </h1>
+
+                <p className="mt-4 text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+                  {t("paymentsPage.hero.description", "Students can review dues and sandbox payment actions. Staff and administrators can monitor course-level records and mark offline collections.")}
+                </p>
+              </div>
+
+              {role && (
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-sm transition-all hover:shadow-md">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-2">Status</span>
+                  <RoleBadge role={role} />
+                </div>
+              )}
+            </div>
+          </div>
+        </RevealSection>
+
+        <div className="mt-4">
+          <RevealSection noStagger>
+            <RevealItem>
+              {isStudent(role) ? (
+                <StudentPayments t={t} language={language} />
+              ) : (
+                <StaffAdminPayments role={role} t={t} language={language} />
+              )}
+            </RevealItem>
+          </RevealSection>
         </div>
       </section>
     </RequireAuth>

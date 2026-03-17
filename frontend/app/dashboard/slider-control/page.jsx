@@ -18,6 +18,7 @@ import {
 } from "@/lib/features/home/homeApi";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const makeEmptyForm = (priority = 0) => ({
   priority,
@@ -245,37 +246,39 @@ export default function SliderControlPage() {
   return (
     <RequireAuth allowedRoles={["admin"]}>
       <section className="container-page py-6 md:py-8">
-        <header className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-[#f8fafc] p-5 shadow-[0_10px_26px_rgba(15,23,42,0.06)] md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Homepage Experience</p>
-              <h1 className="mt-1 text-xl md:text-2xl font-black text-slate-900 drop-shadow-sm [font-family:'Trebuchet_MS','Avenir_Next','Segoe_UI',sans-serif]">
-                <span className="text-emerald-600">Slider</span> Control Center
-              </h1>
+        <RevealSection noStagger>
+          <RevealItem as="header" className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-[#f8fafc] p-5 shadow-[0_10px_26px_rgba(15,23,42,0.06)] md:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Homepage Experience</p>
+                <h1 className="mt-1 text-xl md:text-2xl font-black text-slate-900 drop-shadow-sm [font-family:'Trebuchet_MS','Avenir_Next','Segoe_UI',sans-serif]">
+                  <span className="text-emerald-600">Slider</span> Control Center
+                </h1>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => refetch()} 
+                  className="inline-flex h-8 items-center rounded-lg border border-target/20 bg-white px-3 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                >
+                  {t("sliderControlPage.refresh")}
+                </button>
+                <Link 
+                  href="/dashboard/site-settings" 
+                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                >
+                  {t("siteSettingsPage.title")}
+                </Link>
+                <Link 
+                  href="/dashboard" 
+                  className="inline-flex h-8 items-center rounded-lg bg-slate-900 px-3 text-[11px] font-bold text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95"
+                >
+                  {t("navbar.dashboard")}
+                </Link>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button 
-                type="button" 
-                onClick={() => refetch()} 
-                className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
-              >
-                {t("sliderControlPage.refresh")}
-              </button>
-              <Link 
-                href="/dashboard/site-settings" 
-                className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
-              >
-                {t("siteSettingsPage.title")}
-              </Link>
-              <Link 
-                href="/dashboard" 
-                className="inline-flex h-8 items-center rounded-lg bg-slate-900 px-3 text-[11px] font-bold text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95"
-              >
-                {t("navbar.dashboard")}
-              </Link>
-            </div>
-          </div>
-        </header>
+          </RevealItem>
+        </RevealSection>
 
         <div className="mt-6 space-y-4">
           {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
@@ -404,10 +407,11 @@ export default function SliderControlPage() {
                 </p>
               </div>
             ) : (
-              <div className="mt-4 space-y-2">
+              <RevealSection className="mt-4 space-y-2">
                 {slides.map((slide, index) => (
-                  <article
+                  <RevealItem
                     key={slide.id}
+                    as="article"
                     className={`rounded-lg border p-2 transition ${
                       editingSlideId === slide.id
                         ? "border-emerald-300 bg-emerald-50/50"
@@ -484,9 +488,9 @@ export default function SliderControlPage() {
                         </div>
                       </div>
                     </div>
-                  </article>
+                  </RevealItem>
                 ))}
-              </div>
+              </RevealSection>
             )}
           </article>
         </div>

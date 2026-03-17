@@ -74,8 +74,10 @@ function toCoursePayload(form) {
 export default function CoursesPage() {
   const { t } = useSiteLanguage();
   const role = useSelector(selectCurrentUserRole);
-  const adminRole = isAdmin(role);
+  const adminRole = role === "admin";
+  const teacherRole = role === "teacher";
   const studentRole = isStudent(role);
+  const canManage = adminRole || teacherRole;
 
   const { data: coursesData, isLoading } = useListBatchesQuery();
   const { data: myEnrollmentsData } = useGetMyEnrollmentRequestsQuery(undefined, {
@@ -110,7 +112,7 @@ export default function CoursesPage() {
     () => courses.find((course) => course._id === editCourseId),
     [courses, editCourseId]
   );
-  const showEditModal = adminRole && Boolean(editCourseId);
+  const showEditModal = canManage && Boolean(editCourseId);
 
   useEffect(() => {
     setPortalMounted(true);
@@ -259,11 +261,13 @@ export default function CoursesPage() {
     <main className="site-shell min-h-screen pb-20">
       <section className="container-page pt-8 pb-0 md:pt-10 md:pb-0">
         {adminRole ? (
-          <div className="mb-4 flex flex-wrap gap-3">
-            <button type="button" onClick={openCreateModal} className="site-button-primary">
-              {t("batchesPage.actions.createNew", "Create New Course")}
-            </button>
-          </div>
+          <RevealSection noStagger className="mb-4 flex flex-wrap gap-3">
+            <RevealItem>
+              <button type="button" onClick={openCreateModal} className="site-button-primary">
+                {t("batchesPage.actions.createNew", "Create New Course")}
+              </button>
+            </RevealItem>
+          </RevealSection>
         ) : null}
         <RevealSection noStagger>
           <RevealItem>
@@ -311,7 +315,7 @@ export default function CoursesPage() {
                     course={course}
                     index={index}
                     showApplyAction={showApplyAction}
-                    showModifyAction={adminRole}
+                    showModifyAction={canManage}
                     onModify={openEditForm}
                     enrollmentStatus={enrollmentStatus}
                     showEnrollmentStatus={studentRole}

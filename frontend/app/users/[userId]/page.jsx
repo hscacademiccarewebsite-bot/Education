@@ -15,6 +15,7 @@ import { ROLES } from "@/lib/utils/roleUtils";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 
 function formatDateTime(value, t) {
@@ -133,8 +134,8 @@ export default function UserDetailsPage() {
   return (
     <RequireAuth allowedRoles={[ROLES.ADMIN, ROLES.TEACHER, ROLES.MODERATOR]}>
       <section className="container-page py-8 md:py-10">
-        <section className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <RevealSection noStagger className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
+          <RevealItem className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="site-kicker">{t("userDetails.layout.kicker", "User Details")}</p>
               <h1 className="site-title mt-4">{t("userDetails.layout.title", "Directory Profile")}</h1>
@@ -147,7 +148,7 @@ export default function UserDetailsPage() {
                 {canOpenUserList ? "Back to Users" : "Back to Dashboard"}
               </Link>
             </div>
-          </div>
+          </RevealItem>
 
           {isLoading ? (
             <div className="mt-6">
@@ -163,7 +164,7 @@ export default function UserDetailsPage() {
             </div>
           ) : (
             <>
-              <div className="mt-6 flex flex-wrap items-start gap-4">
+              <RevealItem className="mt-6 flex flex-wrap items-start gap-4">
                 <Avatar
                   src={user.profilePhoto?.url}
                   name={user.fullName || "User"}
@@ -184,39 +185,39 @@ export default function UserDetailsPage() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </RevealItem>
 
-              <div className={`mt-6 grid gap-3 sm:grid-cols-2 ${isStudentUser ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
-                <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <RevealSection className={`mt-6 grid gap-3 sm:grid-cols-2 ${isStudentUser ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
+                <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.relatedCourses", "Related Courses")}</p>
                   <p className="mt-2 text-xl font-extrabold text-slate-950">
                     {summary?.courses?.totalRelatedCourses || relatedCourses.length}
                   </p>
-                </article>
-                <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                </RevealItem>
+                <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollments", "Enrollments")}</p>
                   <p className="mt-2 text-xl font-extrabold text-slate-950">{summary?.enrollment?.total || enrollments.length}</p>
-                </article>
+                </RevealItem>
                 {isStudentUser ? (
                   <>
-                    <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalDue", "Total Due")}</p>
                       <p className="mt-2 text-xl font-extrabold text-slate-950">
                         {formatAmount(summary?.payments?.totalDue || 0)}
                       </p>
-                    </article>
-                    <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    </RevealItem>
+                    <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalPaid", "Total Paid")}</p>
                       <p className="mt-2 text-xl font-extrabold text-slate-950">
                         {formatAmount(summary?.payments?.totalPaid || 0)}
                       </p>
-                    </article>
+                    </RevealItem>
                   </>
                 ) : null}
-              </div>
+              </RevealSection>
 
-              <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                <section className="rounded-xl border border-slate-200 bg-white p-4">
+              <RevealSection className="mt-5 grid gap-5 lg:grid-cols-2">
+                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.personalDetails", "Personal Details")}</h3>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
@@ -244,9 +245,9 @@ export default function UserDetailsPage() {
                       <dd className="text-slate-900">{formatDateTime(user.lastLoginAt, t)}</dd>
                     </div>
                   </dl>
-                </section>
+                </RevealItem>
 
-                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.courseLinks", "Course Links")}</h3>
                   {relatedCourses.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noRelatedCourses", "No related courses for this user.")}</p>
@@ -279,11 +280,11 @@ export default function UserDetailsPage() {
                       ))}
                     </div>
                   )}
-                </section>
-              </div>
+                </RevealItem>
+              </RevealSection>
 
-              <div className={`mt-5 grid gap-5 ${isStudentUser ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
-                <section className="rounded-xl border border-slate-200 bg-white p-4">
+              <RevealSection className={`mt-5 grid gap-5 ${isStudentUser ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
+                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollmentHistory", "Enrollment History")}</h3>
                   {enrollments.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noEnrollments", "No enrollment history.")}</p>
@@ -322,10 +323,10 @@ export default function UserDetailsPage() {
                       ))}
                     </div>
                   )}
-                </section>
+                </RevealItem>
 
                 {isStudentUser ? (
-                  <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
                     <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.paymentHistory", "Payment History")}</h3>
                     {payments.length === 0 ? (
                       <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noPayments", "No payment records.")}</p>
@@ -353,12 +354,12 @@ export default function UserDetailsPage() {
                         ))}
                       </div>
                     )}
-                  </section>
+                  </RevealItem>
                 ) : null}
-              </div>
+              </RevealSection>
             </>
           )}
-        </section>
+        </RevealSection>
       </section>
       {popupNode}
     </RequireAuth>

@@ -14,6 +14,8 @@ const publicRoutes = require("./routes/publicRoutes");
 const enrollmentRequestRoutes = require("./routes/enrollmentRequestRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const noteRoutes = require("./routes/noteRoutes");
+const communityRoutes = require("./routes/communityRoutes");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
@@ -47,6 +49,8 @@ app.use("/api/public", publicRoutes);
 app.use("/api/enrollments", enrollmentRequestRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/notes", noteRoutes);
+app.use("/api/community", communityRoutes);
 
 app.use((req, res) => {
     res.status(404).json({

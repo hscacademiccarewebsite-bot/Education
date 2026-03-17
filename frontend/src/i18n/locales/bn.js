@@ -11,6 +11,7 @@ const bn = {
     about: "আমাদের সম্পর্কে",
     faculty: "শিক্ষকবৃন্দ",
     contact: "যোগাযোগ",
+    community: "কমিউনিটি",
     dashboard: "ড্যাশবোর্ড",
     profile: "প্রোফাইল",
     student: "শিক্ষার্থী",

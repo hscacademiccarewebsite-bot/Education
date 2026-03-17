@@ -35,11 +35,17 @@ const extractErrorMessage = (error) => {
   }
 };
 
-const isNetworkFetchError = (errorMessage) =>
-  typeof errorMessage === "string" &&
-  (errorMessage.includes("Failed to fetch") ||
-    errorMessage.includes("Network request failed") ||
-    errorMessage.includes("FETCH_ERROR"));
+const isNetworkFetchError = (errorMessage) => {
+  if (typeof errorMessage !== "string") return false;
+  const lowerMessage = errorMessage.toLowerCase();
+  return (
+    lowerMessage.includes("failed to fetch") ||
+    lowerMessage.includes("network request failed") ||
+    lowerMessage.includes("network-request-failed") ||
+    lowerMessage.includes("fetch_error") ||
+    lowerMessage.includes("auth/network-request-failed")
+  );
+};
 
 export default function AuthSync() {
   const dispatch = useDispatch();

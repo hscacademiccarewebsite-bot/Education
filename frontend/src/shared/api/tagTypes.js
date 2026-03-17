@@ -8,5 +8,8 @@ export const API_TAG_TYPES = Object.freeze([
   "Payment",
   "Public",
   "Notification",
+  "Note",
+  "Community",
+  "Comment",
 ]);
 

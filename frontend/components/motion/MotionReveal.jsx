@@ -17,9 +17,10 @@ const staggerContainer = {
   },
 };
 
-export function RevealSection({ children, className = "", noStagger = false, viewportMargin = "-5%" }) {
+export function RevealSection({ children, className = "", noStagger = false, viewportMargin = "-5%", as = "div" }) {
+  const Component = motion[as];
   return (
-    <motion.div
+    <Component
       initial="initial"
       whileInView="animate"
       viewport={{ once: true, margin: viewportMargin }}
@@ -27,14 +28,21 @@ export function RevealSection({ children, className = "", noStagger = false, vie
       className={className}
     >
       {children}
-    </motion.div>
+    </Component>
   );
 }
 
-export function RevealItem({ children, className = "" }) {
+export function RevealItem({ children, className = "", as = "div" }) {
+  const Component = motion[as];
   return (
-    <motion.div variants={fadeInUp} className={className}>
+    <Component 
+      variants={{
+        ...fadeInUp,
+        exit: { opacity: 0, scale: 0.95, filter: "blur(2px)", transition: { duration: 0.2 } }
+      }} 
+      className={className}
+    >
       {children}
-    </motion.div>
+    </Component>
   );
 }

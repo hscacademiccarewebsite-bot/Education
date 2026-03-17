@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -153,9 +154,13 @@ export default function ChapterDetailsPage() {
   const [videoForm, setVideoForm] = useState(initialVideoForm);
   const [editingVideoId, setEditingVideoId] = useState("");
   const [editingVideoForm, setEditingVideoForm] = useState(initialVideoForm);
-  const [videoMessage, setVideoMessage] = useState("");
   const [videoError, setVideoError] = useState("");
+  const [portalMounted, setPortalMounted] = useState(false);
   const { showSuccess, showError, requestDeleteConfirmation, popupNode } = useActionPopup();
+
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
 
   const chapter = chapterData?.data;
   const videos = videosData?.data || [];
@@ -388,111 +393,114 @@ export default function ChapterDetailsPage() {
           </section>
         </div>
 
-        {managementOpen ? (
-          <div
-            className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/40 p-3 backdrop-blur-sm md:items-center md:p-6"
-            onClick={closeManagementPanel}
-          >
-            <aside
-              className="site-panel animate-scale-in max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-[clamp(8px,5%,12px)] border border-slate-200 p-5 md:p-6"
-              onClick={(event) => event.stopPropagation()}
+        {portalMounted && managementOpen ? (
+          createPortal(
+            <div
+              className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/40 p-3 backdrop-blur-sm md:items-center md:p-6"
+              onClick={closeManagementPanel}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="site-kicker">{editingVideoId ? t("chapterDetails.layout.updateVideo", "Update Video") : t("chapterDetails.actions.addVideo", "Add Video")}</p>
-                  <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
-                    {editingVideoId ? t("chapterDetails.layout.editMetadata", "Edit lecture metadata") : t("chapterDetails.layout.registerNew", "Register lecture reference")}
-                  </h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{t("chapterDetails.layout.keepLinkValid", "Use the exact Facebook video ID so the generated watch link stays valid for students.")}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeManagementPanel}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
-                  aria-label="Close popup"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M6 18 18 6" />
-                  </svg>
-                </button>
-              </div>
-
-              <form
-                onSubmit={editingVideoId ? handleUpdateVideo : handleCreateVideo}
-                className="mt-6 space-y-4"
+              <aside
+                className="site-panel animate-scale-in max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-[clamp(8px,5%,12px)] border border-slate-200 p-5 md:p-6"
+                onClick={(event) => event.stopPropagation()}
               >
-                <FloatingInput
-                  required
-                  label={t("chapterDetails.layout.videoTitle", "Video Title")}
-                  value={editingVideoId ? editingVideoForm.title : videoForm.title}
-                  onChange={(event) =>
-                    editingVideoId
-                      ? setEditingVideoForm((prev) => ({ ...prev, title: event.target.value }))
-                      : setVideoForm((prev) => ({ ...prev, title: event.target.value }))
-                  }
-                  hint={t("chapterDetails.layout.videoHint", "e.g., Vector Class 01")}
-                />
-
-                <FloatingInput
-                  required
-                  label={t("chapterDetails.layout.fbVideoId", "Facebook Video ID")}
-                  value={editingVideoId ? editingVideoForm.facebookVideoId : videoForm.facebookVideoId}
-                  onChange={(event) =>
-                    editingVideoId
-                      ? setEditingVideoForm((prev) => ({
-                          ...prev,
-                          facebookVideoId: event.target.value,
-                        }))
-                      : setVideoForm((prev) => ({ ...prev, facebookVideoId: event.target.value }))
-                  }
-                  hint={t("chapterDetails.layout.fbVideoHint", "e.g., 123456789012345")}
-                />
-
-                <FloatingTextarea
-                  label={t("chapterDetails.layout.description", "Description")}
-                  value={editingVideoId ? editingVideoForm.description : videoForm.description}
-                  onChange={(event) =>
-                    editingVideoId
-                      ? setEditingVideoForm((prev) => ({
-                          ...prev,
-                          description: event.target.value,
-                        }))
-                      : setVideoForm((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                  rows={4}
-                  hint={t("chapterDetails.layout.descHint", "Optional lecture note")}
-                />
-
-                {(editingVideoId ? editPreviewVideoUrl : previewVideoUrl) ? (
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-700">{t("chapterDetails.layout.generatedUrl", "Generated Facebook URL")}</p>
-                    <p className="mt-2 break-all text-sm font-semibold text-sky-700">
-                      {editingVideoId ? editPreviewVideoUrl : previewVideoUrl}
-                    </p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="site-kicker">{editingVideoId ? t("chapterDetails.layout.updateVideo", "Update Video") : t("chapterDetails.actions.addVideo", "Add Video")}</p>
+                    <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
+                      {editingVideoId ? t("chapterDetails.layout.editMetadata", "Edit lecture metadata") : t("chapterDetails.layout.registerNew", "Register lecture reference")}
+                    </h2>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{t("chapterDetails.layout.keepLinkValid", "Use the exact Facebook video ID so the generated watch link stays valid for students.")}</p>
                   </div>
-                ) : null}
-
-                <div className="flex flex-wrap gap-3">
                   <button
-                    type="submit"
-                    disabled={creatingVideo || updatingVideo}
-                    className="site-button-primary"
+                    type="button"
+                    onClick={closeManagementPanel}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
+                    aria-label="Close popup"
                   >
-                    {editingVideoId
-                      ? updatingVideo
-                        ? t("chapterDetails.actions.saving", "Saving...")
-                        : t("chapterDetails.actions.saveVideo", "Save Video")
-                      : creatingVideo
-                      ? t("chapterDetails.actions.adding", "Adding...")
-                      : t("chapterDetails.actions.addVideo", "Add Video")}
-                  </button>
-                  <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
-                    Cancel
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M6 18 18 6" />
+                    </svg>
                   </button>
                 </div>
-              </form>
-            </aside>
-          </div>
+
+                <form
+                  onSubmit={editingVideoId ? handleUpdateVideo : handleCreateVideo}
+                  className="mt-6 space-y-4"
+                >
+                  <FloatingInput
+                    required
+                    label={t("chapterDetails.layout.videoTitle", "Video Title")}
+                    value={editingVideoId ? editingVideoForm.title : videoForm.title}
+                    onChange={(event) =>
+                      editingVideoId
+                        ? setEditingVideoForm((prev) => ({ ...prev, title: event.target.value }))
+                        : setVideoForm((prev) => ({ ...prev, title: event.target.value }))
+                    }
+                    hint={t("chapterDetails.layout.videoHint", "e.g., Vector Class 01")}
+                  />
+
+                  <FloatingInput
+                    required
+                    label={t("chapterDetails.layout.fbVideoId", "Facebook Video ID")}
+                    value={editingVideoId ? editingVideoForm.facebookVideoId : videoForm.facebookVideoId}
+                    onChange={(event) =>
+                      editingVideoId
+                        ? setEditingVideoForm((prev) => ({
+                            ...prev,
+                            facebookVideoId: event.target.value,
+                          }))
+                        : setVideoForm((prev) => ({ ...prev, facebookVideoId: event.target.value }))
+                    }
+                    hint={t("chapterDetails.layout.fbVideoHint", "e.g., 123456789012345")}
+                  />
+
+                  <FloatingTextarea
+                    label={t("chapterDetails.layout.description", "Description")}
+                    value={editingVideoId ? editingVideoForm.description : videoForm.description}
+                    onChange={(event) =>
+                      editingVideoId
+                        ? setEditingVideoForm((prev) => ({
+                            ...prev,
+                            description: event.target.value,
+                          }))
+                        : setVideoForm((prev) => ({ ...prev, description: event.target.value }))
+                    }
+                    rows={4}
+                    hint={t("chapterDetails.layout.descHint", "Optional lecture note")}
+                  />
+
+                  {(editingVideoId ? editPreviewVideoUrl : previewVideoUrl) ? (
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-700">{t("chapterDetails.layout.generatedUrl", "Generated Facebook URL")}</p>
+                      <p className="mt-2 break-all text-sm font-semibold text-sky-700">
+                        {editingVideoId ? editPreviewVideoUrl : previewVideoUrl}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="submit"
+                      disabled={creatingVideo || updatingVideo}
+                      className="site-button-primary"
+                    >
+                      {editingVideoId
+                        ? updatingVideo
+                          ? t("chapterDetails.actions.saving", "Saving...")
+                          : t("chapterDetails.actions.saveVideo", "Save Video")
+                        : creatingVideo
+                        ? t("chapterDetails.actions.adding", "Adding...")
+                        : t("chapterDetails.actions.addVideo", "Add Video")}
+                    </button>
+                    <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </aside>
+            </div>,
+            document.body
+          )
         ) : null}
       </section>
       {popupNode}

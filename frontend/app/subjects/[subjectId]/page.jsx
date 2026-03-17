@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -131,9 +132,13 @@ export default function SubjectDetailsPage() {
   const [chapterForm, setChapterForm] = useState(initialChapterForm);
   const [editingChapterId, setEditingChapterId] = useState("");
   const [editingChapterTitle, setEditingChapterTitle] = useState("");
-  const [chapterMessage, setChapterMessage] = useState("");
   const [chapterError, setChapterError] = useState("");
+  const [portalMounted, setPortalMounted] = useState(false);
   const { showSuccess, showError, requestDeleteConfirmation, popupNode } = useActionPopup();
+
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
 
   const subject = subjectData?.data;
   const chapters = chaptersData?.data || [];
@@ -291,6 +296,12 @@ export default function SubjectDetailsPage() {
             >
               Back To Course
             </Link>
+            <Link
+              href={`/notes/${subjectId}`}
+              className="site-button-secondary !px-3 !py-1.5 text-[9px] sm:text-[11px] sm:!px-4 sm:!py-2"
+            >
+              {t("subjectDetails.actions.viewNotes", "View Notes")}
+            </Link>
             {canManage ? (
               <button type="button" onClick={openCreatePanel} className="site-button-primary !px-3 !py-1.5 text-[9px] sm:text-[11px] sm:!px-4 sm:!py-2">
                 {showChapterForm && !editingChapterId ? t("subjectDetails.actions.closePopup", "Close Popup") : t("subjectDetails.actions.createChapter", "Create Chapter")}
@@ -351,83 +362,86 @@ export default function SubjectDetailsPage() {
           </section>
         </div>
 
-        {managementOpen ? (
-          <div
-            className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/40 p-3 backdrop-blur-sm md:items-center md:p-6"
-            onClick={closeManagementPanel}
-          >
-            <aside
-              className="site-panel animate-scale-in max-h-[92vh] w-full max-w-[620px] overflow-y-auto rounded-[clamp(8px,5%,12px)] border border-slate-200 p-5 md:p-6"
-              onClick={(event) => event.stopPropagation()}
+        {portalMounted && managementOpen ? (
+          createPortal(
+            <div
+              className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/40 p-3 backdrop-blur-sm md:items-center md:p-6"
+              onClick={closeManagementPanel}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="site-kicker">{editingChapterId ? t("subjectDetails.layout.updateChapter", "Update Chapter") : t("subjectDetails.actions.createChapter", "Create Chapter")}</p>
-                  <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
-                    {editingChapterId ? t("subjectDetails.layout.editMetadata", "Edit chapter metadata") : t("subjectDetails.layout.registerNew", "Register new chapter")}
-                  </h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    Keep chapter naming direct and progression-friendly so students can navigate without ambiguity.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeManagementPanel}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
-                  aria-label="Close popup"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M6 18 18 6" />
-                  </svg>
-                </button>
-              </div>
-
-              <form
-                onSubmit={editingChapterId ? handleUpdateChapter : handleCreateChapter}
-                className="mt-6 space-y-4"
+              <aside
+                className="site-panel animate-scale-in max-h-[92vh] w-full max-w-[620px] overflow-y-auto rounded-[clamp(8px,5%,12px)] border border-slate-200 p-5 md:p-6"
+                onClick={(event) => event.stopPropagation()}
               >
-                <FloatingInput
-                  required
-                  label={t("subjectDetails.layout.chapterTitle", "Chapter Title")}
-                  value={editingChapterId ? editingChapterTitle : chapterForm.title}
-                  onChange={(event) =>
-                    editingChapterId
-                      ? setEditingChapterTitle(event.target.value)
-                      : setChapterForm({ title: event.target.value })
-                  }
-                  hint={t("subjectDetails.layout.chapterHint", "e.g., Vector")}
-                />
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    Structure Tip
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Examples: Vector, Work and Power, Thermodynamics, Human Physiology.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="site-kicker">{editingChapterId ? t("subjectDetails.layout.updateChapter", "Update Chapter") : t("subjectDetails.actions.createChapter", "Create Chapter")}</p>
+                    <h2 className="font-display mt-4 text-lg font-extrabold text-slate-950 md:text-xl">
+                      {editingChapterId ? t("subjectDetails.layout.editMetadata", "Edit chapter metadata") : t("subjectDetails.layout.registerNew", "Register new chapter")}
+                    </h2>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      Keep chapter naming direct and progression-friendly so students can navigate without ambiguity.
+                    </p>
+                  </div>
                   <button
-                    type="submit"
-                    disabled={creatingChapter || updatingChapter}
-                    className="site-button-primary"
+                    type="button"
+                    onClick={closeManagementPanel}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
+                    aria-label="Close popup"
                   >
-                    {editingChapterId
-                      ? updatingChapter
-                        ? t("subjectDetails.actions.saving", "Saving...")
-                        : t("subjectDetails.actions.saveChapter", "Save Chapter")
-                      : creatingChapter
-                      ? t("subjectDetails.actions.creating", "Creating...")
-                      : t("subjectDetails.actions.createChapter", "Create Chapter")}
-                  </button>
-                  <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
-                    Cancel
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M6 18 18 6" />
+                    </svg>
                   </button>
                 </div>
-              </form>
-            </aside>
-          </div>
+
+                <form
+                  onSubmit={editingChapterId ? handleUpdateChapter : handleCreateChapter}
+                  className="mt-6 space-y-4"
+                >
+                  <FloatingInput
+                    required
+                    label={t("subjectDetails.layout.chapterTitle", "Chapter Title")}
+                    value={editingChapterId ? editingChapterTitle : chapterForm.title}
+                    onChange={(event) =>
+                      editingChapterId
+                        ? setEditingChapterTitle(event.target.value)
+                        : setChapterForm({ title: event.target.value })
+                    }
+                    hint={t("subjectDetails.layout.chapterHint", "e.g., Vector")}
+                  />
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                      Structure Tip
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-slate-600">
+                      Examples: Vector, Work and Power, Thermodynamics, Human Physiology.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="submit"
+                      disabled={creatingChapter || updatingChapter}
+                      className="site-button-primary"
+                    >
+                      {editingChapterId
+                        ? updatingChapter
+                          ? t("subjectDetails.actions.saving", "Saving...")
+                          : t("subjectDetails.actions.saveChapter", "Save Chapter")
+                        : creatingChapter
+                        ? t("subjectDetails.actions.creating", "Creating...")
+                        : t("subjectDetails.actions.createChapter", "Create Chapter")}
+                    </button>
+                    <button type="button" onClick={closeManagementPanel} className="site-button-secondary">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </aside>
+            </div>,
+            document.body
+          )
         ) : null}
       </section>
       {popupNode}

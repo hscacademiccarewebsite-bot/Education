@@ -49,6 +49,13 @@ export const userApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: "User", id: "LIST" }, { type: "Batch", id: "LIST" }],
     }),
+
+    searchUsers: builder.query({
+      query: (q) => ({
+        url: `/users/search?q=${q}`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -57,4 +64,5 @@ export const {
   useGetUserDetailsQuery,
   useUpdateUserRoleMutation,
   useAssignBatchesToStaffMutation,
+  useSearchUsersQuery,
 } = userApi;

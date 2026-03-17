@@ -16,8 +16,8 @@ router.get(
 );
 
 router.post("/", AuthMiddleware.requireRoles("admin"), BatchController.createBatch);
-router.patch("/:batchId", AuthMiddleware.requireRoles("admin"), BatchController.updateBatch);
-router.delete("/:batchId", AuthMiddleware.requireRoles("admin"), BatchController.deleteBatch);
+router.patch("/:batchId", AuthMiddleware.requireRoles("admin", "teacher"), BatchController.updateBatch);
+router.delete("/:batchId", AuthMiddleware.requireRoles("admin", "teacher"), BatchController.deleteBatch);
 router.patch("/:batchId/staff", AuthMiddleware.requireRoles("admin"), BatchController.updateBatchStaff);
 
 module.exports = router;

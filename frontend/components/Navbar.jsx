@@ -39,6 +39,11 @@ const NAV_LINKS = [
     labelKey: "navbar.contact",
     icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
   },
+  {
+    href: "/community",
+    labelKey: "navbar.community",
+    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+  },
 ];
 
 const DASHBOARD_LINK = { 
@@ -206,7 +211,7 @@ export default function Navbar() {
               aria-label={siteName}
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-emerald-400/20 blur-xl transition-opacity opacity-0 group-hover:opacity-100" />
+                <div className="absolute inset-0 bg-[var(--action-soft-bg)]/20 blur-xl transition-opacity opacity-0 group-hover:opacity-100" />
                 <img
                   src={siteLogoUrl}
                   alt={siteName}
@@ -216,7 +221,7 @@ export default function Navbar() {
               <div className="flex flex-col leading-[1.1]">
                 <div className="flex items-center gap-1 font-display text-[16px] font-black uppercase tracking-tight text-slate-900 md:text-[20px]">
                   <span>HSC</span>
-                  <span className="text-emerald-600 transition-colors group-hover:text-emerald-500">Academic</span>
+                  <span className="text-[var(--page-teal)] transition-colors group-hover:text-[var(--action-hover-start)]">Academic</span>
                 </div>
                 <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 md:text-[10px]">
                   and Admission Care
@@ -235,15 +240,15 @@ export default function Navbar() {
                         href={item.href}
                         className={`font-display relative flex items-center gap-2.5 px-2 py-2 text-[12px] font-bold uppercase tracking-wider transition-all duration-300 ${
                           active
-                            ? "text-emerald-600"
-                            : "text-slate-500 hover:text-emerald-600 hover:scale-105"
+                            ? "text-[var(--page-teal)]"
+                            : "text-slate-500 hover:text-[var(--page-teal)] hover:scale-105"
                         }`}
                       >
                         <NavIcon path={item.icon} className="h-4 w-4" />
                         {t(item.labelKey)}
                         {/* Underline for active state */}
                         {active && (
-                          <div className="absolute -bottom-1 left-2 right-2 h-1 rounded-full bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.4)] transition-all animate-fade-in" />
+                          <div className="absolute -bottom-1 left-2 right-2 h-1 rounded-full bg-[var(--page-teal)] shadow-[0_0_8px_rgba(5,150,105,0.4)] transition-all animate-fade-in" />
                         )}
                       </Link>
                     </li>
@@ -258,9 +263,9 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="group relative flex h-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3.5 transition-all hover:border-emerald-200 hover:bg-emerald-50/30 active:scale-95"
+                className="group relative flex h-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3.5 transition-all hover:border-[var(--action-soft-border)] hover:bg-[var(--action-soft-bg)]/30 active:scale-95"
               >
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 group-hover:text-emerald-600">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 group-hover:text-[var(--page-teal)]">
                   <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                   </svg>
@@ -269,7 +274,7 @@ export default function Navbar() {
               </button>
 
               {/* Notification bell */}
-              {isAuthenticated && <NotificationBell />}
+              {isAuthenticated && isInitialized && <NotificationBell />}
 
               {/* Auth / Profile */}
               {!isInitialized ? (
@@ -279,7 +284,11 @@ export default function Navbar() {
                   type="button"
                   onClick={handleLogin}
                   disabled={loginLoading}
-                  className="group relative flex h-10 items-center justify-center gap-3 overflow-hidden rounded-xl bg-emerald-600 px-6 font-display text-[11px] font-bold uppercase tracking-widest text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+                  className="group relative flex h-10 items-center justify-center gap-3 overflow-hidden rounded-xl px-6 font-display text-[11px] font-bold uppercase tracking-widest text-white transition-all active:scale-95 disabled:opacity-50"
+                  style={{ 
+                    background: 'linear-gradient(135deg, var(--action-start) 0%, var(--action-end) 100%)',
+                    boxShadow: 'var(--action-shadow)'
+                  }}
                 >
                   {loginLoading ? t("navbar.loginBusy", "…") : (
                     <>
@@ -297,7 +306,7 @@ export default function Navbar() {
                     onClick={() => setProfileMenuOpen((v) => !v)}
                     className={`flex items-center gap-2.5 rounded-2xl border bg-white p-1 pr-3.5 transition-all duration-300 active:scale-95 ${
                       profileMenuOpen 
-                        ? "border-emerald-200 shadow-md ring-4 ring-emerald-50" 
+                        ? "border-[var(--action-soft-border)] shadow-md ring-4 ring-[var(--action-soft-bg)]" 
                         : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md"
                     }`}
                     aria-expanded={profileMenuOpen}
@@ -306,7 +315,7 @@ export default function Navbar() {
                       src={photoUrl}
                       name={accountLabel}
                       className="h-8 w-8 rounded-xl shadow-inner"
-                      fallbackClassName="bg-emerald-50 text-emerald-600 text-[10px] font-bold"
+                      fallbackClassName="bg-[var(--action-soft-bg)] text-[var(--page-teal)] text-[10px] font-bold"
                     />
                     <span className="max-w-[100px] truncate font-display text-[12px] font-bold tracking-tight text-slate-800">
                       {accountLabel}
@@ -342,18 +351,18 @@ export default function Navbar() {
                       <div className="space-y-0.5">
                         <Link
                           href="/profile"
-                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-emerald-600"
+                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-[var(--page-teal)]"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-100 group-hover:text-emerald-600">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-[var(--action-soft-bg)] group-hover:text-[var(--page-teal)]">
                             <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className="h-4 w-4" />
                           </div>
                           {t("navbar.profile", "My Profile")}
                         </Link>
                         <Link
                           href={DASHBOARD_LINK.href}
-                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-emerald-600"
+                          className="font-display flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:text-[var(--page-teal)]"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-100 group-hover:text-emerald-600">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-[var(--action-soft-bg)] group-hover:text-[var(--page-teal)]">
                              <NavIcon path={DASHBOARD_LINK.icon} className="h-4 w-4" />
                           </div>
                           {t(DASHBOARD_LINK.labelKey, "Dashboard")}
@@ -384,7 +393,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 text-[10px] font-bold uppercase tracking-wider text-emerald-600 transition-all active:scale-90"
+                className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)]/50 px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--page-teal)] transition-all active:scale-90"
               >
                 <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-3.5 w-3.5" />
                 <span>{language === "bn" ? "EN" : "বাং"}</span>
@@ -396,7 +405,7 @@ export default function Navbar() {
                 onClick={() => setMobileOpen((v) => !v)}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white transition-all active:scale-95 ${
                   mobileOpen 
-                    ? "border-emerald-200 shadow-emerald-50 shadow-lg" 
+                    ? "border-[var(--action-soft-border)] shadow-[var(--action-soft-bg)] shadow-lg" 
                     : "border border-slate-200 shadow-sm"
                 }`}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -456,7 +465,7 @@ export default function Navbar() {
               <div className="flex flex-col leading-tight">
                 <div className="flex items-center gap-1.5 font-display text-[16px] font-black uppercase tracking-tight text-slate-800">
                   <span>HSC</span>
-                  <span className="text-emerald-600">Academic</span>
+                  <span className="text-[var(--page-teal)]">Academic</span>
                 </div>
                 <div className="font-display text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
                   and Admission Care
@@ -466,7 +475,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="group flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-emerald-100 hover:text-emerald-600 active:scale-90"
+              className="group flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-[var(--action-soft-bg)] hover:text-[var(--page-teal)] active:scale-90"
               aria-label="Close"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -491,20 +500,20 @@ export default function Navbar() {
                     mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
                   } transition-delay-${idx * 100} ${
                     active
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                      ? "bg-[var(--action-soft-bg)] text-[var(--page-teal)]"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-[var(--page-teal)]"
                   }`}
                 >
-                  <NavIcon path={item.icon} className={`h-4 w-4 ${active ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <NavIcon path={item.icon} className={`h-4 w-4 ${active ? 'text-[var(--page-teal)]' : 'text-slate-400'}`} />
                   {t(item.labelKey)}
                   {active && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--page-teal)]" />
                   )}
                 </Link>
               );
             })}
 
-            {isAuthenticated && (
+            {isAuthenticated && isInitialized && (
               <>
                 <Link
                   href="/profile"
@@ -513,14 +522,14 @@ export default function Navbar() {
                     mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
                   } transition-delay-300 ${
                     pathname === "/profile"
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                      ? "bg-[var(--action-soft-bg)] text-[var(--page-teal)]"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-[var(--page-teal)]"
                   }`}
                 >
-                  <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className={`h-4 w-4 ${pathname === "/profile" ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <NavIcon path="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" className={`h-4 w-4 ${pathname === "/profile" ? 'text-[var(--page-teal)]' : 'text-slate-400'}`} />
                   {t("navbar.profile", "Profile")}
                   {pathname === "/profile" && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--page-teal)]" />
                   )}
                 </Link>
 
@@ -531,11 +540,11 @@ export default function Navbar() {
                     mobileOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
                   } transition-delay-400 ${
                     isActive(pathname, DASHBOARD_LINK)
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                      ? "bg-[var(--action-soft-bg)] text-[var(--page-teal)]"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-[var(--page-teal)]"
                   }`}
                 >
-                  <NavIcon path={DASHBOARD_LINK.icon} className={`h-4 w-4 ${isActive(pathname, DASHBOARD_LINK) ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <NavIcon path={DASHBOARD_LINK.icon} className={`h-4 w-4 ${isActive(pathname, DASHBOARD_LINK) ? 'text-[var(--page-teal)]' : 'text-slate-400'}`} />
                   {t(DASHBOARD_LINK.labelKey)}
                 </Link>
               </>
@@ -544,17 +553,17 @@ export default function Navbar() {
 
           {/* Drawer footer */}
           <div className="border-t border-slate-100 p-6 space-y-5 bg-slate-50/50">
-            {isAuthenticated && (
+            {isAuthenticated && isInitialized && (
               <div className="flex items-center gap-3 px-1">
                 <Avatar
                   src={photoUrl}
                   name={accountLabel}
                   className="h-10 w-10 rounded-xl"
-                  fallbackClassName="bg-emerald-100 text-emerald-700 font-bold text-[10px]"
+                  fallbackClassName="bg-[var(--action-soft-bg)] text-[var(--action-soft-text)] font-bold text-[10px]"
                 />
                 <div className="min-w-0">
                   <p className="font-display truncate text-[13px] font-black text-slate-800">{accountLabel}</p>
-                  <p className="font-display text-[9px] font-bold uppercase tracking-wider text-emerald-600">
+                  <p className="font-display text-[9px] font-bold uppercase tracking-wider text-[var(--page-teal)]">
                     {currentRole || t("navbar.student", "Student")}
                   </p>
                 </div>
@@ -568,7 +577,11 @@ export default function Navbar() {
                 type="button"
                 onClick={handleLogin}
                 disabled={loginLoading}
-                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl bg-emerald-600 text-[13px] font-bold uppercase tracking-widest text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-95"
+                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl text-[13px] font-bold uppercase tracking-widest text-white transition-all active:scale-95"
+                style={{ 
+                  background: 'linear-gradient(135deg, var(--action-start) 0%, var(--action-end) 100%)',
+                  boxShadow: 'var(--action-shadow)'
+                }}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 group-hover:bg-white/20">
                    <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -579,7 +592,7 @@ export default function Navbar() {
               </button>
             ) : null}
 
-            {isAuthenticated && (
+            {isAuthenticated && isInitialized && (
               <button
                 type="button"
                 onClick={handleLogout}

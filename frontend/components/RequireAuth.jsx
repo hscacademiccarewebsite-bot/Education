@@ -38,6 +38,13 @@ export default function RequireAuth({ children, allowedRoles }) {
     }
   }, [resolvedUser, allowedRoles, router]);
 
+  useEffect(() => {
+    // If we attempted to fetch the user profile and it failed, boot to home.
+    if (isError) {
+      router.replace("/");
+    }
+  }, [isError, router]);
+
   // Phase 1: Waiting for Firebase to tell us IF someone is here.
   if (!isInitialized) {
     return <AuthSkeleton />;
@@ -54,20 +61,8 @@ export default function RequireAuth({ children, allowedRoles }) {
   }
 
   // Phase 4: Error or no user found after checks.
-  if (isError || !resolvedUser) {
-    return (
-      <div className="container-page py-10">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-sm">
-          <p className="font-bold text-rose-700">{t("requireAuth.verificationFailed")}</p>
-          <button
-            onClick={() => router.replace("/")}
-            className="site-button-primary mt-4"
-          >
-            {t("requireAuth.backToHome")}
-          </button>
-        </div>
-      </div>
-    );
+  if (isError || (!resolvedUser && !isLoading && !isFetching)) {
+    return null;
   }
 
   // Phase 5: Role protection check (handled by useEffect, but check here to avoid flicker).

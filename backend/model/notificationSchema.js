@@ -21,7 +21,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["payment_success", "payment_due", "new_video", "system", "offline_payment_verified"],
+      enum: ["payment_success", "payment_due", "new_video", "new_note", "system", "offline_payment_verified", "new_comment", "new_like", "new_reply", "comment_like", "new_mention"],
       default: "system",
     },
     link: {

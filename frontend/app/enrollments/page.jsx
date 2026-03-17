@@ -24,6 +24,7 @@ import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/us
 import { isStudent } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const REVIEW_FILTERS = ["pending", "approved", "rejected"];
 
@@ -359,6 +360,7 @@ export default function EnrollmentsPage() {
   return (
     <RequireAuth>
       <section className="container-page py-8 md:py-10">
+        <RevealSection noStagger>
         <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="site-kicker">{t("enrollmentsPage.layout.kicker", "Enrollment Desk")}</span>
@@ -369,6 +371,7 @@ export default function EnrollmentsPage() {
           </div>
           {role ? <RoleBadge role={role} /> : null}
         </div>
+        </RevealSection>
 
         {isStudentRole ? (
           showApprovedCoursesOnlyView ? (
@@ -400,9 +403,9 @@ export default function EnrollmentsPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <RevealSection className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {approvedCourseEntries.map(({ batch: course, enrollment }, index) => (
-                    <article
+                    <RevealItem
                       key={course?._id || index}
                       className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
                     >
@@ -446,9 +449,9 @@ export default function EnrollmentsPage() {
                       >
                         Open Course
                       </Link>
-                    </article>
+                    </RevealItem>
                   ))}
-                </div>
+                </RevealSection>
               )}
             </section>
           ) : (
@@ -731,7 +734,7 @@ export default function EnrollmentsPage() {
                 No requests found for this filter.
               </p>
             ) : (
-              <div className="divide-y divide-slate-200">
+              <RevealSection className="divide-y divide-slate-200">
                 {reviewItems.map((item) => {
                   const itemStatusMeta = getStatusMeta(item.status, t);
                   const rawFacebookProfile =
@@ -739,7 +742,7 @@ export default function EnrollmentsPage() {
                   const facebookProfileUrl = resolveFacebookProfileUrl(rawFacebookProfile);
 
                   return (
-                    <article key={item._id} className="px-5 py-4 md:px-6">
+                    <RevealItem key={item._id} className="px-5 py-4 md:px-6">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 items-start gap-3">
                           <Avatar
@@ -843,10 +846,10 @@ export default function EnrollmentsPage() {
                           ) : null}
                         </div>
                       </div>
-                    </article>
+                    </RevealItem>
                   );
                 })}
-              </div>
+              </RevealSection>
             )}
           </section>
         )}

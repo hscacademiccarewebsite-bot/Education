@@ -9,6 +9,7 @@ import {
   useMarkAllAsReadMutation,
 } from "@/lib/features/notification/notificationApi";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 /* ─── Skeleton Loader Component ───────────────────────────── */
 function NotificationSkeleton() {
@@ -121,36 +122,38 @@ export default function NotificationsPage() {
   return (
     <div className="site-shell min-h-screen">
       <div className="site-nav-offset container-page pb-12 pt-1 md:pt-4">
-        <header className="mb-4 site-panel p-4 shadow-[0_8px_30px_rgba(15,23,42,0.03)] md:p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-2xl">
-              <h1 className="site-title text-lg md:text-2xl">
-                <span className="text-emerald-600">{t("notificationsPage.header.accent", "Latest")} </span>
-                {t("notificationsPage.header.title", "Notifications")}
-              </h1>
-              <p className="site-lead mt-1 text-[10px] md:text-[11px] font-medium opacity-70">
-                {t("notificationsPage.header.description", "Keep track of your learning progress and important updates.")}
-              </p>
-            </div>
+        <RevealSection noStagger>
+          <RevealItem as="header" className="mb-4 site-panel p-4 shadow-[0_8px_30px_rgba(15,23,42,0.03)] md:p-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-2xl">
+                <h1 className="site-title text-lg md:text-2xl">
+                  <span className="text-emerald-600">{t("notificationsPage.header.accent", "Latest")} </span>
+                  {t("notificationsPage.header.title", "Notifications")}
+                </h1>
+                <p className="site-lead mt-1 text-[10px] md:text-[11px] font-medium opacity-70">
+                  {t("notificationsPage.header.description", "Keep track of your learning progress and important updates.")}
+                </p>
+              </div>
 
-            {/* Filter Pills - Responsive sizing */}
-            <div className="flex flex-wrap gap-1.5">
-              {filters.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => setActiveFilter(filter.id)}
-                  className={`h-7 md:h-7.5 rounded-full px-3.5 md:px-4 text-[8px] md:text-[9px] font-black uppercase tracking-wider transition-all border ${
-                    activeFilter === filter.id
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-md scale-105"
-                      : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
+              {/* Filter Pills - Responsive sizing */}
+              <div className="flex flex-wrap gap-1.5">
+                {filters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`h-7 md:h-7.5 rounded-full px-3.5 md:px-4 text-[8px] md:text-[9px] font-black uppercase tracking-wider transition-all border ${
+                      activeFilter === filter.id
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-md scale-105"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </header>
+          </RevealItem>
+        </RevealSection>
 
         <main className="relative mx-auto max-w-5xl">
           <div className="site-panel overflow-hidden border-slate-200/50 shadow-[0_10px_40px_rgba(15,23,42,0.02)]">
@@ -172,10 +175,11 @@ export default function NotificationsPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100/60">
+              <RevealSection className="divide-y divide-slate-100/60">
                 {filteredNotifications.map((notif) => (
-                  <button
+                  <RevealItem
                     key={notif._id}
+                    as="button"
                     onClick={() => handleNotificationClick(notif)}
                     className={`group flex w-full items-start gap-3.5 p-4 text-left transition-all hover:bg-slate-50/40 md:gap-4 md:p-5 ${
                       !notif.isRead ? "bg-emerald-50/5" : ""
@@ -200,9 +204,9 @@ export default function NotificationsPage() {
                     {!notif.isRead && (
                       <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
                     )}
-                  </button>
+                  </RevealItem>
                 ))}
-              </div>
+              </RevealSection>
             )}
           </div>
 

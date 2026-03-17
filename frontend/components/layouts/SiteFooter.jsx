@@ -136,7 +136,7 @@ export default function SiteFooter() {
               <p className="mt-5 text-sm leading-relaxed text-slate-400">
                 We will keep our promises 
               </p>
-              {socialLinks.length ? (
+              {mounted && socialLinks.length ? (
                 <div className="mt-8 flex flex-wrap gap-4">
                   {socialLinks.map((item) => (
                     <a
@@ -159,7 +159,7 @@ export default function SiteFooter() {
                 {t("footer.explore")}
               </p>
               <ul className="mt-6 flex flex-col gap-3">
-                {footerLinks.map((item) => (
+                {mounted && footerLinks.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
@@ -201,7 +201,7 @@ export default function SiteFooter() {
                 {t("footer.contactInfo")}
               </p>
               <ul className="mt-6 flex flex-col gap-4">
-                {contactRows.length ? (
+                {mounted && contactRows.length ? (
                   contactRows.map((row) => (
                     <li key={row.id} className="flex items-start gap-3">
                       <span className="mt-0.5 shrink-0 text-emerald-500">

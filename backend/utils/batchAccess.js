@@ -33,7 +33,7 @@ const canAccessBatch = async (user, batchId) => {
     return false;
   }
 
-  if (isAdmin(user)) {
+  if (isAdmin(user) || user?.role === "teacher" || user?.role === "moderator") {
     return true;
   }
 

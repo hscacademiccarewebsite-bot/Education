@@ -574,10 +574,12 @@ class PaymentController {
       throw new Error("bKash gateway did not return a valid redirect URL.");
     } catch (error) {
       console.error("[Controller Create Error]:", error);
+      const apiError = error.response?.data?.statusMessage || error.response?.data?.message || error.message;
       return res.status(500).json({
         success: false,
-        message: "Failed to create bKash checkout URL.",
+        message: `Failed to create bKash checkout URL: ${apiError}`,
         error: error.message,
+        details: error.response?.data
       });
     }
   }
