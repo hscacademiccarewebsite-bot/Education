@@ -314,7 +314,7 @@ export default function CreatePost({
                               className="w-4 h-4 rounded text-[#147b79] border-slate-300 focus:ring-[#147b79]"
                             />
                             <span className="text-[13px] text-slate-700 group-hover:text-slate-900 line-clamp-1 flex-1">
-                              {enrollment.batch?.subject?.subName} - {enrollment.batch?.batchName}
+                              {enrollment.batch?.name || "Unknown Course"}
                             </span>
                           </label>
                         ))}

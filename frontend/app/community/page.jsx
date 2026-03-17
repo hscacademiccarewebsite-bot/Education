@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import Avatar from "@/components/Avatar";
 import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import RoleBadge from "@/components/RoleBadge";
+import RequireAuth from "@/components/RequireAuth";
 
 export default function CommunityPage() {
   const [editingPost, setEditingPost] = useState(null);
@@ -25,26 +26,13 @@ export default function CommunityPage() {
     skip: !isAuthenticated,
   });
 
-  useEffect(() => {
-    if (isInitialized && !isAuthenticated) {
-      router.push("/");
-    }
-  }, [isInitialized, isAuthenticated, router]);
-
-  if (!isInitialized || !isAuthenticated) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--action-start)] border-t-transparent" />
-      </div>
-    );
-  }
-
   const posts = postsData?.data || [];
 
   return (
-    <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
-      <div className="container-page py-6">
-        <div className="flex flex-col lg:flex-row gap-6 justify-center">
+    <RequireAuth>
+      <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
+        <div className="container-page py-6">
+          <div className="flex flex-col lg:flex-row gap-6 justify-center">
           
           {/* Left Sidebar - Profile & Shortcuts (Hidden on Mobile) */}
           <aside className="hidden lg:block w-[280px] space-y-2 sticky top-[100px] h-fit">
@@ -173,5 +161,6 @@ export default function CommunityPage() {
         </div>
       </div>
     </main>
+    </RequireAuth>
   );
 }
