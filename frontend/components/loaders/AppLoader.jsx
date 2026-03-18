@@ -83,7 +83,7 @@ export function InlineLoader({ label = "Loading...", className = "" }) {
       role="status"
       aria-live="polite"
     >
-      <div className="h-3 w-24 overflow-hidden rounded-full bg-slate-100 relative">
+      <div className="h-3 w-16 sm:w-24 overflow-hidden rounded-full bg-slate-100 relative">
         <Shimmer />
       </div>
       {label && <span className="text-xs font-medium text-slate-400">{label}</span>}

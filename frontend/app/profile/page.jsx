@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
-import { CardSkeleton, InlineLoader } from "@/components/loaders/AppLoader";
+import { CardSkeleton, InlineLoader, Skeleton } from "@/components/loaders/AppLoader";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
@@ -128,14 +128,14 @@ function formatDate(dateString, t) {
 function StatCard({ label, value, loading, borderClass, icon, t }) {
   return (
     <article
-      className={`relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3 md:p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] border-l-4 ${borderClass} transition-all`}
+      className={`group relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3 md:p-4 shadow-[0_6px_14px_rgba(15,23,42,0.06)] border-l-4 ${borderClass} transition-all duration-300 hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]`}
     >
       <div className="flex items-start justify-between gap-2 md:gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
           <div className="mt-1 md:mt-2 min-h-[32px] md:min-h-[38px]">
             {loading ? (
-              <InlineLoader label={t ? t("profilePage.misc.loading", "Loading…") : "Loading…"} className="mt-1" />
+              <Skeleton className="h-6 w-16 rounded-md md:h-8 md:w-24" />
             ) : (
               <p className="text-lg md:text-xl font-extrabold text-slate-900">{value}</p>
             )}
@@ -425,33 +425,38 @@ export default function ProfilePage() {
 
           <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <RevealSection noStagger>
-              <RevealItem as="aside" className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 md:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+              <RevealItem as="aside" className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-4 md:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition-all hover:shadow-xl">
                 <div className="flex flex-col items-center text-center">
-                  <div className={`rounded-full p-0.5 md:p-1 bg-gradient-to-br ${theme.gradient}`}>
-                    <Avatar
-                      src={previewPhotoUrl}
-                      name={displayName || "User"}
-                      className="h-20 w-20 rounded-full border-2 md:border-4 border-white md:h-28 md:w-28"
-                      fallbackClassName={`bg-gradient-to-br ${theme.iconBg} text-base md:text-lg font-extrabold text-white`}
-                    />
+                  <div className="relative group/avatar">
+                    <div className={`rounded-full p-0.5 md:p-1 bg-gradient-to-br ${theme.gradient} transition-transform duration-500 group-hover/avatar:scale-105 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.1)]`}>
+                      <Avatar
+                        src={previewPhotoUrl}
+                        name={displayName || "User"}
+                        className="h-20 w-20 rounded-full border-2 md:border-4 border-white md:h-28 md:w-28"
+                        fallbackClassName={`bg-gradient-to-br ${theme.iconBg} text-base md:text-lg font-extrabold text-white`}
+                      />
+                    </div>
                   </div>
 
-                  <h2 className="mt-2 md:mt-3 text-lg md:text-xl font-extrabold text-slate-950 [font-family:'Trebuchet_MS','Segoe_UI',sans-serif]">
-                    {displayName || t("profilePage.misc.loading", "Loading…")}
+                  <h2 className="mt-4 flex items-center justify-center gap-1.5 text-xl md:text-2xl font-black text-slate-900 [font-family:'Trebuchet_MS',sans-serif] tracking-tight">
+                    <span>{displayName || t("profilePage.misc.loading", "Loading…")}</span>
+                    <RoleBadge role={role} />
                   </h2>
-                  <p className="mt-0.5 md:mt-1 text-xs md:text-sm text-slate-400 font-medium">{currentUser?.email || ""}</p>
+                  <p className="mt-1 text-xs md:text-sm font-semibold text-slate-400/80 tracking-wide">{currentUser?.email || ""}</p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                  {role ? <RoleBadge role={role} /> : null}
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                   {currentUser?.isActive ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 shadow-sm border border-emerald-100">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
                       Active
                     </span>
                   ) : currentUser ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
-                      <span className="h-2 w-2 rounded-full bg-slate-400" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 shadow-sm border border-slate-100">
+                      <span className="h-2 w-2 rounded-full bg-slate-300" />
                       Inactive
                     </span>
                   ) : null}
@@ -495,7 +500,7 @@ export default function ProfilePage() {
                 </RevealSection>
               </section>
 
-              <RevealItem as="section" className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] md:p-6">
+              <RevealItem as="section" className="rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] md:p-6 transition-all hover:shadow-xl">
                 <div className="mb-4 md:mb-5 flex items-center gap-3">
                   <div className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br ${theme.iconBg} text-white`}>
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

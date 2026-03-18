@@ -193,14 +193,14 @@ html[lang="bn"] [class*="tracking-"] {
 }
 
 .site-kicker {
-  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] backdrop-blur-sm;
+  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] backdrop-blur-sm;
   color: var(--page-teal);
   background: rgba(255, 255, 255, 0.6);
   border-color: rgba(15, 118, 110, 0.2);
 }
 
 .site-title {
-  @apply text-2xl font-black tracking-tight text-slate-950 md:text-[30px];
+  @apply text-2xl font-bold tracking-tight text-slate-950 md:text-[30px];
 }
 
 .site-lead {
@@ -208,7 +208,7 @@ html[lang="bn"] [class*="tracking-"] {
 }
 
 .site-button-primary {
-  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white transition;
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition;
   background: linear-gradient(135deg, var(--action-start) 0%, var(--action-end) 100%);
   box-shadow: var(--action-shadow);
 }
@@ -220,7 +220,7 @@ html[lang="bn"] [class*="tracking-"] {
 }
 
 .site-button-secondary {
-  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition;
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition;
   border: 1px solid var(--action-soft-border);
   background: var(--action-soft-bg);
   color: var(--action-soft-text);
@@ -234,7 +234,7 @@ html[lang="bn"] [class*="tracking-"] {
 }
 
 .site-button-danger {
-  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white transition;
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition;
   background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
   box-shadow: 0 16px 34px rgba(225, 29, 72, 0.24);
 }
@@ -258,11 +258,11 @@ html[lang="bn"] [class*="tracking-"] {
 }
 
 .site-stat-label {
-  @apply text-[11px] font-black uppercase tracking-[0.18em] text-slate-500;
+  @apply text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500;
 }
 
 .site-stat-value {
-  @apply mt-3 text-3xl font-black text-slate-950;
+  @apply mt-3 text-3xl font-bold text-slate-950;
 }
 
 .site-stat-hint {

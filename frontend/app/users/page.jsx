@@ -19,17 +19,6 @@ import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
-function toIdList(list) {
-  return (list || []).map((item) => String(item));
-}
-
-function areIdListsEqual(a, b) {
-  if (a.length !== b.length) return false;
-  const sortedA = [...a].sort();
-  const sortedB = [...b].sort();
-  return sortedA.every((item, index) => item === sortedB[index]);
-}
-
 function initialsFromName(name) {
   return String(name || "")
     .trim()
@@ -59,13 +48,9 @@ export default function UsersPage() {
   } = useListUsersQuery(roleFilter ? { role: roleFilter } : {}, {
     skip: usersSkip,
   });
-  const { data: batchesData } = useListBatchesQuery(undefined, {
-    skip: usersSkip,
-  });
   const [updateUserRole] = useUpdateUserRoleMutation();
 
   const users = usersData?.data || [];
-  const batches = batchesData?.data || [];
   const roleOptions = useMemo(() => Object.values(ROLES), []);
 
   const filteredUsers = useMemo(() => {
@@ -102,64 +87,73 @@ export default function UsersPage() {
     <RequireAuth allowedRoles={[ROLES.ADMIN]}>
       <section className="container-page py-8 md:py-10">
         <RevealSection noStagger>
-        <section className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="site-kicker">{t("usersPage.kicker")}</p>
-              <h1 className="site-title mt-4">
-                <span className="text-emerald-600">Users</span> Management
-              </h1>
-              <p className="site-lead mt-3 max-w-3xl">
-                {t("usersPage.subtitle")}
-              </p>
+          <div className="relative">
+            <div className="flex flex-wrap items-end justify-between gap-6 px-4 md:px-0">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">
+                  {t("usersPage.kicker")}
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+                  User Management
+                </h1>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-slate-100 px-4 py-1.5 text-[11px] font-black tabular-nums text-slate-600 border border-slate-200">
+                  {filteredUsers.length} {t("usersPage.usersCount")}
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => refetchUsers()} 
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white transition-all hover:bg-emerald-600 active:scale-90"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => refetchUsers()} className="site-button-secondary">
-                {t("usersPage.refresh")}
-              </button>
-              <Link href="/dashboard" className="site-button-primary">
-                {t("navbar.dashboard")}
-              </Link>
-            </div>
-          </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_130px]">
-            <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                {t("usersPage.searchUsers")}
-              </label>
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder={t("usersPage.searchPlaceholder")}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[var(--action-start)] focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                {t("usersPage.roleFilter")}
-              </label>
-              <select
-                value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[var(--action-start)] focus:ring-2 focus:ring-emerald-100"
-              >
-                <option value="">{t("usersPage.allRoles")}</option>
-                {roleOptions.map((itemRole) => (
-                  <option key={itemRole} value={itemRole}>
-                    {t(`roles.${itemRole}`, itemRole)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <p className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs font-semibold text-slate-600">
-                {filteredUsers.length} {t("usersPage.usersCount")}
-              </p>
+            <div className="mt-8 grid gap-4 md:grid-cols-[1fr_240px]">
+              <div className="relative group">
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    if (event.target.value.trim() && roleFilter) {
+                      setRoleFilter("");
+                    }
+                  }}
+                  placeholder={t("usersPage.searchPlaceholder")}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white/60 pl-11 pr-4 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="relative">
+                <select
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white/60 px-4 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+                >
+                  <option value="">{t("usersPage.allRoles")}</option>
+                  {roleOptions.map((itemRole) => (
+                    <option key={itemRole} value={itemRole}>
+                      {t(`roles.${itemRole}`, itemRole)}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
-        </section>
         </RevealSection>
 
         {message ? (
@@ -173,94 +167,90 @@ export default function UsersPage() {
           </div>
         ) : null}
 
-        <RevealSection className="site-panel mt-6 overflow-hidden rounded-[clamp(8px,5%,12px)]">
+        <RevealSection className="mt-8">
           {isLoading ? (
-            <div className="p-5 md:p-6">
-              <ListSkeleton rows={8} />
+            <div className="site-panel rounded-2xl p-8">
+              <ListSkeleton rows={10} />
             </div>
           ) : filteredUsers.length === 0 ? (
-            <div className="px-5 py-12 text-center md:px-6">
-              <p className="text-lg font-extrabold text-slate-900">{t("usersPage.emptyTitle")}</p>
-              <p className="mt-2 text-sm text-slate-600">{t("usersPage.emptySubtitle")}</p>
+            <div className="site-panel rounded-2xl py-24 text-center">
+              <p className="text-xl font-black text-slate-900">{t("usersPage.emptyTitle")}</p>
+              <p className="mt-2 text-sm font-medium text-slate-500">{t("usersPage.emptySubtitle")}</p>
             </div>
           ) : (
-            <RevealItem className="p-3 md:p-4">
-              <div className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-                <div className="max-h-[70vh] overflow-auto">
-                  <table className="min-w-[1060px] w-full border-collapse text-left">
-                    <thead className="sticky top-0 z-10 bg-slate-50">
-                      <tr className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.user")}</th>
-                        <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.email")}</th>
-                        <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.role")}</th>
-                        <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.status")}</th>
-                        <th className="border border-slate-200 px-4 py-3 md:px-6">{t("usersPage.table.operations")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                  {filteredUsers.map((user) => {
-                    const isRoleUpdating = roleUpdatingUserId === user._id;
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-[#f8fafc] border-b border-slate-200">
+                    <tr className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      <th className="px-6 py-4">{t("usersPage.table.user")}</th>
+                      <th className="px-6 py-4">{t("usersPage.table.role")}</th>
+                      <th className="px-6 py-4">Promote</th>
+                      <th className="px-6 py-4">Created</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredUsers.map((user) => {
+                      const isRoleUpdating = roleUpdatingUserId === user._id;
 
-                    return (
-                      <tr key={user._id} className="align-top bg-white transition-colors hover:bg-slate-50/60">
-                        <td className="border border-slate-200 px-4 py-4 md:px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs font-extrabold text-white">
-                              {initialsFromName(user.fullName) || "U"}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-extrabold text-slate-900">{user.fullName || t("usersPage.unnamedUser")}</p>
-                              {user.phone ? <p className="truncate text-xs text-slate-500">{user.phone}</p> : null}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="border border-slate-200 px-4 py-4 md:px-6">
-                          <p className="max-w-[260px] break-all text-sm text-slate-700">{user.email || t("usersPage.noEmail")}</p>
-                        </td>
-                        <td className="border border-slate-200 px-4 py-4 md:px-6">
-                          <select
-                            value={user.role}
-                            onChange={(event) => handleRoleUpdate(user._id, event.target.value)}
-                            disabled={isRoleUpdating}
-                            className="h-10 min-w-[150px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[var(--action-start)] focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                          >
-                            {roleOptions.map((itemRole) => (
-                              <option key={itemRole} value={itemRole}>
-                                {t(`roles.${itemRole}`, itemRole)}
-                              </option>
-                            ))}
-                          </select>
-                          {isRoleUpdating ? (
-                            <p className="mt-1 text-[11px] font-semibold text-slate-500">{t("usersPage.updatingRole")}</p>
-                          ) : null}
-                        </td>
-                        <td className="border border-slate-200 px-4 py-4 md:px-6">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <RoleBadge role={user.role} />
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${
-                                user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
-                              }`}
-                            >
-                              {user.isActive ? t("usersPage.active") : t("usersPage.inactive")}
+                      return (
+                        <tr key={user._id} className="group transition-colors hover:bg-slate-50/50">
+                          <td className="px-6 py-4">
+                            <p className="text-[13px] font-black text-slate-900">{user.fullName || t("usersPage.unnamedUser")}</p>
+                            <p className="text-[11px] font-bold text-slate-400">{user.email || t("usersPage.noEmail")}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex rounded-full border border-slate-200 px-3 py-0.5 text-[10px] font-bold text-slate-600">
+                              {user.role}
                             </span>
-                          </div>
-                        </td>
-                        <td className="border border-slate-200 px-4 py-4 md:px-6">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Link href={`/users/${user._id}`} className="site-button-primary min-w-[124px] justify-center">
-                              {t("usersPage.seeDetails")}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="relative max-w-[140px]">
+                              <select
+                                value={user.role}
+                                onChange={(event) => handleRoleUpdate(user._id, event.target.value)}
+                                disabled={isRoleUpdating}
+                                className="h-9 w-full appearance-none rounded-lg border border-[#c1e6e5] bg-[#e0f7fa]/50 px-3 pr-8 text-[11px] font-black text-[#157f6d] outline-none transition-all hover:border-[#157f6d] hover:bg-[#e0f7fa] disabled:opacity-50"
+                              >
+                                {roleOptions.map((itemRole) => (
+                                  <option key={itemRole} value={itemRole}>
+                                    {t(`roles.${itemRole}`, itemRole)}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#157f6d]">
+                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                              {isRoleUpdating && (
+                                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/60">
+                                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#157f6d] border-t-transparent" />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-[12px] font-medium text-slate-500">
+                              {new Date(user.createdAt).toLocaleDateString()}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <Link 
+                              href={`/users/${user._id}`} 
+                              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-6 py-2 text-[11px] font-black text-white transition-all hover:bg-[#157f6d] active:scale-95"
+                            >
+                              Details
                             </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                    </tbody>
-                  </table>
-                </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </RevealItem>
+            </div>
           )}
         </RevealSection>
 

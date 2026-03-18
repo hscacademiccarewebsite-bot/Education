@@ -146,7 +146,7 @@ export default function CreateSharedNote({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
           <div className="w-8" />
-          <h2 className="font-display text-[20px] font-black tracking-tight text-[#147b79]">
+          <h2 className="font-display text-[16px] lg:text-[18px] font-bold tracking-tight text-[#147b79]">
             {isEditing ? "Edit Shared Note" : "Share New Note"}
           </h2>
           <button 
@@ -164,9 +164,9 @@ export default function CreateSharedNote({
             <div className="flex items-center gap-3 mb-2">
               <Avatar src={userPhotoUrl} name={userDisplayName} className="h-11 w-11 rounded-full ring-2 ring-slate-50 shadow-sm" />
               <div>
-                <p className="font-display text-[16px] font-bold text-slate-950">{userDisplayName}</p>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600 border border-emerald-100/50">
+                <p className="font-display text-[15px] font-semibold text-slate-950">{userDisplayName}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600 border border-emerald-100/50">
                     Shared Notes
                   </div>
                   <div className="h-1 w-1 rounded-full bg-slate-300" />
@@ -174,7 +174,7 @@ export default function CreateSharedNote({
                     <button
                       type="button"
                       onClick={() => setShowPrivacyDropdown(!showPrivacyDropdown)}
-                      className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+                      className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200 transition-colors"
                     >
                       {privacy === "public" ? "Public" : "Enrolled Members"}
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -183,7 +183,7 @@ export default function CreateSharedNote({
                     </button>
                     
                     {showPrivacyDropdown && (
-                      <div className="absolute left-0 mt-1 w-52 rounded-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-200 py-1 z-50">
+                      <div className="absolute right-0 sm:right-auto sm:left-0 mt-1 w-52 max-w-[calc(100vw-80px)] rounded-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-200 py-1 z-50">
                         <button
                           type="button"
                           onClick={() => {
@@ -250,34 +250,34 @@ export default function CreateSharedNote({
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-slate-700 ml-1">Note Title</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">Note Title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Biology Chapter 4 Summary"
-                  className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[15px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
+                  className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-slate-700 ml-1">Google Drive Link</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">Google Drive Link</label>
                 <input
                   type="url"
                   value={googleDriveLink}
                   onChange={(e) => setGoogleDriveLink(e.target.value)}
                   placeholder="https://drive.google.com/..."
-                  className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[15px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
+                  className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-slate-700 ml-1">Description (Optional)</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">Description (Optional)</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Provide some context about these notes..."
-                  className="w-full min-h-[100px] resize-none rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[15px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
+                  className="w-full min-h-[100px] resize-none rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
             </div>
@@ -285,7 +285,7 @@ export default function CreateSharedNote({
             <button
               type="submit"
               disabled={isLoading || !title.trim() || !googleDriveLink.trim()}
-              className="site-button-primary mt-4 w-full !py-3 !text-[12.5px] disabled:!opacity-50 tracking-wide"
+              className="site-button-primary mt-4 w-full !py-2.5 !text-[12px] font-bold disabled:!opacity-50 tracking-wide"
             >
               {isLoading ? (isEditing ? "Updating..." : "Sharing...") : (isEditing ? "Update Note" : "Share Note")}
             </button>

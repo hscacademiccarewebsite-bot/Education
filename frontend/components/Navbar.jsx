@@ -318,9 +318,15 @@ export default function Navbar() {
                       className="h-8 w-8 rounded-xl shadow-inner"
                       fallbackClassName="bg-[var(--action-soft-bg)] text-[var(--page-teal)] text-[10px] font-bold"
                     />
-                    <span className="max-w-[100px] truncate font-display text-[12px] font-bold tracking-tight text-slate-800">
-                      {accountLabel}
-                    </span>
+                    <div className="hidden flex-col items-start leading-[1.1] sm:flex">
+                      <div className="flex items-center gap-1 font-display text-[12px] font-bold tracking-tight text-slate-800">
+                        <span className="max-w-[100px] truncate">{accountLabel}</span>
+                        <RoleBadge role={currentRole} />
+                      </div>
+                      <div className="font-display text-[9px] font-bold uppercase tracking-wider text-[var(--page-teal)]">
+                        {currentRole || t("navbar.student", "Student")}
+                      </div>
+                    </div>
                     <svg
                       className={`h-3 w-3 text-slate-400 transition-transform duration-300 ${profileMenuOpen ? "rotate-180" : ""}`}
                       fill="none"
@@ -335,20 +341,6 @@ export default function Navbar() {
                   {/* Dropdown Menu - Glassmorphism */}
                   {profileMenuOpen && (
                     <div className="absolute right-0 top-[calc(100%+12px)] z-[120] w-64 origin-top-right overflow-hidden rounded-2xl border border-white/20 bg-white/95 p-2 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.15)] backdrop-blur-xl animate-scale-in">
-                      {/* Header with name and role */}
-                      <div className="mb-1.5 rounded-xl bg-slate-900 px-4 py-4 text-white shadow-lg">
-                        <p className="font-display truncate text-[14px] font-bold">{accountLabel}</p>
-                        <div className="mt-1.5">
-                          {currentRole ? (
-                            <RoleBadge role={currentRole} />
-                          ) : (
-                            <span className="rounded-md bg-white/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
-                              {t("navbar.student", "Student")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
                       <div className="space-y-0.5">
                         <Link
                           href="/profile"
@@ -484,24 +476,7 @@ export default function Navbar() {
 
           {/* Drawer body */}
           <div className="flex-1 overflow-y-auto px-5 py-8 space-y-1.5 custom-scrollbar">
-            {/* Language toggle (Mobile Drawer) */}
-            <div className="mb-6 px-1">
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--action-soft-border)] bg-[var(--action-soft-bg)]/30 px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-[var(--page-teal)] transition-all active:scale-95"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--action-soft-bg)] shadow-sm">
-                    <NavIcon path="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" className="h-4 w-4" />
-                  </div>
-                  <span>{language === "bn" ? "Switch to English" : "বাংলায় পরিবর্তন করুন"}</span>
-                </div>
-                <div className="rounded-md bg-[var(--page-teal)]/10 px-2 py-1 text-[9px] font-black">
-                  {language === "bn" ? "EN" : "BN"}
-                </div>
-              </button>
-            </div>
+
 
             <p className="px-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">{t("navbar.navigation", "Explore")}</p>
 
@@ -569,7 +544,7 @@ export default function Navbar() {
           </div>
 
           {/* Drawer footer */}
-          <div className="border-t border-slate-100 p-6 space-y-5 bg-slate-50/50">
+          <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50/50">
             {isAuthenticated && isInitialized && (
               <div className="flex items-center gap-3 px-1">
                 <Avatar
@@ -579,7 +554,10 @@ export default function Navbar() {
                   fallbackClassName="bg-[var(--action-soft-bg)] text-[var(--action-soft-text)] font-bold text-[10px]"
                 />
                 <div className="min-w-0">
-                  <p className="font-display truncate text-[13px] font-black text-slate-800">{accountLabel}</p>
+                  <div className="font-display flex items-center gap-1 truncate text-[13px] font-black text-slate-800">
+                    <span className="truncate">{accountLabel}</span>
+                    <RoleBadge role={currentRole} />
+                  </div>
                   <p className="font-display text-[9px] font-bold uppercase tracking-wider text-[var(--page-teal)]">
                     {currentRole || t("navbar.student", "Student")}
                   </p>
@@ -594,7 +572,7 @@ export default function Navbar() {
                 type="button"
                 onClick={handleLogin}
                 disabled={loginLoading}
-                className="font-display group flex h-14 w-full items-center justify-center gap-4 rounded-2xl text-[13px] font-bold uppercase tracking-widest text-white transition-all active:scale-95"
+                className="font-display group flex h-11 w-full items-center justify-center gap-4 rounded-2xl text-[13px] font-bold uppercase tracking-widest text-white transition-all active:scale-95"
                 style={{ 
                   background: 'linear-gradient(135deg, var(--action-start) 0%, var(--action-end) 100%)',
                   boxShadow: 'var(--action-shadow)'
@@ -609,22 +587,31 @@ export default function Navbar() {
               </button>
             ) : null}
 
-            {isAuthenticated && isInitialized && (
+            <div className="flex items-center gap-2 pt-1">
+              {isAuthenticated && isInitialized && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex-1 font-display flex h-9 items-center justify-center gap-2 rounded-lg bg-rose-50 text-[10px] font-bold uppercase tracking-widest text-rose-600 transition active:scale-95 hover:bg-rose-100"
+                >
+                  <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  {t("navbar.signOut", "Sign Out")}
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleLogout}
-                className="font-display flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-50 text-[10px] font-bold uppercase tracking-widest text-rose-600 transition active:scale-95 hover:bg-rose-100"
+                onClick={toggleLanguage}
+                className="flex-1 font-display flex h-9 items-center justify-center gap-2 rounded-lg bg-slate-100 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition active:scale-95 hover:bg-slate-200"
               >
                 <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                 </svg>
-                {t("navbar.signOut", "Sign Out")}
+                {language === "bn" ? "English" : "বাংলা"}
               </button>
-            )}
-            
-            <p className="pt-1 text-center text-[7px] font-bold uppercase tracking-[0.3em] text-slate-300">
-               Premium Education Experience
-            </p>
+            </div>
           </div>
         </div>
       </div>
