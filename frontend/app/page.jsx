@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import { useSelector } from "react-redux";
 import Navbar from "@/components/Navbar";
@@ -606,7 +605,7 @@ export default function HomePage() {
       {/* Courses Section */}
       <section className="container-page pt-12 pb-12 md:pt-16 md:pb-16">
         <RevealSection>
-          <div className="mb-8 flex items-end justify-between gap-4">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -622,15 +621,6 @@ export default function HomePage() {
                 {t("home.courses.description")}
               </p>
             </div>
-            <Link
-              href="/courses"
-              className="site-button-secondary group hidden items-center gap-2 sm:inline-flex"
-            >
-              {t("home.courses.viewAll")}
-              <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
           </div>
         </RevealSection>
 
@@ -661,18 +651,6 @@ export default function HomePage() {
         <RevealSection className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {courseCards}
         </RevealSection>
-        {/* Mobile view all */}
-        <div className="mt-6 text-center sm:hidden">
-          <Link
-            href="/courses"
-            className="site-button-primary inline-flex items-center gap-2"
-          >
-            {t("home.courses.viewAllMobile")}
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </Link>
-        </div>
           </>
         )}
       </section>

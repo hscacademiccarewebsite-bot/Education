@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import PhotoViewer from "@/components/shared/PhotoViewer";
 
 export default function PostCard({ post, onEdit }) {
   const { t } = useSiteLanguage();
@@ -29,6 +30,8 @@ export default function PostCard({ post, onEdit }) {
   );
   const [showOptions, setShowOptions] = useState(false);
   const optionsRef = useRef(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   useEffect(() => {
     const handler = (e) => {
@@ -159,18 +162,48 @@ export default function PostCard({ post, onEdit }) {
       {/* Post Images */}
       {post.images && post.images.length > 0 && (
         <div className="mt-2 border-y border-slate-50 overflow-hidden">
-          <div className={`grid gap-0.5 ${post.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-            {post.images.map((img, idx) => (
-              <img
-                key={idx}
-                src={img.url}
-                alt={`Post image ${idx + 1}`}
-                className="w-full object-cover max-h-[500px]"
-              />
-            ))}
+          <div className={`grid gap-0.5 ${
+            post.images.length === 1 ? "grid-cols-1" :
+            post.images.length === 3 ? "grid-cols-3" :
+            "grid-cols-2"
+          }`}>
+            {post.images.slice(0, 4).map((img, idx) => {
+              const isLast = idx === 3 && post.images.length > 4;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => { setViewerStartIndex(idx); setViewerOpen(true); }}
+                  className="relative w-full overflow-hidden focus:outline-none group"
+                >
+                  <img
+                    src={img.url}
+                    alt={`Post image ${idx + 1}`}
+                    className="w-full object-cover max-h-[500px] transition-transform duration-300 group-hover:scale-[1.02]"
+                    style={{ aspectRatio: post.images.length === 1 ? "auto" : "1 / 1" }}
+                  />
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
+                  {/* +N badge on last tile if images > 4 */}
+                  {isLast && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <span className="text-white text-2xl font-bold">+{post.images.length - 4}</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
+
+      {/* Photo Viewer */}
+      <PhotoViewer
+        images={post.images || []}
+        startIndex={viewerStartIndex}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
 
       {/* Post Stats */}
       {(post.likesCount > 0 || post.commentsCount > 0) && (

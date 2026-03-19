@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import PhotoViewer from "@/components/shared/PhotoViewer";
 
 import {
   useLikeCommentMutation,
@@ -126,7 +127,7 @@ function insertMentionChip(editor, mentionStart, mentionLength, userId, userName
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function CommentItem({ comment, replies = [], onReply }) {
+export default function CommentItem({ comment, replies = [], onReply, depth = 0 }) {
   const searchParams = useSearchParams();
   const targetCommentId = searchParams.get("commentId");
   const isTarget = String(comment._id) === String(targetCommentId);
@@ -147,6 +148,19 @@ export default function CommentItem({ comment, replies = [], onReply }) {
   const [showEditImageUpload, setShowEditImageUpload] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showAllReplies, setShowAllReplies] = useState(false);
+  const [commentViewerOpen, setCommentViewerOpen] = useState(false);
+  const [commentViewerIndex, setCommentViewerIndex] = useState(0);
+
+  // Deep nesting logic and overflow protection
+  const isReply = depth > 0;
+  
+  // Progressively shrink avatars
+  const avatarSize = depth >= 2 ? "h-5 w-5" : isReply ? "h-6 w-6" : "h-8 w-8";
+
+  // Prevent horizontal overflow on mobile by reducing indentation at deeper levels
+  let indentClass = "ml-3 sm:ml-4 pl-2 sm:pl-2.5";
+  if (depth >= 4) indentClass = "ml-0.5 sm:ml-1 pl-1";
+  else if (depth >= 2) indentClass = "ml-1.5 sm:ml-2 pl-1.5";
 
   // Mention state for editing
   const editRef = useRef(null);
@@ -287,20 +301,21 @@ export default function CommentItem({ comment, replies = [], onReply }) {
   };
 
   const hasReplies = replies.length > 0;
-  const visibleReplies = showAllReplies ? replies : replies.slice(0, 2);
+  // Facebook shows first reply, then "View N more" button
+  const visibleReplies = showAllReplies ? replies : replies.slice(0, 1);
 
   return (
     <div
       ref={itemRef}
-      className={`flex gap-2 py-1 px-1 rounded-xl transition-colors duration-700 ${
-        isTarget ? "bg-[#FFF3CD]/60" : ""
-      }`}
+      className={`flex py-1 rounded-xl transition-colors duration-700 overflow-hidden ${
+        isReply ? "gap-1.5 px-0" : "gap-2 px-1"
+      } ${isTarget ? "bg-[#FFF3CD]/60" : ""}`}
     >
       {/* Avatar */}
       <Avatar
         src={comment.author?.profilePhoto?.url}
         name={comment.author?.fullName}
-        className="h-8 w-8 rounded-full shrink-0 mt-0.5"
+        className={`${avatarSize} rounded-full shrink-0 mt-0.5`}
       />
 
       {/* Content area */}
@@ -469,17 +484,32 @@ export default function CommentItem({ comment, replies = [], onReply }) {
 
                 {/* Attached images */}
                 {comment.images?.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {comment.images.map((img, idx) => (
-                      <img
+                      <button
                         key={idx}
-                        src={img.url}
-                        alt="Attachment"
-                        className="max-w-[220px] rounded-xl border border-[#E4E6EB] cursor-zoom-in hover:opacity-95 transition-opacity"
-                      />
+                        type="button"
+                        onClick={() => { setCommentViewerIndex(idx); setCommentViewerOpen(true); }}
+                        className="relative overflow-hidden rounded-xl border border-[#E4E6EB] focus:outline-none group"
+                      >
+                        <img
+                          src={img.url}
+                          alt="Attachment"
+                          className="max-w-[220px] max-h-[200px] object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
+                      </button>
                     ))}
                   </div>
                 )}
+
+                {/* Comment Photo Viewer */}
+                <PhotoViewer
+                  images={comment.images || []}
+                  startIndex={commentViewerIndex}
+                  isOpen={commentViewerOpen}
+                  onClose={() => setCommentViewerOpen(false)}
+                />
               </>
             )}
           </div>
@@ -522,49 +552,38 @@ export default function CommentItem({ comment, replies = [], onReply }) {
           </span>
         </div>
 
-        {/* Replies */}
+        {/* Replies — Deep nested inline, protected from overflow */}
         {hasReplies && (
-          <div className="mt-1.5 pl-2 border-l-2 border-[#E4E6EB] ml-1">
-            {!showAllReplies ? (
+          <div className={`mt-1.5 flex flex-col gap-1 border-l-2 border-[#E4E6EB] ${indentClass}`}>
+            {/* Visible replies (first 1 by default, all when expanded) */}
+            {visibleReplies.map((reply) => (
+              <CommentItem
+                key={reply._id}
+                comment={reply}
+                replies={reply.replies || []}
+                onReply={onReply}
+                depth={depth + 1}
+              />
+            ))}
+
+            {/* "View N more replies" / "Hide replies" toggle */}
+            {replies.length > 1 && (
               <button
-                onClick={() => setShowAllReplies(true)}
-                className="flex items-center gap-2 text-[12.5px] font-bold text-[#65676B] hover:underline px-1 py-1 group/replies"
+                onClick={() => setShowAllReplies(!showAllReplies)}
+                className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#65676B] hover:underline px-1 py-0.5 mt-0.5 self-start"
               >
-                <div className="flex items-center justify-center w-4 h-4">
-                  <svg 
-                    className="h-3.5 w-3.5 rotate-180 text-[#8A8D91]" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 10h10a8 8 0 018 8v2" />
-                  </svg>
-                </div>
-                <span>
-                  {replies.length === 1 
-                    ? "View 1 reply" 
-                    : `View ${replies.length} replies`}
-                </span>
+                <svg
+                  className="h-3 w-3 rotate-180 text-[#8A8D91]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 10h10a8 8 0 018 8v2" />
+                </svg>
+                {showAllReplies
+                  ? "Hide replies"
+                  : `View ${replies.length - 1} more ${replies.length - 1 === 1 ? "reply" : "replies"}`}
               </button>
-            ) : (
-              <div className="space-y-1">
-                {replies.map((reply) => (
-                  <CommentItem 
-                    key={reply._id} 
-                    comment={reply} 
-                    replies={reply.replies || []} 
-                    onReply={onReply} 
-                  />
-                ))}
-                {replies.length > 2 && (
-                  <button
-                    onClick={() => setShowAllReplies(false)}
-                    className="text-[12px] font-bold text-[#65676B] hover:underline px-1 py-0.5 mt-0.5"
-                  >
-                    Hide replies
-                  </button>
-                )}
-              </div>
             )}
           </div>
         )}

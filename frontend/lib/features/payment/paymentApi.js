@@ -12,7 +12,7 @@ export const paymentApi = baseApi.injectEndpoints({
     }),
 
     getBatchPayments: builder.query({
-      query: ({ batchId, status, billingYear, billingMonth }) => {
+      query: ({ batchId, status, billingYear, billingMonth, page, limit, search } = {}) => {
         const query = new URLSearchParams();
         if (status) {
           query.set("status", status);
@@ -22,6 +22,15 @@ export const paymentApi = baseApi.injectEndpoints({
         }
         if (billingMonth) {
           query.set("billingMonth", String(billingMonth));
+        }
+        if (page) {
+          query.set("page", String(page));
+        }
+        if (limit) {
+          query.set("limit", String(limit));
+        }
+        if (search?.trim()) {
+          query.set("search", search.trim());
         }
         return {
           url: `/payments/batch/${batchId}${query.toString() ? `?${query.toString()}` : ""}`,
@@ -32,7 +41,7 @@ export const paymentApi = baseApi.injectEndpoints({
     }),
 
     getGlobalPayments: builder.query({
-      query: ({ status, billingYear, billingMonth } = {}) => {
+      query: ({ status, billingYear, billingMonth, page, limit, search, summaryOnly } = {}) => {
         const query = new URLSearchParams();
         if (status) {
           query.set("status", status);
@@ -42,6 +51,18 @@ export const paymentApi = baseApi.injectEndpoints({
         }
         if (billingMonth) {
           query.set("billingMonth", String(billingMonth));
+        }
+        if (page) {
+          query.set("page", String(page));
+        }
+        if (limit) {
+          query.set("limit", String(limit));
+        }
+        if (search?.trim()) {
+          query.set("search", search.trim());
+        }
+        if (summaryOnly) {
+          query.set("summaryOnly", "true");
         }
         return {
           url: `/payments/global${query.toString() ? `?${query.toString()}` : ""}`,

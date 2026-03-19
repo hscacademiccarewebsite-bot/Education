@@ -338,7 +338,12 @@ export default function UserDetailsPage() {
                               <div>
                                 <p className="text-sm font-extrabold text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
                                 <p className="mt-1 text-xs text-slate-600">
-                                  {t("userDetails.misc.cycle", "Cycle")}: {item.billingMonth}/{item.billingYear} | {formatAmount(item.amount, item.currency)}
+                                  {t("userDetails.misc.cycle", "Cycle")}: {item.billingMonth}/{item.billingYear} | {t("userDetails.misc.covers", "Covers")}: {
+                                    new Date(Date.UTC(item.billingYear, item.billingMonth - 2, 1)).toLocaleDateString(
+                                      language === "bn" ? "bn-BD" : "en-US", 
+                                      { month: "short", year: "numeric" }
+                                    )
+                                  } | {formatAmount(item.amount, item.currency)}
                                 </p>
                                 <p className="mt-0.5 text-xs text-slate-600">
                                   {t("userDetails.misc.due", "Due")}: {formatDateTime(item.dueDate, t)} | {t("userDetails.misc.paid", "Paid")}: {formatDateTime(item.paidAt, t)}

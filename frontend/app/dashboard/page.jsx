@@ -12,8 +12,8 @@ import {
   useGetEnrollmentRequestsForReviewQuery,
   useGetMyEnrollmentRequestsQuery,
 } from "@/lib/features/enrollment/enrollmentApi";
-import { useGetGlobalPaymentsQuery, useGetMyPaymentsQuery } from "@/lib/features/payment/paymentApi";
-import { useListUsersQuery } from "@/lib/features/user/userApi";
+import { useGetMyPaymentsQuery } from "@/lib/features/payment/paymentApi";
+import { useGetAdminAnalyticsQuery } from "@/lib/features/analytics/analyticsApi";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
@@ -97,6 +97,15 @@ const ROLE_ACTIONS = {
       badge: "FINANCE",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75-3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5h15a2.25 2.25 0 002.25-2.25V14.128a2.25 2.25 0 00-2.25-2.25H4.5a2.25 2.25 0 00-2.25 2.25v2.622z" />,
       color: "rose"
+    },
+    {
+      id: "admin-analytics",
+      title: "Analytics",
+      description: "Open the full admin analytics page for accounts, payments, enrollments, and batch trends.",
+      href: "/analytics",
+      badge: "INSIGHTS",
+      icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7.5 15.75l3.75-3.75 2.25 2.25 4.5-6" />,
+      color: "indigo"
     },
   ],
   teacher: [
@@ -218,14 +227,14 @@ function OperationsCard({ item, t }) {
       <div className="mt-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-bold text-slate-900 transition-colors duration-300 group-hover:text-indigo-600">
-            {t(item.titleKey)}
+            {item.title || t(item.titleKey)}
           </h3>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
             {item.badge}
           </span>
         </div>
         <p className="mt-2 text-xs font-medium leading-relaxed text-slate-500">
-          {t(item.descriptionKey)}
+          {item.description || t(item.descriptionKey)}
         </p>
       </div>
 
@@ -274,12 +283,10 @@ export default function DashboardPage() {
     { status: "pending" },
     { skip: dashboardSkip || !staffReviewRole }
   );
-  const { data: usersData, isLoading: usersLoading } = useListUsersQuery(undefined, {
-    skip: dashboardSkip || !adminRole,
-  });
-  const { data: globalPaymentsData, isLoading: globalPaymentsLoading } = useGetGlobalPaymentsQuery(undefined, {
-    skip: dashboardSkip || !adminRole,
-  });
+  const { data: adminAnalyticsData, isLoading: adminAnalyticsLoading } = useGetAdminAnalyticsQuery(
+    undefined,
+    { skip: dashboardSkip || !adminRole }
+  );
 
   const roleCopy = ROLE_COPY[role] || {
     titleKey: "dashboard.roleCopy.default.title",
@@ -297,10 +304,14 @@ export default function DashboardPage() {
   const approvedCount = myEnrollments.filter((item) => item.status === "approved").length;
   const pendingCount = myEnrollments.filter((item) => item.status === "pending").length;
   const paymentSummary = myPaymentsData?.summary || { dueCount: 0, totalDue: 0 };
+  const adminAnalytics = adminAnalyticsData?.data || null;
 
-  const pendingReviews = reviewData?.data?.length || 0;
-  const totalUsers = usersData?.data?.length || 0;
-  const totalGlobalPayments = globalPaymentsData?.data?.length || 0;
+  const pendingReviews = adminRole
+    ? adminAnalytics?.enrollments?.pending || 0
+    : reviewData?.data?.length || 0;
+  const totalUsers = adminAnalytics?.users?.total || 0;
+  const totalGlobalPayments = adminAnalytics?.payments?.records || 0;
+  const totalBatches = adminRole ? adminAnalytics?.batches?.total || 0 : courses.length;
 
   const stats = useMemo(() => {
     if (studentRole) {
@@ -319,20 +330,20 @@ export default function DashboardPage() {
 
     if (adminRole) {
       return [
-        { id: "admin-users", label: t("dashboard.stats.admin.totalUsers"), value: totalUsers, loading: usersLoading, accent: "indigo" },
+        { id: "admin-users", label: t("dashboard.stats.admin.totalUsers"), value: totalUsers, loading: adminAnalyticsLoading, accent: "indigo" },
         {
           id: "admin-courses",
           label: t("dashboard.stats.admin.totalCourses"),
-          value: courses.length,
-          loading: coursesLoading,
+          value: totalBatches,
+          loading: adminAnalyticsLoading,
           accent: "sky",
         },
-        { id: "admin-reviews", label: t("dashboard.stats.shared.pendingReviews"), value: pendingReviews, loading: reviewLoading, accent: pendingReviews > 0 ? "amber" : "slate" },
+        { id: "admin-reviews", label: t("dashboard.stats.shared.pendingReviews"), value: pendingReviews, loading: adminAnalyticsLoading, accent: pendingReviews > 0 ? "amber" : "slate" },
         {
           id: "admin-payments",
           label: t("dashboard.stats.admin.globalPayments"),
           value: totalGlobalPayments,
-          loading: globalPaymentsLoading,
+          loading: adminAnalyticsLoading,
           accent: "emerald",
         },
       ];
@@ -351,11 +362,10 @@ export default function DashboardPage() {
     ];
   }, [
     activeOrUpcomingCourses.length,
+    adminAnalyticsLoading,
     adminRole,
     approvedCount,
-    courses.length,
     coursesLoading,
-    globalPaymentsLoading,
     myEnrollmentsLoading,
     myPaymentsLoading,
     paymentSummary.dueCount,
@@ -364,10 +374,10 @@ export default function DashboardPage() {
     pendingReviews,
     reviewLoading,
     studentRole,
+    totalBatches,
     totalGlobalPayments,
     totalUsers,
     t,
-    usersLoading,
   ]);
 
   return (

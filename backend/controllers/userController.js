@@ -7,6 +7,7 @@ const {
   normalizeCloudinaryAsset,
   deleteCloudinaryAssetByPublicId,
 } = require("../utils/cloudinaryAsset");
+const { sendWelcomeEmail } = require("../utils/email");
 
 class UserController {
   static async registerUser(req, res) {
@@ -96,6 +97,11 @@ class UserController {
         ...userPayload,
         lastLoginAt: new Date(),
       });
+
+      // Send Welcome Email asynchronously
+      if (createdUser.email) {
+        sendWelcomeEmail(createdUser).catch(err => console.error("Welcome email failed:", err));
+      }
 
       return res.status(201).json({
         success: true,

@@ -215,7 +215,7 @@ export default function ProfilePage() {
     skip: !adminRole,
   });
   const { data: globalPaymentsData, isLoading: globalPaymentsLoading } = useGetGlobalPaymentsQuery(
-    undefined,
+    { summaryOnly: true },
     { skip: !adminRole }
   );
   const { data: coursesData, isLoading: coursesLoading } = useListBatchesQuery(undefined, {
@@ -229,7 +229,7 @@ export default function ProfilePage() {
   const paymentSummary = myPaymentsData?.summary || { dueCount: 0, totalDue: 0 };
   const pendingReviews = reviewData?.data?.length || 0;
   const totalUsers = usersData?.data?.length || 0;
-  const totalGlobalPayments = globalPaymentsData?.data?.length || 0;
+  const totalGlobalPayments = globalPaymentsData?.count || 0;
   const courses = coursesData?.data || [];
   const activeOrUpcomingCourses = courses.filter((c) => c.status === "active" || c.status === "upcoming");
 
