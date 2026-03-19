@@ -9,7 +9,7 @@ import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const DEFAULT_FOOTER_LINKS = [
   { href: "/courses", labelKey: "navbar.courses", requiresAuth: true },
-  { href: "/about-us", labelKey: "navbar.about" },
+
   { href: "/faculty", labelKey: "navbar.faculty" },
   { href: "/contact-us", labelKey: "navbar.contact" },
 ];

@@ -15,12 +15,7 @@ export default async function sitemap() {
       changeFrequency: "daily",
       priority: 0.9,
     },
-    {
-      url: absoluteUrl("/about-us"),
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
+
     {
       url: absoluteUrl("/faculty"),
       lastModified: new Date(),

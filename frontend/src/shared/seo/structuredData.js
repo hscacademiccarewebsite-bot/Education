@@ -139,23 +139,7 @@ export function buildContactPageSchema({ contact = {} } = {}) {
   };
 }
 
-export function buildAboutPageSchema({ about = {} } = {}) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "AboutPage",
-    name: "About Us",
-    url: absoluteUrl("/about-us"),
-    description:
-      about.description ||
-      "Learn how HSC Academic and Admission Care structures courses, content progression, and learner support.",
-    mainEntity: {
-      "@type": "EducationalOrganization",
-      name: SITE_NAME,
-      description: about.description || about.heading || undefined,
-      slogan: about.mission || undefined,
-    },
-  };
-}
+
 
 export function buildFacultyCollectionSchema(faculty = []) {
   return {
