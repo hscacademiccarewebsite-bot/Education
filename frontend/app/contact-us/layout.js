@@ -28,7 +28,7 @@ export default async function ContactUsLayout({ children }) {
       { name: "Home", path: "/" },
       { name: "Contact Us", path: "/contact-us" },
     ]),
-    buildContactPageSchema({ contact }),
+    buildContactPageSchema({ contact: contact || {} }),
   ];
 
   return (
