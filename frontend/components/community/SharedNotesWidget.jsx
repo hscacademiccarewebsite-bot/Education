@@ -6,13 +6,16 @@ import CreateSharedNote from "./CreateSharedNote";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { formatDistanceToNow } from "date-fns";
+import { bn as bnLocale, enUS } from "date-fns/locale";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useRouter } from "next/navigation";
 import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function SharedNotesWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
+  const { t, language } = useSiteLanguage();
   const currentUserId = useSelector(selectCurrentUserId);
   const { data: notesData, isLoading } = useGetSharedNotesQuery({ page: 1, limit: 3 });
   const [deleteNote] = useDeleteSharedNoteMutation();
@@ -23,14 +26,14 @@ export default function SharedNotesWidget() {
   const notes = notesData?.data || [];
 
   const handleDelete = async (noteId) => {
-    const confirmed = await requestDeleteConfirmation("Are you sure you want to delete this shared note?");
+    const confirmed = await requestDeleteConfirmation(t("community.notes.confirmDeleteShared", "Are you sure you want to delete this shared note?"));
     if (!confirmed) return;
 
     try {
       await deleteNote(noteId).unwrap();
-      showSuccess("Shared note deleted successfully.");
+      showSuccess(t("community.notes.deletedShared", "Shared note deleted successfully."));
     } catch (err) {
-      showError(err?.data?.message || "Failed to delete note. Please try again.");
+      showError(err?.data?.message || t("community.notes.deleteFailed", "Failed to delete note. Please try again."));
     }
   };
 
@@ -53,13 +56,13 @@ export default function SharedNotesWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
-          <h4 className="text-[17px] font-bold text-slate-800 tracking-tight">Shared Notes</h4>
+          <h4 className="text-[17px] font-bold text-slate-800 tracking-tight">{t("community.notes.sharedWidgetTitle", "Shared Notes")}</h4>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="text-[11px] font-black text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
         >
-          + Share New
+          + {t("community.notes.shareNewShort", "Share New")}
         </button>
       </div>
 
@@ -69,7 +72,7 @@ export default function SharedNotesWidget() {
             <div key={i} className="animate-pulse h-14 rounded-xl bg-slate-50 border border-slate-100" />
           ))
         ) : notes.length === 0 ? (
-          <p className="text-[12px] text-slate-500 italic px-2 font-medium">No resources shared yet.</p>
+          <p className="text-[12px] text-slate-500 italic px-2 font-medium">{t("community.notes.emptyResources", "No resources shared yet.")}</p>
         ) : (
           <>
             {notes.map((note) => (
@@ -106,7 +109,12 @@ export default function SharedNotesWidget() {
                         <span className="block h-[2px] w-[2px] rounded-full bg-slate-200" />
                       </span>
                       <span className="text-[10px] text-slate-400 font-semibold italic whitespace-nowrap">
-                        {note.createdAt ? formatDistanceToNow(new Date(note.createdAt), { addSuffix: true }) : "just now"}
+                        {note.createdAt
+                          ? formatDistanceToNow(new Date(note.createdAt), {
+                              addSuffix: true,
+                              locale: language === "bn" ? bnLocale : enUS,
+                            })
+                          : t("community.notes.justNow", "just now")}
                       </span>
                       <span className="flex items-center justify-center h-full">
                         <span className="block h-[2px] w-[2px] rounded-full bg-slate-200" />
@@ -117,7 +125,7 @@ export default function SharedNotesWidget() {
                         rel="noopener noreferrer"
                         className="text-[10.5px] font-black text-indigo-600 hover:text-indigo-700 transition-colors whitespace-nowrap"
                       >
-                        Open
+                        {t("community.notes.openShort", "Open")}
                       </a>
                     </div>
                   </div>
@@ -127,7 +135,7 @@ export default function SharedNotesWidget() {
                       <button 
                         onClick={() => handleEdit(note)}
                         className="p-1.5 rounded-full hover:bg-indigo-50 text-slate-300 hover:text-indigo-600 transition-all"
-                        title="Edit note"
+                        title={t("community.notes.editNoteButton", "Edit Note")}
                       >
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -136,7 +144,7 @@ export default function SharedNotesWidget() {
                       <button 
                         onClick={() => handleDelete(note._id)}
                         className="p-1.5 rounded-full hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-all"
-                        title="Delete note"
+                        title={t("community.notes.deleteNoteButton", "Delete Note")}
                       >
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -153,7 +161,7 @@ export default function SharedNotesWidget() {
               onMouseEnter={() => prefetchNotes({ page: 1, limit: 10 })}
               className="w-full mt-3 py-2.5 px-4 rounded-xl border border-indigo-100 bg-indigo-50/40 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2"
             >
-              <span>See All Shared Notes</span>
+              <span>{t("community.notes.seeAllSharedNotes", "See All Shared Notes")}</span>
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

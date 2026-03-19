@@ -14,11 +14,42 @@ async function getStudentBatchIds(studentId) {
   return userEnrollments.map((e) => String(e.batch));
 }
 
+function extractMentionIds(content, currentUserId) {
+  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const mentionIds = new Set();
+  let match;
+
+  while ((match = mentionRegex.exec(String(content || ""))) !== null) {
+    const mentionedUserId = match[1];
+    if (String(mentionedUserId) !== String(currentUserId)) {
+      mentionIds.add(String(mentionedUserId));
+    }
+  }
+
+  return [...mentionIds];
+}
+
+async function createPostMentionNotifications({ mentionedUserIds, actor, postId }) {
+  if (!mentionedUserIds.length) return;
+
+  await Notification.insertMany(
+    mentionedUserIds.map((recipientId) => ({
+      recipient: recipientId,
+      title: "New Mention",
+      message: `${actor.fullName} mentioned you in a post.`,
+      type: "new_mention",
+      link: `/community/posts/${postId}`,
+      metadata: { postId },
+    }))
+  );
+}
+
 class CommunityController {
   // Create a new post
   static async createPost(req, res) {
     try {
       const { content, images, privacy, enrolledBatches } = req.body;
+      const mentionedUserIds = extractMentionIds(content, req.user._id);
 
       if (!content && (!images || images.length === 0)) {
         return res.status(400).json({
@@ -40,6 +71,13 @@ class CommunityController {
         privacy: privacy || "public",
         enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
         images: images || [],
+        mentions: mentionedUserIds,
+      });
+
+      await createPostMentionNotifications({
+        mentionedUserIds,
+        actor: req.user,
+        postId: post._id,
       });
 
       const populatedPost = await post.populate("author", "fullName profilePhoto role");
@@ -194,7 +232,12 @@ class CommunityController {
         return res.status(403).json({ success: false, message: "Unauthorized to edit this post." });
       }
 
-      post.content = content || post.content;
+      const previousMentionIds = new Set((post.mentions || []).map((id) => String(id)));
+      const nextContent = content !== undefined ? content : post.content;
+      const nextMentionIds = extractMentionIds(nextContent, userId);
+
+      post.content = nextContent;
+      post.mentions = nextMentionIds;
       if (images) {
         // Find images that were removed
         const oldImages = post.images || [];
@@ -212,6 +255,13 @@ class CommunityController {
       }
 
       await post.save();
+
+      const newlyMentionedUserIds = nextMentionIds.filter((mentionId) => !previousMentionIds.has(String(mentionId)));
+      await createPostMentionNotifications({
+        mentionedUserIds: newlyMentionedUserIds,
+        actor: req.user,
+        postId: post._id,
+      });
 
       res.status(200).json({
         success: true,

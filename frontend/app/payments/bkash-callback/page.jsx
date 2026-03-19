@@ -129,11 +129,12 @@ function BkashCallbackContent() {
 }
 
 export default function BkashCallbackPage() {
+  const { t } = useSiteLanguage();
   return (
     <RequireAuth>
       <Suspense fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <InlineLoader label="Loading callback data..." />
+          <InlineLoader label={t("paymentsPage.loadingCallbackData", "Loading callback data...")} />
         </div>
       }>
         <BkashCallbackContent />

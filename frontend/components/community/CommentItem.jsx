@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { bn as bnLocale, enUS } from "date-fns/locale";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
@@ -17,6 +19,7 @@ import { useSearchUsersQuery } from "@/lib/features/user/userApi";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 // ─── Render stored comment content (mention tokens → styled spans) ────────────
 function renderContent(content) {
@@ -32,12 +35,13 @@ function renderContent(content) {
       parts.push(<span key={`txt-${lastIndex}`}>{content.substring(lastIndex, match.index)}</span>);
     }
     parts.push(
-      <span
+      <Link
         key={`mention-${match.index}`}
+        href={`/users/${match[1]}`}
         className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
       >
         @{match[2]}
-      </span>
+      </Link>
     );
     lastIndex = mentionRegex.lastIndex;
   }
@@ -128,6 +132,7 @@ function insertMentionChip(editor, mentionStart, mentionLength, userId, userName
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function CommentItem({ comment, replies = [], onReply, depth = 0 }) {
+  const { t, language } = useSiteLanguage();
   const searchParams = useSearchParams();
   const targetCommentId = searchParams.get("commentId");
   const isTarget = String(comment._id) === String(targetCommentId);
@@ -288,14 +293,14 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
 
   const handleDelete = async () => {
     const confirmed = await requestDeleteConfirmation({
-      title: "Delete Comment",
-      message: "Are you sure you want to delete this comment?",
-      approveLabel: "Yes, Delete"
+      title: t("community.commentItem.deleteTitle", "Delete Comment"),
+      message: t("community.commentItem.deleteMessage", "Are you sure you want to delete this comment?"),
+      approveLabel: t("community.commentItem.deleteApprove", "Yes, Delete")
     });
     if (!confirmed) return;
     try { 
       await deleteComment(comment._id).unwrap(); 
-      showSuccess("Comment deleted successfully.");
+      showSuccess(t("community.commentItem.deleted", "Comment deleted successfully."));
     }
     catch (err) { console.error("Failed to delete comment:", err); }
   };
@@ -303,6 +308,10 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
   const hasReplies = replies.length > 0;
   // Facebook shows first reply, then "View N more" button
   const visibleReplies = showAllReplies ? replies : replies.slice(0, 1);
+  const relativeTime = formatDistanceToNow(new Date(comment.createdAt), {
+    addSuffix: true,
+    locale: language === "bn" ? bnLocale : enUS,
+  });
 
   return (
     <div
@@ -312,11 +321,13 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
       } ${isTarget ? "bg-[#FFF3CD]/60" : ""}`}
     >
       {/* Avatar */}
-      <Avatar
-        src={comment.author?.profilePhoto?.url}
-        name={comment.author?.fullName}
-        className={`${avatarSize} rounded-full shrink-0 mt-0.5`}
-      />
+      <Link href={`/users/${comment.author?._id || ""}`} className="shrink-0">
+        <Avatar
+          src={comment.author?.profilePhoto?.url}
+          name={comment.author?.fullName}
+          className={`${avatarSize} rounded-full shrink-0 mt-0.5`}
+        />
+      </Link>
 
       {/* Content area */}
       <div className="flex-1 min-w-0">
@@ -324,10 +335,13 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
         <div className="relative inline-block max-w-full group/bubble">
           <div className="rounded-2xl bg-[#F0F2F5] px-3 py-2 inline-block max-w-full">
             {/* Author name */}
-            <span className="block text-[13px] font-bold text-[#050505] leading-tight hover:underline cursor-pointer pr-8">
+            <Link
+              href={`/users/${comment.author?._id || ""}`}
+              className="block pr-8 text-[13px] font-bold leading-tight text-[#050505] hover:underline"
+            >
               {comment.author?.fullName}
               {comment.author?.role && <RoleBadge role={comment.author.role} />}
-            </span>
+            </Link>
 
 
             {/* Options button (author only) - Moved inside bubble */}
@@ -355,7 +369,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                       <svg className="h-3.5 w-3.5 text-[#65676B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      Edit
+                      {t("community.commentItem.edit", "Edit")}
                     </button>
                     <button
                       onClick={() => { handleDelete(); setShowOptions(false); }}
@@ -364,7 +378,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      Delete
+                      {t("community.commentItem.delete", "Delete")}
                     </button>
                   </div>
                 )}
@@ -421,7 +435,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                                   {user.fullName}
                                 </span>
                                 <span className="text-[11px] text-[#65676B] truncate capitalize">
-                                  {user.role}
+                                  {t(`roles.${user.role}`, user.role)}
                                 </span>
                               </div>
                             </button>
@@ -446,7 +460,9 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {editImage ? "Change Photo" : "Add Photo"}
+                    {editImage
+                      ? t("community.commentItem.changePhoto", "Change Photo")
+                      : t("community.commentItem.addPhoto", "Add Photo")}
                   </button>
 
                   {(showEditImageUpload || editImage) && (
@@ -465,14 +481,16 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                     onClick={() => setIsEditing(false)}
                     className="text-[12px] font-semibold text-[#65676B] hover:text-[#050505]"
                   >
-                    Cancel
+                    {t("community.commentItem.cancel", "Cancel")}
                   </button>
                   <button
                     onClick={handleUpdate}
                     disabled={isUpdating}
                     className="text-[12px] font-semibold text-[#0866FF] hover:underline disabled:opacity-50"
                   >
-                    {isUpdating ? "Saving…" : "Save"}
+                    {isUpdating
+                      ? t("community.commentItem.saving", "Saving...")
+                      : t("community.commentItem.save", "Save")}
                   </button>
                 </div>
               </div>
@@ -494,7 +512,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                       >
                         <img
                           src={img.url}
-                          alt="Attachment"
+                          alt={t("community.commentItem.attachmentAlt", "Attachment")}
                           className="max-w-[220px] max-h-[200px] object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
@@ -537,18 +555,18 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
               comment.isLiked ? "text-[#0866FF]" : "text-[#65676B] hover:text-[#050505]"
             }`}
           >
-            Like
+            {t("community.like", "Like")}
           </button>
           {!isEditing && (
             <button
               onClick={() => onReply(comment)}
               className="text-[12px] font-bold text-[#65676B] hover:text-[#050505] hover:underline transition-colors"
             >
-              Reply
+              {t("community.commentItem.reply", "Reply")}
             </button>
           )}
           <span className="text-[11px] text-[#8A8D91]">
-            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+            {relativeTime}
           </span>
         </div>
 
@@ -581,8 +599,10 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 10h10a8 8 0 018 8v2" />
                 </svg>
                 {showAllReplies
-                  ? "Hide replies"
-                  : `View ${replies.length - 1} more ${replies.length - 1 === 1 ? "reply" : "replies"}`}
+                  ? t("community.commentItem.hideReplies", "Hide replies")
+                  : t("community.commentItem.viewMoreReplies", "View {count} more replies", {
+                      count: replies.length - 1,
+                    })}
               </button>
             )}
           </div>

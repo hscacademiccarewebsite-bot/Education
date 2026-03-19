@@ -122,7 +122,7 @@ export default function Navbar() {
   const profileRef = useRef(null);
 
   // Derived values
-  const siteName = "HSC Academic and Admission Care";
+  const siteName = "HSC Academic & Admission Care";
   const siteLogoUrl = mounted ? (siteSettingsData?.data?.general?.logoUrl || "/logo.png") : "/logo.png";
   const accountLabel = mounted
     ? (displayName || (isAuthenticated ? t("navbar.student", "Student") : ""))
@@ -225,7 +225,7 @@ export default function Navbar() {
                 </div>
 
                 <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 md:text-[10px]">
-                  and Admission Care
+                  & Admission Care
                 </div>
               </div>
             </Link>
@@ -458,7 +458,7 @@ export default function Navbar() {
                   <span className="text-[var(--page-teal)]">Academic</span>
                 </div>
                 <div className="font-display text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                  and Admission Care
+                  & Admission Care
                 </div>
               </div>
             </Link>

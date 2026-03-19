@@ -29,6 +29,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    school: {
+      type: String,
+      trim: true,
+    },
+
+    college: {
+      type: String,
+      trim: true,
+    },
+
     // RBAC role assignment.
     role: {
       type: String,

@@ -8,12 +8,14 @@ import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentU
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function CreateSharedNote({ 
   isOpen = false, 
   onClose = () => {},
   note = null
 }) {
+  const { t } = useSiteLanguage();
   const [title, setTitle] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
   const [description, setDescription] = useState("");
@@ -75,7 +77,7 @@ export default function CreateSharedNote({
     e.preventDefault();
     if (!title.trim() || !googleDriveLink.trim()) return;
     if (privacy === "enrolled_members" && enrolledBatches.length === 0) {
-      showError("Please select at least one course to share with.");
+      showError(t("community.notes.selectCourseError", "Please select at least one course to share with."));
       return;
     }
 
@@ -89,7 +91,7 @@ export default function CreateSharedNote({
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
         }).unwrap();
-        showSuccess("Note updated successfully.");
+        showSuccess(t("community.notes.updateSuccess", "Note updated successfully."));
       } else {
         await createNote({
           title,
@@ -98,12 +100,18 @@ export default function CreateSharedNote({
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
         }).unwrap();
-        showSuccess("Note shared successfully.");
+        showSuccess(t("community.notes.shareSuccess", "Note shared successfully."));
       }
       handleClose();
     } catch (err) {
       console.error("Failed to save note:", err);
-      showError(err?.data?.message || `Failed to ${isEditing ? "update" : "share"} note. Please try again.`);
+      showError(
+        err?.data?.message ||
+          t(
+            isEditing ? "community.notes.updateFailed" : "community.notes.shareFailed",
+            isEditing ? "Failed to update note. Please try again." : "Failed to share note. Please try again."
+          )
+      );
     }
   };
 
@@ -147,7 +155,9 @@ export default function CreateSharedNote({
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
           <div className="w-8" />
           <h2 className="font-display text-[16px] lg:text-[18px] font-bold tracking-tight text-[#147b79]">
-            {isEditing ? "Edit Shared Note" : "Share New Note"}
+            {isEditing
+              ? t("community.notes.editModalTitle", "Edit Shared Note")
+              : t("community.notes.shareModalTitle", "Share New Note")}
           </h2>
           <button 
             onClick={handleClose}
@@ -167,7 +177,7 @@ export default function CreateSharedNote({
                 <p className="font-display text-[15px] font-semibold text-slate-950">{userDisplayName}</p>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600 border border-emerald-100/50">
-                    Shared Notes
+                    {t("community.notes.sharedWidgetTitle", "Shared Notes")}
                   </div>
                   <div className="h-1 w-1 rounded-full bg-slate-300" />
                   <div className="relative" ref={privacyDropdownRef}>
@@ -176,7 +186,9 @@ export default function CreateSharedNote({
                       onClick={() => setShowPrivacyDropdown(!showPrivacyDropdown)}
                       className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200 transition-colors"
                     >
-                      {privacy === "public" ? "Public" : "Enrolled Members"}
+                      {privacy === "public"
+                        ? t("community.privacy.public", "Public")
+                        : t("community.privacy.enrolled", "Enrolled Members")}
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
@@ -193,8 +205,8 @@ export default function CreateSharedNote({
                           className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
                         >
                           <div className="flex flex-col">
-                            <span className="text-[13px] font-bold text-slate-800">Public</span>
-                            <span className="text-[11px] text-slate-500">Anyone on the platform</span>
+                            <span className="text-[13px] font-bold text-slate-800">{t("community.privacy.public", "Public")}</span>
+                            <span className="text-[11px] text-slate-500">{t("community.notes.publicDescription", "Anyone on the platform")}</span>
                           </div>
                         </button>
                         <button
@@ -206,8 +218,8 @@ export default function CreateSharedNote({
                           className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
                         >
                           <div className="flex flex-col">
-                            <span className="text-[13px] font-bold text-slate-800">Enrolled Members</span>
-                            <span className="text-[11px] text-slate-500">Peers in your courses</span>
+                            <span className="text-[13px] font-bold text-slate-800">{t("community.privacy.enrolled", "Enrolled Members")}</span>
+                            <span className="text-[11px] text-slate-500">{t("community.notes.enrolledDescription", "Peers in your courses")}</span>
                           </div>
                         </button>
                       </div>
@@ -219,9 +231,9 @@ export default function CreateSharedNote({
 
             {privacy === "enrolled_members" && (
               <div className="mb-2 rounded-xl bg-slate-50 border border-slate-200 p-3">
-                <p className="text-[12px] font-bold text-slate-700 mb-2">Select courses to share with:</p>
+                <p className="text-[12px] font-bold text-slate-700 mb-2">{t("community.notes.selectCoursesToShare", "Select courses to share with:")}</p>
                 {availableCourses.length === 0 ? (
-                  <p className="text-[12px] text-slate-500">No courses available to share with.</p>
+                  <p className="text-[12px] text-slate-500">{t("community.notes.noCoursesToShare", "No courses available to share with.")}</p>
                 ) : (
                   <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
                     {availableCourses.map((course) => (
@@ -239,7 +251,7 @@ export default function CreateSharedNote({
                           className="w-4 h-4 rounded text-[#147b79] border-slate-300 focus:ring-[#147b79]"
                         />
                         <span className="text-[13px] text-slate-700 group-hover:text-slate-900 line-clamp-1 flex-1">
-                          {course?.name || "Unknown Course"}
+                          {course?.name || t("community.notes.unknownCourse", "Unknown Course")}
                         </span>
                       </label>
                     ))}
@@ -250,33 +262,33 @@ export default function CreateSharedNote({
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-[12px] font-semibold text-slate-700 ml-1">Note Title</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">{t("community.notes.noteTitle", "Note Title")}</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Biology Chapter 4 Summary"
+                  placeholder={t("community.notes.noteTitlePlaceholder", "e.g., Biology Chapter 4 Summary")}
                   className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[12px] font-semibold text-slate-700 ml-1">Google Drive Link</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">{t("community.notes.driveLink", "Google Drive Link")}</label>
                 <input
                   type="url"
                   value={googleDriveLink}
                   onChange={(e) => setGoogleDriveLink(e.target.value)}
-                  placeholder="https://drive.google.com/..."
+                  placeholder={t("community.notes.driveLinkPlaceholder", "https://drive.google.com/...")}
                   className="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[12px] font-semibold text-slate-700 ml-1">Description (Optional)</label>
+                <label className="text-[12px] font-semibold text-slate-700 ml-1">{t("community.notes.descriptionOptional", "Description (Optional)")}</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide some context about these notes..."
+                  placeholder={t("community.notes.descriptionPlaceholder", "Provide some context about these notes...")}
                   className="w-full min-h-[100px] resize-none rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-[14px] font-medium text-slate-950 placeholder:text-slate-400 focus:border-[#147b79] focus:ring-[#147b79]"
                 />
               </div>
@@ -287,7 +299,13 @@ export default function CreateSharedNote({
               disabled={isLoading || !title.trim() || !googleDriveLink.trim()}
               className="site-button-primary mt-4 w-full !py-2.5 !text-[12px] font-bold disabled:!opacity-50 tracking-wide"
             >
-              {isLoading ? (isEditing ? "Updating..." : "Sharing...") : (isEditing ? "Update Note" : "Share Note")}
+              {isLoading
+                ? isEditing
+                  ? t("community.notes.updating", "Updating...")
+                  : t("community.notes.sharing", "Sharing...")
+                : isEditing
+                  ? t("community.notes.updateButton", "Update Note")
+                  : t("community.notes.shareButton", "Share Note")}
             </button>
           </form>
         </div>

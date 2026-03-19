@@ -483,7 +483,7 @@ export default function CommentSection({ postId }) {
                             {user.fullName}
                           </span>
                           <span className="text-[12px] text-[#65676B] truncate capitalize">
-                            {user.role}
+                            {t(`roles.${user.role}`, user.role)}
                           </span>
                         </div>
                       </button>

@@ -35,7 +35,7 @@ export default function UsersPage() {
   const [error, setError] = useState("");
   const [roleUpdatingUserId, setRoleUpdatingUserId] = useState("");
   const { showSuccess, showError, popupNode } = useActionPopup();
-  const { t } = useSiteLanguage();
+  const { t, language } = useSiteLanguage();
 
   const isInitialized = useSelector(selectIsAuthInitialized);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -94,7 +94,7 @@ export default function UsersPage() {
                   {t("usersPage.kicker")}
                 </p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
-                  User Management
+                  {t("usersPage.title", "User Management")}
                 </h1>
               </div>
               <div className="flex items-center gap-3">
@@ -185,9 +185,9 @@ export default function UsersPage() {
                     <tr className="text-[11px] font-black uppercase tracking-wider text-slate-500">
                       <th className="px-6 py-4">{t("usersPage.table.user")}</th>
                       <th className="px-6 py-4">{t("usersPage.table.role")}</th>
-                      <th className="px-6 py-4">Promote</th>
-                      <th className="px-6 py-4">Created</th>
-                      <th className="px-6 py-4 text-center">Actions</th>
+                      <th className="px-6 py-4">{t("usersPage.table.promote", "Promote")}</th>
+                      <th className="px-6 py-4">{t("usersPage.table.created", "Created")}</th>
+                      <th className="px-6 py-4 text-center">{t("usersPage.table.actions", "Actions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -202,7 +202,7 @@ export default function UsersPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex rounded-full border border-slate-200 px-3 py-0.5 text-[10px] font-bold text-slate-600">
-                              {user.role}
+                              {t(`roles.${user.role}`, user.role)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -233,15 +233,15 @@ export default function UsersPage() {
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-[12px] font-medium text-slate-500">
-                              {new Date(user.createdAt).toLocaleDateString()}
+                              {new Date(user.createdAt).toLocaleDateString(language === "bn" ? "bn-BD" : "en-US")}
                             </p>
                           </td>
                           <td className="px-6 py-4 text-center">
                             <Link 
-                              href={`/users/${user._id}`} 
+                              href={`/users/${user._id}/details`} 
                               className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-6 py-2 text-[11px] font-black text-white transition-all hover:bg-[#157f6d] active:scale-95"
                             >
-                              Details
+                              {t("usersPage.details", "Details")}
                             </Link>
                           </td>
                         </tr>

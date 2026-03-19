@@ -1,372 +1,256 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
-import RoleBadge from "@/components/RoleBadge";
-import { useActionPopup } from "@/components/feedback/useActionPopup";
-import { ListSkeleton } from "@/components/loaders/AppLoader";
 import Avatar from "@/components/Avatar";
-import { useReviewEnrollmentRequestMutation } from "@/lib/features/enrollment/enrollmentApi";
-import { useGetUserDetailsQuery } from "@/lib/features/user/userApi";
-import { ROLES } from "@/lib/utils/roleUtils";
-import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
-import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
+import RoleBadge from "@/components/RoleBadge";
+import CreatePost from "@/components/community/CreatePost";
+import PostCard from "@/components/community/PostCard";
+import { PostSkeleton } from "@/components/community/CommunitySkeletons";
+import { useGetPostsQuery } from "@/lib/features/community/communityApi";
+import { useGetPublicUserProfileQuery } from "@/lib/features/user/userApi";
+import { selectCurrentUserId, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
-import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
+function formatMemberSince(dateValue, language, t) {
+  if (!dateValue) return t("publicProfilePage.notAvailable", "N/A");
 
-function formatDateTime(value, t) {
-  if (!value) return t ? t("userDetails.misc.na", "N/A") : "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return t ? t("userDetails.misc.na", "N/A") : "N/A";
-  return date.toLocaleString();
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return t("publicProfilePage.notAvailable", "N/A");
+
+  return date.toLocaleDateString(language === "bn" ? "bn-BD" : "en-US", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
-function formatAmount(value, currency = "BDT") {
-  return `${new Intl.NumberFormat("en-US").format(Number(value || 0))} ${currency}`;
+function StatCard({ label, value, accentClass = "text-slate-900" }) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-slate-50/90 px-3.5 py-3">
+      <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className={`mt-1.5 text-[13px] font-extrabold md:text-[14px] ${accentClass}`}>{value}</p>
+    </article>
+  );
 }
 
-function enrollmentStatusClass(status) {
-  if (status === "approved") return "bg-emerald-100 text-emerald-700";
-  if (status === "rejected") return "bg-rose-100 text-rose-700";
-  return "bg-amber-100 text-amber-700";
-}
-
-function paymentStatusClass(status) {
-  if (status === "paid_online" || status === "paid_offline") return "bg-emerald-100 text-emerald-700";
-  if (status === "waived") return "bg-cyan-100 text-cyan-700";
-  return "bg-amber-100 text-amber-700";
-}
-
-export default function UserDetailsPage() {
+export default function PublicUserProfilePage() {
+  const { t, language } = useSiteLanguage();
   const params = useParams();
-  const { t } = useSiteLanguage();
   const userId = typeof params?.userId === "string" ? params.userId : "";
-  const currentRole = useSelector(selectCurrentUserRole);
-  const { showSuccess, showError, popupNode } = useActionPopup();
-  const [reviewEnrollmentRequest] = useReviewEnrollmentRequestMutation();
-  const [kickingOutEnrollmentId, setKickingOutEnrollmentId] = useState("");
+  const currentUserId = useSelector(selectCurrentUserId);
+  const currentUserRole = useSelector(selectCurrentUserRole);
+  const [editingPost, setEditingPost] = useState(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [userId]);
 
   const {
-    data: userDetailsData,
-    isLoading,
-    isError,
+    data: profileData,
+    isLoading: profileLoading,
+    isError: profileError,
     error,
     refetch,
-  } = useGetUserDetailsQuery(userId, {
+  } = useGetPublicUserProfileQuery(userId, {
     skip: !userId,
   });
 
-  const payload = userDetailsData?.data;
-  const user = payload?.user || null;
-  const summary = payload?.summary || {};
-  const enrollments = payload?.enrollmentRequests || [];
-  const payments = payload?.payments || [];
-  const isStudentUser = user?.role === ROLES.STUDENT;
+  const {
+    data: postsData,
+    isLoading: postsLoading,
+    isFetching: postsFetching,
+  } = useGetPostsQuery(
+    { page, limit: 10, author: userId },
+    { skip: !userId }
+  );
 
-  const relatedCourses = useMemo(() => {
-    const courseMap = new Map();
+  const user = profileData?.data?.user || null;
+  const posts = postsData?.data || [];
+  const pagination = postsData?.pagination || {};
+  const totalPosts = pagination.total ?? profileData?.data?.summary?.postsCount ?? 0;
+  const hasMore = pagination.page < pagination.pages;
+  const isOwnProfile = String(currentUserId || "") === String(userId || "");
+  const canOpenStaffDetails = ["admin", "teacher", "moderator"].includes(currentUserRole);
 
-    const addCourse = (batch, tag) => {
-      const batchId = String(batch?._id || "");
-      if (!batchId) return;
-
-      if (!courseMap.has(batchId)) {
-        courseMap.set(batchId, {
-          _id: batchId,
-          name: batch?.name || "Unnamed course",
-          slug: batch?.slug || "",
-          status: batch?.status || "unknown",
-          monthlyFee: batch?.monthlyFee,
-          currency: batch?.currency || "BDT",
-          tags: new Set(),
-        });
-      }
-
-      courseMap.get(batchId).tags.add(tag);
-    };
-
-    (user?.assignedBatches || []).forEach((batch) => addCourse(batch, "Assigned"));
-    enrollments.forEach((item) => addCourse(item?.batch, `Enrollment: ${item?.status || "unknown"}`));
-    if (isStudentUser) {
-      payments.forEach((item) => addCourse(item?.batch, `Payment: ${item?.status || "unknown"}`));
-    }
-
-    return Array.from(courseMap.values()).map((item) => ({
-      ...item,
-      tags: Array.from(item.tags),
-    }));
-  }, [enrollments, isStudentUser, payments, user]);
-
-  const detailErrorMessage = normalizeApiError(error, t("userDetails.messages.loadError", "Failed to load user details."));
-  const canOpenUserList = currentRole === ROLES.ADMIN;
-
-  const handleKickOut = async (enrollment) => {
-    const targetCourse = enrollment?.batch?.name || "this course";
-    const proceed = window.confirm(t("userDetails.messages.removeConfirm", `Remove this student from ${targetCourse}?`, { course: targetCourse }));
-    if (!proceed) return;
-
-    const inputReason = window.prompt(t("userDetails.messages.kickoutReasonPrompt", "Kick-out reason"), t("userDetails.messages.defaultKickoutReason", "Removed from course by staff"));
-    if (inputReason === null) return;
-
-    const reason = String(inputReason || "").trim() || t("userDetails.messages.defaultKickoutReason", "Removed from course by staff");
-
-    try {
-      setKickingOutEnrollmentId(enrollment._id);
-      await reviewEnrollmentRequest({
-        enrollmentId: enrollment._id,
-        status: "rejected",
-        rejectionReason: reason,
-      }).unwrap();
-      showSuccess(t("userDetails.messages.kickoutSuccess", "Student removed from the selected course."));
-      refetch();
-    } catch (kickoutError) {
-      const resolvedError = normalizeApiError(kickoutError, t("userDetails.messages.kickoutFailed", "Failed to remove student from course."));
-      showError(resolvedError);
-    } finally {
-      setKickingOutEnrollmentId("");
-    }
-  };
+  const detailErrorMessage = useMemo(() => {
+    if (typeof error?.data?.message === "string") return error.data.message;
+    if (typeof error?.message === "string") return error.message;
+    return t("publicProfilePage.loadError", "Failed to load this profile.");
+  }, [error, t]);
 
   return (
-    <RequireAuth allowedRoles={[ROLES.ADMIN, ROLES.TEACHER, ROLES.MODERATOR]}>
-      <section className="container-page py-8 md:py-10">
-        <RevealSection noStagger className="site-panel rounded-[clamp(8px,5%,12px)] p-5 md:p-6">
-          <RevealItem className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="site-kicker">{t("userDetails.layout.kicker", "User Details")}</p>
-              <h1 className="site-title mt-4">{t("userDetails.layout.title", "Directory Profile")}</h1>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => refetch()} className="site-button-secondary">
-                Refresh
-              </button>
-              <Link href={canOpenUserList ? "/users" : "/dashboard"} className="site-button-primary">
-                {canOpenUserList ? "Back to Users" : "Back to Dashboard"}
-              </Link>
-            </div>
-          </RevealItem>
-
-          {isLoading ? (
-            <div className="mt-6">
-              <ListSkeleton rows={6} />
-            </div>
-          ) : isError ? (
-            <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4">
-              <p className="text-sm font-semibold text-rose-700">{detailErrorMessage}</p>
-            </div>
-          ) : !user ? (
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              User not found.
+    <RequireAuth>
+      <main className="site-shell min-h-screen pb-12">
+        <div className="container-page py-5 md:py-8">
+          {profileError ? (
+            <div className="mx-auto max-w-[960px] rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {detailErrorMessage}
             </div>
           ) : (
-            <>
-              <RevealItem className="mt-6 flex flex-wrap items-start gap-4">
-                <Avatar
-                  src={user.profilePhoto?.url}
-                  name={user.fullName || "User"}
-                  className="h-16 w-16 rounded-xl"
-                  fallbackClassName="bg-slate-900 text-base font-extrabold text-white"
-                />
-                <div className="min-w-0">
-                  <h2 className="text-lg font-extrabold text-slate-950 md:text-xl">{user.fullName || t("userDetails.messages.unnamedUser", "Unnamed User")}</h2>
-                  <p className="mt-1 break-all text-sm text-slate-600">{user.email || t("userDetails.messages.noEmail", "No email")}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <RoleBadge role={user.role} />
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${
-                        user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
-                      }`}
+            <div className="mx-auto grid max-w-[1140px] gap-4 xl:grid-cols-[320px_minmax(0,720px)] xl:justify-center">
+              <aside className="space-y-4 xl:sticky xl:top-[104px] xl:self-start">
+                <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.07)]">
+                  <div className="h-20 bg-[radial-gradient(circle_at_top_left,_rgba(20,123,121,0.25),_transparent_52%),linear-gradient(135deg,_#eafaf6_0%,_#ffffff_60%,_#eef6ff_100%)] md:h-24" />
+                  <div className="px-4 pb-4">
+                    <div className="-mt-10 flex items-end gap-3">
+                      <Avatar
+                        src={user?.profilePhoto?.url}
+                        name={user?.fullName || "User"}
+                        className="h-20 w-20 rounded-[22px] border-4 border-white shadow-lg"
+                        fallbackClassName="rounded-[22px] bg-slate-900 text-lg font-black text-white"
+                      />
+                      <div className="min-w-0 flex-1 pb-1">
+                        <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#147b79]">
+                          {t("publicProfilePage.kicker", "Community Profile")}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <h1 className="truncate text-lg font-extrabold tracking-tight text-slate-950 md:text-[22px]">
+                            {profileLoading
+                              ? t("publicProfilePage.loading", "Loading...")
+                              : user?.fullName || t("publicProfilePage.unknownUser", "Unknown User")}
+                          </h1>
+                          {user?.role ? <RoleBadge role={user.role} /> : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-[12px] font-normal leading-5 text-slate-600">
+                      {t("publicProfilePage.description", "A compact view of this member’s academic identity and community posts.")}
+                    </p>
+
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                      <StatCard
+                        label={t("publicProfilePage.school", "School")}
+                        value={profileLoading ? t("publicProfilePage.loading", "Loading...") : user?.school || t("publicProfilePage.notAddedYet", "Not added yet")}
+                        accentClass="text-sky-700"
+                      />
+                      <StatCard
+                        label={t("publicProfilePage.college", "College")}
+                        value={profileLoading ? t("publicProfilePage.loading", "Loading...") : user?.college || t("publicProfilePage.notAddedYet", "Not added yet")}
+                        accentClass="text-indigo-700"
+                      />
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <StatCard
+                        label={t("publicProfilePage.joined", "Joined")}
+                        value={profileLoading ? t("publicProfilePage.loading", "Loading...") : formatMemberSince(user?.createdAt, language, t)}
+                        accentClass="text-slate-900"
+                      />
+                      <StatCard
+                        label={t("publicProfilePage.posts", "Posts")}
+                        value={postsLoading && page === 1 ? t("publicProfilePage.loading", "Loading...") : totalPosts}
+                        accentClass="text-emerald-700"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    {t("publicProfilePage.quickActions", "Quick Actions")}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {isOwnProfile ? (
+                      <Link href="/profile" className="inline-flex items-center rounded-full bg-slate-900 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#147b79]">
+                        {t("publicProfilePage.editMyProfile", "Edit My Profile")}
+                      </Link>
+                    ) : (
+                      <Link href="/community" className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-100">
+                        {t("publicProfilePage.backToCommunity", "Back to Community")}
+                      </Link>
+                    )}
+                    {canOpenStaffDetails ? (
+                      <Link href={`/users/${userId}/details`} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-100">
+                        {t("publicProfilePage.staffDetails", "Staff Details")}
+                      </Link>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-100"
                     >
-                      {user.isActive ? "Active" : "Inactive"}
-                    </span>
+                      {t("publicProfilePage.refresh", "Refresh")}
+                    </button>
+                  </div>
+                </section>
+              </aside>
+
+              <section className="min-w-0 space-y-4">
+                {editingPost ? (
+                  <CreatePost
+                    post={editingPost}
+                    isOpen={Boolean(editingPost)}
+                    onClose={() => setEditingPost(null)}
+                    isTriggerVisible={false}
+                  />
+                ) : null}
+
+                <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm md:px-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                        {t("publicProfilePage.activityKicker", "Community Activity")}
+                      </p>
+                      <h2 className="mt-1.5 text-[15px] font-extrabold tracking-tight text-slate-950 md:text-lg">
+                        {t("publicProfilePage.postsBy", "Posts by {name}", {
+                          name: user?.fullName || t("publicProfilePage.thisUser", "this user"),
+                        })}
+                      </h2>
+                      <p className="mt-1 text-[12px] text-slate-500">
+                        {t("publicProfilePage.activityDescription", "Compact timeline view with smaller cards and tighter spacing.")}
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                      {totalPosts} {t("publicProfilePage.visiblePosts", "visible posts")}
+                    </div>
                   </div>
                 </div>
-              </RevealItem>
 
-              <RevealSection className={`mt-6 grid gap-3 sm:grid-cols-2 ${isStudentUser ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
-                <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.relatedCourses", "Related Courses")}</p>
-                  <p className="mt-2 text-xl font-extrabold text-slate-950">
-                    {summary?.courses?.totalRelatedCourses || relatedCourses.length}
-                  </p>
-                </RevealItem>
-                <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollments", "Enrollments")}</p>
-                  <p className="mt-2 text-xl font-extrabold text-slate-950">{summary?.enrollment?.total || enrollments.length}</p>
-                </RevealItem>
-                {isStudentUser ? (
-                  <>
-                    <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalDue", "Total Due")}</p>
-                      <p className="mt-2 text-xl font-extrabold text-slate-950">
-                        {formatAmount(summary?.payments?.totalDue || 0)}
+                <div className="space-y-3">
+                  {postsLoading && page === 1 ? (
+                    Array.from({ length: 3 }).map((_, index) => <PostSkeleton key={index} />)
+                  ) : posts.length === 0 ? (
+                    <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-12 text-center shadow-sm">
+                      <p className="text-sm font-extrabold text-slate-900">{t("publicProfilePage.noPostsTitle", "No posts available yet.")}</p>
+                      <p className="mt-2 text-sm font-medium text-slate-500">
+                        {t("publicProfilePage.noPostsDescription", "This profile has not shared any posts you can access right now.")}
                       </p>
-                    </RevealItem>
-                    <RevealItem as="article" className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.totalPaid", "Total Paid")}</p>
-                      <p className="mt-2 text-xl font-extrabold text-slate-950">
-                        {formatAmount(summary?.payments?.totalPaid || 0)}
-                      </p>
-                    </RevealItem>
-                  </>
-                ) : null}
-              </RevealSection>
-
-              <RevealSection className="mt-5 grid gap-5 lg:grid-cols-2">
-                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.personalDetails", "Personal Details")}</h3>
-                  <dl className="mt-3 space-y-2 text-sm">
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.name", "Name")}</dt>
-                      <dd className="font-semibold text-slate-900">{user.fullName || t("userDetails.misc.na", "N/A")}</dd>
                     </div>
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.email", "Email")}</dt>
-                      <dd className="break-all text-slate-900">{user.email || t("userDetails.misc.na", "N/A")}</dd>
-                    </div>
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.phone", "Phone")}</dt>
-                      <dd className="text-slate-900">{user.phone || t("userDetails.misc.na", "N/A")}</dd>
-                    </div>
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.facebook", "Facebook")}</dt>
-                      <dd className="break-all text-slate-900">{user.facebookProfileId || t("userDetails.misc.na", "N/A")}</dd>
-                    </div>
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.created", "Created")}</dt>
-                      <dd className="text-slate-900">{formatDateTime(user.createdAt, t)}</dd>
-                    </div>
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
-                      <dt className="font-semibold text-slate-500">{t("userDetails.layout.lastLogin", "Last Login")}</dt>
-                      <dd className="text-slate-900">{formatDateTime(user.lastLoginAt, t)}</dd>
-                    </div>
-                  </dl>
-                </RevealItem>
-
-                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.courseLinks", "Course Links")}</h3>
-                  {relatedCourses.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noRelatedCourses", "No related courses for this user.")}</p>
                   ) : (
-                    <div className="mt-3 space-y-2">
-                      {relatedCourses.map((course) => (
-                        <article key={course._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-extrabold text-slate-900">{course.name}</p>
-                              <p className="text-xs text-slate-600">
-                                {course.slug || t("userDetails.misc.noSlug", "no-slug")} | {formatAmount(course.monthlyFee || 0, course.currency)}
-                              </p>
-                            </div>
-                            <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
-                              {course.status}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {course.tags.map((tag) => (
-                              <span
-                                key={`${course._id}-${tag}`}
-                                className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
+                    posts.map((post) => (
+                      <PostCard
+                        key={post._id}
+                        post={post}
+                        onEdit={isOwnProfile ? (selectedPost) => setEditingPost(selectedPost) : undefined}
+                      />
+                    ))
                   )}
-                </RevealItem>
-              </RevealSection>
+                </div>
 
-              <RevealSection className={`mt-5 grid gap-5 ${isStudentUser ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
-                <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.enrollmentHistory", "Enrollment History")}</h3>
-                  {enrollments.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noEnrollments", "No enrollment history.")}</p>
-                  ) : (
-                    <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
-                      {enrollments.map((item) => (
-                        <article key={item._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-extrabold text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
-                              <p className="mt-1 text-xs text-slate-600">{t("userDetails.misc.applied", "Applied")}: {formatDateTime(item.createdAt, t)}</p>
-                              <p className="mt-0.5 text-xs text-slate-600">{t("userDetails.misc.reviewed", "Reviewed")}: {formatDateTime(item.reviewedAt, t)}</p>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${enrollmentStatusClass(item.status)}`}
-                              >
-                                {item.status}
-                              </span>
-                              {isStudentUser && item.status === "approved" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleKickOut(item)}
-                                  disabled={kickingOutEnrollmentId === item._id}
-                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                                >
-                                  {kickingOutEnrollmentId === item._id ? t("userDetails.actions.processing", "Processing...") : t("userDetails.actions.kickOut", "Kick Out")}
-                                </button>
-                              ) : null}
-                            </div>
-                          </div>
-                          {item.rejectionReason ? (
-                            <p className="mt-2 text-xs text-rose-700">{t("userDetails.misc.reason", "Reason")}: {item.rejectionReason}</p>
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </RevealItem>
-
-                {isStudentUser ? (
-                  <RevealItem as="section" className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h3 className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("userDetails.layout.paymentHistory", "Payment History")}</h3>
-                    {payments.length === 0 ? (
-                      <p className="mt-3 text-sm text-slate-600">{t("userDetails.misc.noPayments", "No payment records.")}</p>
-                    ) : (
-                      <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
-                        {payments.map((item) => (
-                          <article key={item._id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="text-sm font-extrabold text-slate-900">{item.batch?.name || t("userDetails.misc.unknownCourse", "Unknown course")}</p>
-                                <p className="mt-1 text-xs text-slate-600">
-                                  {t("userDetails.misc.cycle", "Cycle")}: {item.billingMonth}/{item.billingYear} | {t("userDetails.misc.covers", "Covers")}: {
-                                    new Date(Date.UTC(item.billingYear, item.billingMonth - 2, 1)).toLocaleDateString(
-                                      language === "bn" ? "bn-BD" : "en-US", 
-                                      { month: "short", year: "numeric" }
-                                    )
-                                  } | {formatAmount(item.amount, item.currency)}
-                                </p>
-                                <p className="mt-0.5 text-xs text-slate-600">
-                                  {t("userDetails.misc.due", "Due")}: {formatDateTime(item.dueDate, t)} | {t("userDetails.misc.paid", "Paid")}: {formatDateTime(item.paidAt, t)}
-                                </p>
-                              </div>
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${paymentStatusClass(item.status)}`}
-                              >
-                                {item.status}
-                              </span>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    )}
-                  </RevealItem>
+                {hasMore ? (
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setPage((currentPage) => currentPage + 1)}
+                      disabled={postsFetching}
+                      className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition hover:bg-[#147b79] disabled:opacity-60"
+                    >
+                      {postsFetching
+                        ? t("publicProfilePage.loading", "Loading...")
+                        : t("publicProfilePage.loadMore", "Load More Posts")}
+                    </button>
+                  </div>
                 ) : null}
-              </RevealSection>
-            </>
+              </section>
+            </div>
           )}
-        </RevealSection>
-      </section>
-      {popupNode}
+        </div>
+      </main>
     </RequireAuth>
   );
 }

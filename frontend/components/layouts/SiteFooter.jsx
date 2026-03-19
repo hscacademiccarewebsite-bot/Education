@@ -53,7 +53,7 @@ export default function SiteFooter() {
     general.siteTagline ||
     t("footer.defaultDescription");
   const footerCopyright = general.footerCopyright || t("footer.defaultCopyright");
-  const footerSiteName = "HSC Academic and Admission Care";
+  const footerSiteName = "HSC Academic & Admission Care";
   const footerLinksSource = configuredLinks.length ? configuredLinks : DEFAULT_FOOTER_LINKS;
 
   const footerLinks = useMemo(

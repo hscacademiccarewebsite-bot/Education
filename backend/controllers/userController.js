@@ -1,6 +1,7 @@
 const User = require("../model/userSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
+const CommunityPost = require("../model/communityPostSchema");
 const { USER_ROLES } = require("../model/constants");
 const { getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 const {
@@ -17,6 +18,8 @@ class UserController {
         email: bodyEmail,
         fullName: bodyFullName,
         phone,
+        school,
+        college,
         facebookProfileId,
         profilePhoto,
       } = req.body;
@@ -58,6 +61,8 @@ class UserController {
         email,
         fullName,
         phone,
+        school,
+        college,
         facebookProfileId,
         profilePhoto: normalizedProfilePhoto,
         role: "student",
@@ -69,6 +74,12 @@ class UserController {
         existingUser.email = email ?? existingUser.email;
         existingUser.fullName = fullName ?? existingUser.fullName;
         existingUser.phone = phone ?? existingUser.phone;
+        if (school !== undefined) {
+          existingUser.school = String(school || "").trim();
+        }
+        if (college !== undefined) {
+          existingUser.college = String(college || "").trim();
+        }
         existingUser.facebookProfileId = facebookProfileId ?? existingUser.facebookProfileId;
 
         // Preserve custom uploaded avatars (with publicId) during auth sync.
@@ -141,7 +152,17 @@ class UserController {
 
   static async updateCurrentUser(req, res) {
     try {
-      const { fullName, phone, facebookProfileId, varsity, experience, profilePhoto, removeProfilePhoto } = req.body;
+      const {
+        fullName,
+        phone,
+        school,
+        college,
+        facebookProfileId,
+        varsity,
+        experience,
+        profilePhoto,
+        removeProfilePhoto,
+      } = req.body;
 
       if (fullName !== undefined) {
         const normalizedName = String(fullName).trim();
@@ -156,6 +177,14 @@ class UserController {
 
       if (phone !== undefined) {
         req.user.phone = String(phone || "").trim();
+      }
+
+      if (school !== undefined) {
+        req.user.school = String(school || "").trim();
+      }
+
+      if (college !== undefined) {
+        req.user.college = String(college || "").trim();
       }
 
       if (facebookProfileId !== undefined) {
@@ -491,6 +520,64 @@ class UserController {
       return res.status(500).json({
         success: false,
         message: "Failed to load user details.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getPublicProfile(req, res) {
+    try {
+      const { userId } = req.params;
+
+      if (!isValidObjectId(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId.",
+        });
+      }
+
+      const targetUser = await User.findById(userId)
+        .select("_id fullName profilePhoto role school college createdAt isActive")
+        .lean();
+
+      if (!targetUser || !targetUser.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      let profilePostQuery = { author: targetUser._id };
+
+      if (req.user.role === "student" && String(req.user._id) !== String(targetUser._id)) {
+        const myBatchIds = await getStudentBatchIds(req.user._id);
+        profilePostQuery = {
+          author: targetUser._id,
+          $or: [
+            { privacy: "public" },
+            {
+              privacy: "enrolled_members",
+              enrolledBatches: { $in: myBatchIds },
+            },
+          ],
+        };
+      }
+
+      const accessiblePostsCount = await CommunityPost.countDocuments(profilePostQuery);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: targetUser,
+          summary: {
+            postsCount: accessiblePostsCount,
+          },
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load public profile.",
         error: error.message,
       });
     }

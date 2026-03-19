@@ -72,6 +72,195 @@ const sendMail = async ({ to, subject, html, attachments = [] }) => {
   }
 };
 
+const BRAND_NAME = "HSC Academic & Admission Care";
+const FALLBACK_FRONTEND_URL = "http://localhost:3000";
+const SHORT_MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const LONG_MONTH_NAMES = [
+  "",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const getFrontendUrl = () => process.env.FRONTEND_URL || FALLBACK_FRONTEND_URL;
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const formatMoney = (amount, currency = "BDT") => {
+  const numericAmount = Number(amount);
+  const amountLabel = Number.isFinite(numericAmount)
+    ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(numericAmount)
+    : amount;
+
+  return `${escapeHtml(amountLabel)} ${escapeHtml(currency)}`;
+};
+
+const formatBillingMonth = (billingMonth, billingYear, format = "short") => {
+  const monthNames = format === "long" ? LONG_MONTH_NAMES : SHORT_MONTH_NAMES;
+  const monthLabel = monthNames[Number(billingMonth)] || billingMonth;
+  return `${escapeHtml(monthLabel)} ${escapeHtml(billingYear)}`;
+};
+
+const formatCoversMonth = (billingYear, billingMonth, format = "short") => {
+  const coversDate = new Date(Date.UTC(Number(billingYear), Number(billingMonth) - 2, 1));
+  return escapeHtml(
+    coversDate.toLocaleDateString("en-US", {
+      month: format === "long" ? "long" : "short",
+      year: "numeric",
+    })
+  );
+};
+
+const sumAmounts = (items = []) =>
+  items.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
+
+const renderCard = (
+  innerHtml,
+  {
+    marginTop = "20px",
+    padding = "22px",
+    backgroundColor = "#ffffff",
+    borderColor = "#e2e8f0",
+  } = {}
+) => `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: ${marginTop};">
+    <tr>
+      <td style="padding: ${padding}; border: 1px solid ${borderColor}; border-radius: 20px; background-color: ${backgroundColor};">
+        ${innerHtml}
+      </td>
+    </tr>
+  </table>
+`;
+
+const renderButton = (label, href, color) => `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="button-wrapper" style="margin-top: 28px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="button-table">
+          <tr>
+            <td align="center" bgcolor="${color}" style="border-radius: 14px; background-color: ${color};">
+              <a
+                href="${escapeHtml(href)}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="button-link"
+                style="display: inline-block; padding: 15px 28px; border-radius: 14px; color: #ffffff; font-size: 14px; font-weight: 800; letter-spacing: 0.01em; text-decoration: none;"
+              >
+                ${escapeHtml(label)}
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+`;
+
+const renderDetailListCard = (title, rows, options = {}) =>
+  renderCard(
+    `
+      <p style="margin: 0 0 16px; color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: -0.01em;">
+        ${escapeHtml(title)}
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${rows
+          .map(
+            (row, index) => `
+              <tr>
+                <td style="padding: ${index === 0 ? "0" : "14px 0 0"}; border-top: ${index === 0 ? "0" : "1px solid #e2e8f0"};">
+                  <p style="margin: 0; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;">
+                    ${escapeHtml(row.label)}
+                  </p>
+                  <p style="margin: 6px 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; font-weight: 700;">
+                    ${row.value}
+                  </p>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </table>
+    `,
+    options
+  );
+
+const renderChecklistCard = (title, items, options = {}) =>
+  renderCard(
+    `
+      <p style="margin: 0 0 14px; color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: -0.01em;">
+        ${escapeHtml(title)}
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${items
+          .map(
+            (item, index) => `
+              <tr>
+                <td valign="top" style="padding: ${index === 0 ? "0" : "12px 0 0"};">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td valign="top" style="padding: 6px 12px 0 0;">
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 999px; background-color: ${options.dotColor || "#2563eb"};"></span>
+                      </td>
+                      <td valign="top">
+                        <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.7;">
+                          ${escapeHtml(item)}
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </table>
+    `,
+    options
+  );
+
+const renderMetricGrid = (items, accentColor) => `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+    <tr>
+      ${items
+        .map(
+          (item, index) => `
+            <td class="stack-column-cell" width="${Math.floor(100 / items.length)}%" valign="top" style="padding: 0 ${index === items.length - 1 ? "0" : "12px"} 0 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 18px; border: 1px solid #dbe7f3; border-radius: 18px; background-color: #f8fbff;">
+                    <p style="margin: 0; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;">
+                      ${escapeHtml(item.label)}
+                    </p>
+                    <p style="margin: 10px 0 0; color: ${accentColor}; font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em;">
+                      ${item.value}
+                    </p>
+                    ${item.hint ? `<p style="margin: 8px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">${escapeHtml(item.hint)}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          `
+        )
+        .join("")}
+    </tr>
+  </table>
+`;
+
 /**
  * Common HTML wrapper for emails
  */
@@ -84,12 +273,17 @@ const sendMail = async ({ to, subject, html, attachments = [] }) => {
  */
 const getEmailTemplate = (content, title, type = 'info', subtitle = '', preheader = '') => {
   const themes = {
-    info: { color: '#0866FF', bg: '#EBF5FF' },
-    success: { color: '#10B981', bg: '#ECFDF5' },
-    warning: { color: '#F59E0B', bg: '#FFFBEB' },
-    danger: { color: '#EF4444', bg: '#FEF2F2' }
+    info: { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", soft: "#dbeafe" },
+    success: { color: "#059669", bg: "#ecfdf5", border: "#a7f3d0", soft: "#d1fae5" },
+    warning: { color: "#d97706", bg: "#fff7ed", border: "#fdba74", soft: "#fed7aa" },
+    danger: { color: "#dc2626", bg: "#fef2f2", border: "#fca5a5", soft: "#fecaca" },
   };
   const theme = themes[type] || themes.info;
+  const headerLabel = subtitle || BRAND_NAME;
+  const previewText = escapeHtml(preheader || title);
+  const logoMarkup = fs.existsSync(logoPath)
+    ? `<img src="cid:hsc-logo-v12" alt="${BRAND_NAME}" width="64" height="64" style="display: block; width: 64px; height: 64px; border-radius: 18px; border: 6px solid #ffffff; background-color: #ffffff;" />`
+    : `<div style="width: 64px; height: 64px; border-radius: 18px; background-color: #ffffff; color: ${theme.color}; font-size: 24px; font-weight: 900; line-height: 64px; text-align: center;">HA</div>`;
 
   return `
 <!DOCTYPE html>
@@ -97,73 +291,99 @@ const getEmailTemplate = (content, title, type = 'info', subtitle = '', preheade
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <!--[if mso]>
   <style type="text/css">
     body, table, td, a { font-family: Arial, sans-serif !important; }
   </style>
   <![endif]-->
   <style>
-    /* General styles for modern clients */
-    body { background-color: #f1f5f9; margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-    img { line-height: 100%; text-decoration: none; border: 0; height: auto; outline: none; }
-    table { border-collapse: collapse !important; }
-    
-    /* Responsive overrides */
+    body { margin: 0; padding: 0; background-color: #eef2ff; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { border-collapse: collapse !important; mso-table-lspace: 0pt !important; mso-table-rspace: 0pt !important; }
+    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+    .body-content p { margin: 0 0 16px; }
+    .body-content p:last-child { margin-bottom: 0; }
     @media only screen and (max-width: 620px) {
-      .outer-wrapper { padding: 0 !important; }
-      .container { width: 100% !important; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
-      .body-content { padding: 30px 20px !important; }
-      .header-content { padding: 40px 20px 30px !important; }
-      .h1 { font-size: 24px !important; }
-      .btn { box-sizing: border-box !important; width: 100% !important; display: block !important; text-align: center !important; }
+      .outer-wrapper { padding: 14px 0 24px !important; }
+      .container { width: 100% !important; border-radius: 24px !important; }
+      .hero-pad { padding: 30px 20px 24px !important; }
+      .body-content { padding: 28px 20px 8px !important; }
+      .footer-pad { padding: 20px 20px 28px !important; }
+      .h1 { font-size: 26px !important; line-height: 1.2 !important; }
+      .hero-copy { font-size: 14px !important; }
+      .stack-column-cell { display: block !important; width: 100% !important; padding: 0 0 12px !important; }
+      .button-table, .button-link { width: 100% !important; }
+      .button-link { box-sizing: border-box !important; text-align: center !important; }
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body style="margin: 0; padding: 0; background-color: #eef2ff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <div style="display: none; max-width: 0; max-height: 0; overflow: hidden; font-size: 1px; line-height: 1px; color: #fff; opacity: 0;">
-    ${preheader || title} - HSC Academic & Admission Care
+    ${previewText}
   </div>
-  
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9;">
+
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" style="background-color: #eef2ff;">
     <tr>
-      <td align="center" class="outer-wrapper" style="padding: 40px 10px;">
+      <td align="center" class="outer-wrapper" style="padding: 24px 12px 40px;">
         <!--[if (gte mso 9)|(IE)]>
-        <table align="center" border="0" cellspacing="0" cellpadding="0" width="600">
+        <table align="center" border="0" cellspacing="0" cellpadding="0" width="640">
         <tr>
-        <td align="center" valign="top" width="600">
+        <td align="center" valign="top" width="640">
         <![endif]-->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="container" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-          <!-- Header -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" class="container" style="max-width: 640px; width: 100%; background-color: #ffffff; border-radius: 28px; overflow: hidden; border: 1px solid #dbe5f1; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);">
           <tr>
-            <td align="center" class="header-content" style="background-color: ${theme.bg}; padding: 48px 40px 32px; border-bottom: 2px solid #ffffff;">
-              <img src="cid:hsc-logo-v12" alt="Logo" width="60" height="60" style="display: block; border-radius: 30px; margin-bottom: 16px; border: 2px solid #ffffff; background-color: #ffffff;" />
-              <div style="color: ${theme.color}; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px;">
-                ${subtitle || 'HSC Academic & Admission Care'}
-              </div>
-              <h1 class="h1" style="color: #0f172a; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2;">
-                ${title}
+            <td class="hero-pad" style="padding: 36px 40px 30px; background-color: ${theme.bg}; border-bottom: 1px solid ${theme.border};">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td valign="middle" style="width: 64px;">
+                    ${logoMarkup}
+                  </td>
+                  <td valign="middle" style="padding-left: 16px;">
+                    <p style="margin: 0; color: ${theme.color}; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em;">
+                      ${escapeHtml(headerLabel)}
+                    </p>
+                    <p style="margin: 8px 0 0; color: #475569; font-size: 13px; line-height: 1.6;">
+                      Email update from ${BRAND_NAME}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
+                <tr>
+                  <td style="height: 6px; border-radius: 999px; background-color: ${theme.soft};"></td>
+                </tr>
+              </table>
+              <h1 class="h1" style="margin: 22px 0 0; color: #0f172a; font-size: 32px; line-height: 1.15; font-weight: 900; letter-spacing: -0.03em;">
+                ${escapeHtml(title)}
               </h1>
-            </td>
-          </tr>
-          
-          <!-- Body Content -->
-          <tr>
-            <td class="body-content" style="padding: 40px 40px; color: #334155; font-size: 15px; line-height: 1.62;">
-              ${content.replace(/class="btn"/g, `style="display: inline-block; padding: 14px 36px; background-color: ${theme.color}; color: #ffffff !important; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 10px;"`)}
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="background-color: #f8fafc; padding: 32px 40px; border-top: 1px solid #f1f5f9;">
-              <p style="margin: 0; font-weight: 800; color: #475569; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">
-                HSC Academic & Admission Care
+              <p class="hero-copy" style="margin: 14px 0 0; max-width: 480px; color: #475569; font-size: 15px; line-height: 1.8;">
+                Keep track of your academic activity, billing updates, and enrollment actions in one clear place.
               </p>
-              <div style="margin-top: 16px; color: #94a3b8; font-size: 11px; line-height: 1.5;">
-                <p style="margin: 0 0 8px;">You received this because you are an active student or applicant.</p>
-                <p style="margin: 0;">&copy; ${new Date().getFullYear()} All Rights Reserved.</p>
-              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="body-content" style="padding: 34px 40px 8px; color: #334155; font-size: 15px; line-height: 1.75;">
+              ${content}
+            </td>
+          </tr>
+          <tr>
+            <td class="footer-pad" style="padding: 24px 40px 34px; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <p style="margin: 0; color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: 0.02em;">
+                      ${BRAND_NAME}
+                    </p>
+                    <p style="margin: 10px 0 0; color: #64748b; font-size: 12px; line-height: 1.7;">
+                      You received this email because you are an active student, applicant, or staff member associated with our platform.
+                    </p>
+                    <p style="margin: 10px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+                      &copy; ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
@@ -184,19 +404,39 @@ const getEmailTemplate = (content, title, type = 'info', subtitle = '', preheade
  * 1. Welcome Email
  */
 const sendWelcomeEmail = async (user) => {
+  const studentName = escapeHtml(user.fullName || "Student");
+  const dashboardUrl = getFrontendUrl();
   const content = `
-    <p>Hi <strong>${user.fullName || "Student"}</strong>,</p>
-    <p>Welcome to <strong>HSC Academic & Admission Care</strong>! We are thrilled to have you join our premium education platform.</p>
-    <p>Your account has been successfully created. You can now log in to explore courses, track your payments, and participate in community discussions.</p>
-    <center>
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Go to Dashboard</a>
-    </center>
+    <p>Hello <strong>${studentName}</strong>,</p>
+    <p>Welcome to <strong>${BRAND_NAME}</strong>. Your account is ready, and your student workspace is now open for courses, payments, and community updates.</p>
+    ${renderMetricGrid(
+      [
+        { label: "Account Status", value: "Ready", hint: "You can sign in immediately." },
+        { label: "Portal Access", value: "Active", hint: "Courses, payments, and updates are available." },
+      ],
+      "#2563eb"
+    )}
+    ${renderChecklistCard("What you can do next", [
+      "Open your dashboard and review available courses.",
+      "Track payment activity and due months from one place.",
+      "Join community discussions and stay updated with faculty notices.",
+    ])}
+    ${renderButton("Go to Dashboard", dashboardUrl, "#2563eb")}
+    <p style="margin-top: 18px; color: #64748b; font-size: 13px; line-height: 1.7;">
+      If you need any help getting started, simply reply to this email and our support team will guide you.
+    </p>
   `;
 
   await sendMail({
     to: user.email,
     subject: "Welcome to HSC Academic & Admission Care! 🎉",
-    html: getEmailTemplate(content, "Welcome Aboard!", "info", "Account Created"),
+    html: getEmailTemplate(
+      content,
+      "Welcome Aboard!",
+      "info",
+      "Account Created",
+      "Your account is ready. Sign in to access courses, payments, and community updates."
+    ),
   });
 };
 
@@ -206,54 +446,86 @@ const sendWelcomeEmail = async (user) => {
 const sendDueReminderEmail = async (user, duePayments) => {
   if (!duePayments || duePayments.length === 0) return;
 
-  // Build rows for the HTML table
-  let rows = "";
-  duePayments.forEach((p) => {
-    const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthStr = monthNames[p.billingMonth] || p.billingMonth;
-    const courseName = p.batch?.name || "Course";
-    // Deduce 'Covers Month'
-    const coversDate = new Date(Date.UTC(Number(p.billingYear), Number(p.billingMonth) - 2, 1));
-    const coversStr = coversDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const recipientName = escapeHtml(user.fullName || "Student");
+  const totalDue = formatMoney(sumAmounts(duePayments), duePayments[0]?.currency || "BDT");
+  const dueCards = duePayments
+    .map((payment, index) => {
+      const courseName = escapeHtml(payment.batch?.name || "Course");
+      const billingMonth = formatBillingMonth(payment.billingMonth, payment.billingYear, "short");
+      const coversMonth = formatCoversMonth(payment.billingYear, payment.billingMonth, "short");
+      const amount = formatMoney(payment.amount, payment.currency || "BDT");
 
-    rows += `
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; font-weight: 700;">${courseName}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px;">${monthStr} ${p.billingYear}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px;">${coversStr}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; text-align: right; color: #b45309; font-weight: 800;">${p.amount} ${p.currency || 'BDT'}</td>
-      </tr>
-    `;
-  });
+      return renderCard(
+        `
+          <p style="margin: 0; color: #9a3412; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;">
+            Outstanding Payment
+          </p>
+          <p style="margin: 10px 0 0; color: #0f172a; font-size: 20px; line-height: 1.3; font-weight: 800; letter-spacing: -0.02em;">
+            ${courseName}
+          </p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+            <tr>
+              <td class="stack-column-cell" width="50%" valign="top" style="padding: 0 10px 0 0;">
+                <p style="margin: 0; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;">Billing Month</p>
+                <p style="margin: 7px 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; font-weight: 700;">${billingMonth}</p>
+              </td>
+              <td class="stack-column-cell" width="50%" valign="top" style="padding: 0;">
+                <p style="margin: 0; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;">Covers</p>
+                <p style="margin: 7px 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; font-weight: 700;">${coversMonth}</p>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 14px;">
+            <tr>
+              <td style="padding-top: 14px; border-top: 1px solid #fdba74;">
+                <p style="margin: 0; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;">Amount Due</p>
+                <p style="margin: 8px 0 0; color: #b45309; font-size: 24px; line-height: 1.2; font-weight: 900; letter-spacing: -0.03em;">${amount}</p>
+              </td>
+            </tr>
+          </table>
+        `,
+        {
+          marginTop: index === 0 ? "20px" : "14px",
+          backgroundColor: "#fff7ed",
+          borderColor: "#fdba74",
+        }
+      );
+    })
+    .join("");
 
   const content = `
-    <p>Dear <strong>${user.fullName}</strong>,</p>
-    <p>This is a polite reminder regarding your pending tuition payments for the current billing cycle.</p>
-    <div style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-      <table border="0" cellpadding="0" cellspacing="0" width="100%">
-        <thead>
-          <tr style="background-color: #f8fafc;">
-            <th style="text-align: left; padding: 12px; font-size: 11px; text-transform: uppercase; color: #94a3b8; border-bottom: 2px solid #f1f5f9;">Course</th>
-            <th style="text-align: left; padding: 12px; font-size: 11px; text-transform: uppercase; color: #94a3b8; border-bottom: 2px solid #f1f5f9;">Month</th>
-            <th style="text-align: left; padding: 12px; font-size: 11px; text-transform: uppercase; color: #94a3b8; border-bottom: 2px solid #f1f5f9;">Covers</th>
-            <th style="text-align: right; padding: 12px; font-size: 11px; text-transform: uppercase; color: #94a3b8; border-bottom: 2px solid #f1f5f9;">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-    <p style="margin-top: 25px;">Please log into your student portal to clear your dues via bKash online, or contact the office for offline cash payments.</p>
-    <center style="margin-top: 32px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/payments" class="btn">View & Pay Dues</a>
-    </center>
+    <p>Dear <strong>${recipientName}</strong>,</p>
+    <p>This is a friendly reminder that your current tuition cycle still has pending dues. We recommend clearing them soon to keep your academic access and billing record up to date.</p>
+    ${renderMetricGrid(
+      [
+        { label: "Pending Items", value: escapeHtml(duePayments.length), hint: "Outstanding payment records in this email." },
+        { label: "Total Due", value: totalDue, hint: "Combined amount across the listed billing cycles." },
+      ],
+      "#b45309"
+    )}
+    ${dueCards}
+    ${renderChecklistCard(
+      "How to complete this",
+      [
+        "Pay online from your portal using bKash.",
+        "If needed, contact the office for offline cash support.",
+        "Recheck your payment page after completion to confirm the status change.",
+      ],
+      { backgroundColor: "#fffbeb", borderColor: "#fde68a", dotColor: "#d97706" }
+    )}
+    ${renderButton("View & Pay Dues", `${getFrontendUrl()}/payments`, "#d97706")}
   `;
 
   await sendMail({
     to: user.email,
     subject: "Reminder: Outstanding Payment Dues",
-    html: getEmailTemplate(content, "Payment Reminder", "warning", "Pending Action"),
+    html: getEmailTemplate(
+      content,
+      "Payment Reminder",
+      "warning",
+      "Pending Action",
+      `You have ${duePayments.length} outstanding payment item${duePayments.length > 1 ? "s" : ""} waiting in your portal.`
+    ),
   });
 };
 
@@ -370,17 +642,44 @@ const generatePDFBuffer = async (payment, user) => {
 const sendPaymentReceiptEmail = async (user, payment) => {
   const isOnline = payment.status === "paid_online";
   const methodStr = isOnline ? "bKash" : "offline cash";
-  const amountStr = `${payment.amount} ${payment.currency || 'BDT'}`;
-  const courseStr = payment.batch?.name || "your course";
+  const amountStr = formatMoney(payment.amount, payment.currency || "BDT");
+  const courseStr = escapeHtml(payment.batch?.name || "your course");
+  const paymentDate = payment.paidAt
+    ? escapeHtml(
+        new Date(payment.paidAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      )
+    : "N/A";
+  const transactionRef = escapeHtml(payment.transactionId || payment._id);
 
   const content = `
-    <p>Dear <strong>${user.fullName || "Student"}</strong>,</p>
-    <p>Thank you for your payment of <strong style="color: #059669;">${amountStr}</strong>!</p>
-    <p>We have successfully processed your payment for <strong>${courseStr}</strong> via ${methodStr}. Your account has been updated accordingly.</p>
-    <p>Please find your official payment receipt attached to this email as a PDF document for your records.</p>
-    <center style="margin-top: 32px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/payments" class="btn">View Transaction History</a>
-    </center>
+    <p>Dear <strong>${escapeHtml(user.fullName || "Student")}</strong>,</p>
+    <p>Your payment has been received successfully and your account has already been updated.</p>
+    ${renderCard(
+      `
+        <p style="margin: 0; color: #047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;">
+          Payment Confirmed
+        </p>
+        <p style="margin: 10px 0 0; color: #065f46; font-size: 30px; line-height: 1.1; font-weight: 900; letter-spacing: -0.04em;">
+          ${amountStr}
+        </p>
+        <p style="margin: 10px 0 0; color: #334155; font-size: 15px; line-height: 1.7;">
+          Applied to <strong>${courseStr}</strong> via ${escapeHtml(methodStr)}.
+        </p>
+      `,
+      { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }
+    )}
+    ${renderDetailListCard("Transaction details", [
+      { label: "Course", value: courseStr },
+      { label: "Payment Method", value: escapeHtml(methodStr) },
+      { label: "Paid On", value: paymentDate },
+      { label: "Reference", value: transactionRef },
+    ])}
+    <p>Please keep the attached PDF receipt for your records.</p>
+    ${renderButton("View Transaction History", `${getFrontendUrl()}/payments`, "#059669")}
   `;
 
   let attachments = [];
@@ -398,27 +697,49 @@ const sendPaymentReceiptEmail = async (user, payment) => {
   await sendMail({
     to: user.email,
     subject: `Payment Successful - Receipt #${payment.transactionId || payment._id}`,
-    html: getEmailTemplate(content, "Payment Received", "success", "Payment Invoice"),
+    html: getEmailTemplate(
+      content,
+      "Payment Received",
+      "success",
+      "Payment Invoice",
+      "Your payment is confirmed and the PDF receipt is attached."
+    ),
     attachments,
   });
 };
 
 const sendNewEnrollmentAlertEmail = async (staffList, student, batch) => {
-  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-  const reviewLink = `${FRONTEND_URL}/enrollments?batchId=${batch._id}`;
+  const reviewLink = `${getFrontendUrl()}/enrollments?batchId=${batch._id}`;
+  const studentName = escapeHtml(student.fullName || student.applicantName || "Student");
+  const studentPhone = escapeHtml(student.phone || student.applicantPhone || "N/A");
+  const batchName = escapeHtml(batch.name || "a course");
 
   const content = `
-    <h2>New Enrollment Request!</h2>
-    <p>A new student has requested to join <strong>${batch.name || "a course"}</strong>.</p>
-    <div style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 24px 0;">
-      <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; font-weight: 700; text-transform: uppercase;">Student Information</p>
-      <p style="margin: 0 0 4px 0; font-size: 16px; color: #0f172a; font-weight: 700;">${student.fullName || student.applicantName}</p>
-      <p style="margin: 0; color: #475569;">${student.phone || student.applicantPhone || "N/A"}</p>
-    </div>
-    <p>Please review their application, verify their Facebook join status, and approve or reject the enrollment.</p>
-    <center style="margin-top: 32px;">
-      <a href="${reviewLink}" class="btn">Review Enrollment Request</a>
-    </center>
+    <p>A new student has requested to join <strong>${batchName}</strong>. This request is ready for staff review.</p>
+    ${renderCard(
+      `
+        <p style="margin: 0; color: #b91c1c; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;">
+          Student Information
+        </p>
+        <p style="margin: 10px 0 0; color: #0f172a; font-size: 22px; line-height: 1.25; font-weight: 800;">
+          ${studentName}
+        </p>
+        <p style="margin: 8px 0 0; color: #475569; font-size: 15px; line-height: 1.7;">
+          ${studentPhone}
+        </p>
+      `,
+      { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }
+    )}
+    ${renderChecklistCard(
+      "Review checklist",
+      [
+        "Open the enrollment queue and verify the submitted request details.",
+        "Confirm the student's Facebook group join status and prerequisites.",
+        "Approve or reject the request so onboarding can move forward.",
+      ],
+      { backgroundColor: "#fff7f7", borderColor: "#fecaca", dotColor: "#dc2626" }
+    )}
+    ${renderButton("Review Enrollment Request", reviewLink, "#dc2626")}
   `;
 
   const html = getEmailTemplate(content, "Action Required", "danger", "Staff Notification");
@@ -439,46 +760,95 @@ const sendNewEnrollmentAlertEmail = async (staffList, student, batch) => {
 const sendEnrollmentApprovedEmail = async (student, batch) => {
   if (!student.email) return;
 
-  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-  const courseLink = `${FRONTEND_URL}/batches/${batch._id}`;
+  const courseLink = `${getFrontendUrl()}/courses/${batch._id}`;
+  const studentName = escapeHtml(student.fullName || "Student");
+  const batchName = escapeHtml(batch.name || "the course");
 
   const content = `
-    <p>Hi <strong>${student.fullName}</strong>,</p>
-    <p>Great news! Your enrollment request for <strong>${batch.name || "the course"}</strong> has been fully approved by our staff.</p>
-    <p>You now have full access to the course materials, video lectures, and live classes.</p>
-    <center style="margin-top: 32px;">
-      <a href="${courseLink}" class="btn">Go to My Course</a>
-    </center>
-    <p style="margin-top: 24px; font-size: 13px; color: #64748b;">We are glad to have you with us. If you have any further questions, please reach out to our support group!</p>
+    <p>Hello <strong>${studentName}</strong>,</p>
+    <p>Great news. Your enrollment request for <strong>${batchName}</strong> has been approved by our team.</p>
+    ${renderCard(
+      `
+        <p style="margin: 0; color: #047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;">
+          Access Unlocked
+        </p>
+        <p style="margin: 10px 0 0; color: #065f46; font-size: 22px; line-height: 1.25; font-weight: 800;">
+          ${batchName}
+        </p>
+        <p style="margin: 10px 0 0; color: #334155; font-size: 15px; line-height: 1.7;">
+          You can now enter the course space and continue with your academic materials.
+        </p>
+      `,
+      { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }
+    )}
+    ${renderChecklistCard(
+      "You now have access to",
+      [
+        "Course materials and approved content updates.",
+        "Video lessons and faculty-led progress resources.",
+        "Live class activity shared through the platform.",
+      ],
+      { backgroundColor: "#f8fffb", borderColor: "#d1fae5", dotColor: "#059669" }
+    )}
+    ${renderButton("Go to My Course", courseLink, "#059669")}
+    <p style="margin-top: 18px; color: #64748b; font-size: 13px; line-height: 1.7;">
+      We are glad to have you with us. If you need any help, reply to this email and our support team will assist.
+    </p>
   `;
 
   await sendMail({
     to: student.email,
     subject: `Enrollment Approved - ${batch.name || "Course"}`,
-    html: getEmailTemplate(content, "Enrollment Approved! 🎉", "success", "Course Update"),
+    html: getEmailTemplate(
+      content,
+      "Enrollment Approved! 🎉",
+      "success",
+      "Course Update",
+      "Your enrollment is approved and course access is now available."
+    ),
   });
 };
 
 const sendEnrollmentRejectedEmail = async (student, batch, reason) => {
   if (!student.email) return;
 
-  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-  const batchesLink = `${FRONTEND_URL}/batches`;
+  const batchesLink = `${getFrontendUrl()}/courses`;
+  const studentName = escapeHtml(student.fullName || "Student");
+  const batchName = escapeHtml(batch.name || "the course");
+  const hasReason = reason && reason !== "Not provided";
 
   const content = `
-    <p>Hi <strong>${student.fullName}</strong>,</p>
-    <p>We are writing to inform you that your enrollment request for <strong>${batch.name || "the course"}</strong> has unfortunately been rejected by our staff.</p>
-    ${reason && reason !== "Not provided" ? `<div style="background-color: #FEF2F2; padding: 20px; border: 1px solid #fee2e2; border-radius: 12px; margin: 24px 0;"><p style="margin: 0; color: #991B1B;"><strong>Reason:</strong> ${reason}</p></div>` : ""}
-    <p>If you believe this is a mistake, or if you have since fulfilled the missing requirements (such as joining the private Facebook group), please re-apply or contact the coaching support team.</p>
-    <center style="margin-top: 32px;">
-      <a href="${batchesLink}" class="btn">Browse Other Courses</a>
-    </center>
+    <p>Hello <strong>${studentName}</strong>,</p>
+    <p>Your enrollment request for <strong>${batchName}</strong> was not approved at this time.</p>
+    ${hasReason
+      ? renderDetailListCard(
+          "Reason shared by staff",
+          [{ label: "Review Note", value: escapeHtml(reason) }],
+          { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }
+        )
+      : ""}
+    ${renderChecklistCard(
+      "Recommended next steps",
+      [
+        "Review any missing requirements or eligibility points.",
+        "Reapply after the required updates are completed.",
+        "Contact the coaching support team if you need clarification.",
+      ],
+      { backgroundColor: "#fff7f7", borderColor: "#fecaca", dotColor: "#dc2626" }
+    )}
+    ${renderButton("Browse Other Courses", batchesLink, "#dc2626")}
   `;
 
   await sendMail({
     to: student.email,
     subject: `Update on Enrollment - ${batch.name || "Course"}`,
-    html: getEmailTemplate(content, "Enrollment Status", "danger", "Course Update"),
+    html: getEmailTemplate(
+      content,
+      "Enrollment Status",
+      "danger",
+      "Course Update",
+      "Your enrollment request has an update. Review the next steps inside this email."
+    ),
   });
 };
 
@@ -487,26 +857,46 @@ const sendEnrollmentRejectedEmail = async (student, batch, reason) => {
  */
 const sendPaymentWaivedEmail = async (user, payment) => {
   if (!user.email) return;
-  const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const monthStr = monthNames[payment.billingMonth] || payment.billingMonth;
-  const courseStr = payment.batch?.name || "your course";
+  const monthStr = formatBillingMonth(payment.billingMonth, payment.billingYear, "long");
+  const courseStr = escapeHtml(payment.batch?.name || "your course");
+  const staffNote = escapeHtml(payment.note || "Standard administrative adjustment.");
 
   const content = `
-    <p>Dear <strong>${user.fullName || "Student"}</strong>,</p>
-    <p>We are writing to inform you that your monthly fee for <strong>${courseStr}</strong> (${monthStr} ${payment.billingYear}) has been <strong>waived</strong> by our administration.</p>
-    <p>This means you do not need to make any payment for this specific billing cycle. Your enrollment status remains active and unaffected.</p>
-    <div style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 24px 0;">
-      <p style="margin: 0; color: #475569; font-size: 14px;"><strong>Note from Staff:</strong> ${payment.note || "Standard administrative adjustment."}</p>
-    </div>
-    <center style="margin-top: 32px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/payments" class="btn">View My Dashboard</a>
-    </center>
+    <p>Dear <strong>${escapeHtml(user.fullName || "Student")}</strong>,</p>
+    <p>Your monthly fee for <strong>${courseStr}</strong> has been waived for the current billing cycle.</p>
+    ${renderCard(
+      `
+        <p style="margin: 0; color: #1d4ed8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;">
+          Waiver Confirmed
+        </p>
+        <p style="margin: 10px 0 0; color: #1e3a8a; font-size: 22px; line-height: 1.25; font-weight: 800;">
+          ${courseStr}
+        </p>
+        <p style="margin: 10px 0 0; color: #334155; font-size: 15px; line-height: 1.7;">
+          Billing cycle: <strong>${monthStr}</strong>
+        </p>
+      `,
+      { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }
+    )}
+    ${renderDetailListCard("Waiver details", [
+      { label: "Billing Cycle", value: monthStr },
+      { label: "Course", value: courseStr },
+      { label: "Staff Note", value: staffNote },
+    ])}
+    <p>You do not need to make a payment for this specific period. Your enrollment remains active and unaffected.</p>
+    ${renderButton("View My Dashboard", `${getFrontendUrl()}/payments`, "#2563eb")}
   `;
 
   await sendMail({
     to: user.email,
-    subject: `Monthly Fee Waived - ${monthStr} ${payment.billingYear}`,
-    html: getEmailTemplate(content, "Payment Waived", "info", "Account Update"),
+    subject: `Monthly Fee Waived - ${monthStr}`,
+    html: getEmailTemplate(
+      content,
+      "Payment Waived",
+      "info",
+      "Account Update",
+      "Your monthly fee was waived for this billing cycle."
+    ),
   });
 };
 

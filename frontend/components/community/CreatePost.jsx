@@ -1,15 +1,143 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Avatar from "@/components/Avatar";
 import { useCreatePostMutation, useUpdatePostMutation } from "@/lib/features/community/communityApi";
 import { useSelector } from "react-redux";
-import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentUserRole } from "@/lib/features/user/userSlice";
+import {
+  selectCurrentUserDisplayName,
+  selectCurrentUserId,
+  selectCurrentUserPhotoUrl,
+  selectCurrentUserRole,
+} from "@/lib/features/user/userSlice";
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
+import { useSearchUsersQuery } from "@/lib/features/user/userApi";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
 import CreateSharedNote from "./CreateSharedNote";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+
+function serializeEditorNode(node) {
+  if (!node) return "";
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent;
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return "";
+  }
+
+  if (node.dataset?.mentionId) {
+    return `@[${node.dataset.mentionId}](${node.dataset.mentionName})`;
+  }
+
+  if (node.tagName === "BR") {
+    return "\n";
+  }
+
+  const content = Array.from(node.childNodes).map(serializeEditorNode).join("");
+  return ["DIV", "P", "LI"].includes(node.tagName) ? `${content}\n` : content;
+}
+
+function getEditorTextValue(el) {
+  if (!el) return "";
+
+  return Array.from(el.childNodes)
+    .map(serializeEditorNode)
+    .join("")
+    .replace(/\u00A0/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function editorHasContent(el) {
+  if (!el) return false;
+  return getEditorTextValue(el).trim().length > 0;
+}
+
+function convertRawToHtml(content) {
+  if (!content) return "";
+  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  return escapeHtml(content).replace(/\n/g, "<br/>").replace(mentionRegex, (_, id, name) => {
+    return `<span data-mention-id="${id}" data-mention-name="${name}" contenteditable="false" class="inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none">@${name}</span>&nbsp;`;
+  });
+}
+
+function insertMentionChip(editor, mentionStart, userId, userName) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const chip = document.createElement("span");
+  chip.dataset.mentionId = userId;
+  chip.dataset.mentionName = userName;
+  chip.contentEditable = "false";
+  chip.className = "inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none";
+  chip.textContent = `@${userName}`;
+
+  const range = selection.getRangeAt(0);
+  let charCount = 0;
+  let targetNode = null;
+  let targetOffset = 0;
+
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const nodeLength = node.textContent.length;
+
+    if (charCount + nodeLength >= mentionStart) {
+      targetNode = node;
+      targetOffset = mentionStart - charCount;
+      break;
+    }
+
+    charCount += nodeLength;
+  }
+
+  if (!targetNode) return;
+
+  const deleteRange = document.createRange();
+  deleteRange.setStart(targetNode, targetOffset);
+  deleteRange.setEnd(range.endContainer, range.endOffset);
+  deleteRange.deleteContents();
+
+  const space = document.createTextNode("\u00A0");
+  deleteRange.insertNode(space);
+  deleteRange.insertNode(chip);
+
+  const nextRange = document.createRange();
+  nextRange.setStartAfter(space);
+  nextRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(nextRange);
+}
+
+function clearEditor(el) {
+  if (!el) return;
+  el.innerHTML = "";
+}
+
+function placeCursorAtEnd(el) {
+  if (!el) return;
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
 
 export default function CreatePost({ 
   post = null, 
@@ -17,6 +145,7 @@ export default function CreatePost({
   onClose = () => {}, 
   isTriggerVisible = true 
 }) {
+  const { t } = useSiteLanguage();
   const isEditMode = !!post;
   const [content, setContent] = useState("");
   const [image, setImage] = useState(null);
@@ -26,15 +155,21 @@ export default function CreatePost({
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showPrivacyDropdown, setShowPrivacyDropdown] = useState(false);
+  const [editorEmpty, setEditorEmpty] = useState(true);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const privacyDropdownRef = useRef(null);
-
+  const editorRef = useRef(null);
+  const mentionDropdownRef = useRef(null);
 
   const [createPost, { isLoading: isCreating }] = useCreatePostMutation();
   const [updatePost, { isLoading: isUpdating }] = useUpdatePostMutation();
-  const textareaRef = useRef(null);
   const { showSuccess, showError } = useActionPopup();
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
+  const currentUserId = useSelector(selectCurrentUserId);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
   const userRole = useSelector(selectCurrentUserRole);
 
@@ -54,6 +189,14 @@ export default function CreatePost({
     : (myEnrollmentsData?.data?.filter(e => e.status === "approved").map(e => e.batch) || []);
 
   const activeIsLoading = isCreating || isUpdating;
+  const { data: searchData, isFetching: isSearchingUsers } = useSearchUsersQuery(mentionQuery, {
+    skip: !mentionActive,
+  });
+  const mentionSuggestions = (searchData?.data || []).filter(
+    (user) => String(user?._id) !== String(currentUserId)
+  );
+  const showMentionDropdown =
+    mentionActive && (isSearchingUsers || mentionSuggestions.length > 0 || mentionQuery.trim().length > 0);
 
   useEffect(() => {
     if (post) {
@@ -67,22 +210,141 @@ export default function CreatePost({
     }
   }, [post, isOpen]);
 
+  useEffect(() => {
+    if (!activeIsOpen || !editorRef.current) return;
+
+    const editor = editorRef.current;
+    editor.innerHTML = convertRawToHtml(post?.content || "");
+    setEditorEmpty(!editorHasContent(editor));
+
+    requestAnimationFrame(() => {
+      editor.focus();
+      placeCursorAtEnd(editor);
+    });
+  }, [activeIsOpen, post?._id]);
+
   // Close privacy dropdown when clicking outside
   useEffect(() => {
     const handler = (e) => {
       if (privacyDropdownRef.current && !privacyDropdownRef.current.contains(e.target)) {
         setShowPrivacyDropdown(false);
       }
+      if (
+        mentionDropdownRef.current &&
+        !mentionDropdownRef.current.contains(e.target) &&
+        editorRef.current &&
+        !editorRef.current.contains(e.target)
+      ) {
+        setMentionActive(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const detectMention = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed) return;
+
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const preRange = document.createRange();
+    preRange.selectNodeContents(editor);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const textBeforeCursor = preRange.toString();
+
+    const lastAt = textBeforeCursor.lastIndexOf("@");
+    if (lastAt === -1) {
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
+      return;
+    }
+
+    const charBefore = textBeforeCursor[lastAt - 1];
+    if (lastAt > 0 && charBefore !== " " && charBefore !== "\n" && charBefore !== "\u00A0") {
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
+      return;
+    }
+
+    const nextQuery = textBeforeCursor.slice(lastAt + 1);
+    if (nextQuery.includes(" ") || nextQuery.includes("\n")) {
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
+      return;
+    }
+
+    setMentionActive(true);
+    setMentionQuery(nextQuery);
+    setMentionStart(lastAt);
+    setSelectedIndex(0);
+  }, []);
+
+  const handleEditorInput = useCallback(() => {
+    const editor = editorRef.current;
+    const nextContent = getEditorTextValue(editor);
+    setContent(nextContent);
+    setEditorEmpty(!editorHasContent(editor));
+    detectMention();
+  }, [detectMention]);
+
+  const handleSelectMentionUser = useCallback(
+    (user) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      insertMentionChip(editor, mentionStart, user._id, user.fullName);
+      const nextContent = getEditorTextValue(editor);
+      setContent(nextContent);
+      setEditorEmpty(!editorHasContent(editor));
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
+      editor.focus();
+    },
+    [mentionStart]
+  );
+
+  const handleEditorKeyDown = useCallback(
+    (event) => {
+      if (!mentionActive) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMentionActive(false);
+        setMentionQuery("");
+      } else if (mentionSuggestions.length === 0) {
+        return;
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, mentionSuggestions.length - 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedIndex((currentIndex) => Math.max(currentIndex - 1, 0));
+      } else if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        if (mentionSuggestions[selectedIndex]) {
+          handleSelectMentionUser(mentionSuggestions[selectedIndex]);
+        }
+      }
+    },
+    [handleSelectMentionUser, mentionActive, mentionSuggestions, selectedIndex]
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim() && !image) return;
+    const finalContent = getEditorTextValue(editorRef.current).trim();
+
+    if (!finalContent && !image) return;
     if (privacy === "enrolled_members" && enrolledBatches.length === 0) {
-      showError("Please select at least one course to share with.");
+      showError(t("community.composer.selectCourseError", "Please select at least one course to share with."));
       return;
     }
 
@@ -90,28 +352,45 @@ export default function CreatePost({
       if (isEditMode) {
         await updatePost({
           postId: post._id,
-          content,
+          content: finalContent,
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
           images: image ? [image] : [],
         }).unwrap();
       } else {
         await createPost({
-          content,
+          content: finalContent,
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
           images: image ? [image] : [],
         }).unwrap();
       }
 
-      showSuccess(`Post ${isEditMode ? "updated" : "created"} successfully!`);
+      showSuccess(
+        t(
+          isEditMode ? "community.postUpdated" : "community.postCreated",
+          isEditMode ? "Post updated successfully!" : "Post created successfully!"
+        )
+      );
       handleClose();
     } catch (err) {
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} post:`, err);
+      showError(
+        err?.data?.message ||
+          t(
+            isEditMode ? "community.composer.updateFailed" : "community.composer.createFailed",
+            isEditMode ? "Failed to update post. Please try again." : "Failed to create post. Please try again."
+          )
+      );
     }
   };
 
   const handleClose = () => {
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionStart(-1);
+    setSelectedIndex(0);
+
     if (post) {
       onClose();
     } else {
@@ -122,6 +401,12 @@ export default function CreatePost({
       setEnrolledBatches([]);
       setShowImageUpload(false);
       setShowPrivacyDropdown(false);
+      setEditorEmpty(true);
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
+      setSelectedIndex(0);
+      clearEditor(editorRef.current);
     }
   };
 
@@ -141,16 +426,6 @@ export default function CreatePost({
     };
   }, [activeIsOpen]);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (activeIsOpen && textareaRef.current) {
-      textareaRef.current.style.height = "150px"; 
-      const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = Math.max(150, scrollHeight) + "px";
-    }
-  }, [content, activeIsOpen, showImageUpload]);
-
-
   return (
     <>
       {/* Trigger Bar - Only visible if not in edit mode and specifically requested */}
@@ -167,7 +442,9 @@ export default function CreatePost({
               onClick={handleOpen}
               className="flex-1 rounded-full bg-slate-50 px-4 lg:px-5 py-2.5 lg:py-3 text-left text-[14px] lg:text-[15px] font-medium text-slate-500 transition-all hover:bg-slate-100/80 active:scale-[0.99]"
             >
-              {`What's on your mind, ${userDisplayName?.split(" ")[0]}?`}
+              {t("community.composer.prompt", "What's on your mind, {name}?", {
+                name: userDisplayName?.split(" ")[0] || "",
+              })}
             </button>
 
           </div>
@@ -185,7 +462,7 @@ export default function CreatePost({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-[13px] lg:text-[14px]">Photo</span>
+              <span className="text-[13px] lg:text-[14px]">{t("community.composer.photo", "Photo")}</span>
             </button>
 
             <div className="h-8 w-[1px] bg-slate-100" />
@@ -199,7 +476,7 @@ export default function CreatePost({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <span className="text-[13px]">Post a Note</span>
+              <span className="text-[13px]">{t("community.composer.postNote", "Post a Note")}</span>
             </button>
           </div>
         </div>
@@ -220,7 +497,7 @@ export default function CreatePost({
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
               <div className="w-8" />
               <h2 className="font-display text-[16px] lg:text-[18px] font-bold tracking-tight text-[#147b79]">
-                {isEditMode ? "Edit Post" : "Create Post"}
+                {isEditMode ? t("community.editPost", "Edit Post") : t("community.createPost", "Create Post")}
               </h2>
 
               <button 
@@ -244,7 +521,7 @@ export default function CreatePost({
                         <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3.005 3.005 0 013.75-2.906z" />
                         </svg>
-                        Community
+                        {t("community.composer.communityLabel", "Community")}
                       </div>
                       <div className="h-1 w-1 rounded-full bg-slate-300" />
                       <div className="relative" ref={privacyDropdownRef}>
@@ -258,14 +535,14 @@ export default function CreatePost({
                               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                               </svg>
-                              Public
+                              {t("community.privacy.public", "Public")}
                             </>
                           ) : (
                             <>
                               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                               </svg>
-                              Enrolled Members
+                              {t("community.privacy.enrolled", "Enrolled Members")}
                             </>
                           )}
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -289,8 +566,8 @@ export default function CreatePost({
                                 </svg>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[13px] font-bold text-slate-800">Public</span>
-                                <span className="text-[11px] text-slate-500">Anyone on the platform</span>
+                                <span className="text-[13px] font-bold text-slate-800">{t("community.privacy.public", "Public")}</span>
+                                <span className="text-[11px] text-slate-500">{t("community.composer.publicDescription", "Anyone on the platform")}</span>
                               </div>
                               {privacy === "public" && (
                                 <svg className="h-4 w-4 text-[#0866FF] ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -312,8 +589,8 @@ export default function CreatePost({
                                 </svg>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[13px] font-bold text-slate-800">Enrolled Members</span>
-                                <span className="text-[11px] text-slate-500">Peers in your courses</span>
+                                <span className="text-[13px] font-bold text-slate-800">{t("community.privacy.enrolled", "Enrolled Members")}</span>
+                                <span className="text-[11px] text-slate-500">{t("community.composer.enrolledDescription", "Peers in your courses")}</span>
                               </div>
                               {privacy === "enrolled_members" && (
                                 <svg className="h-4 w-4 text-[#0866FF] ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -331,9 +608,9 @@ export default function CreatePost({
                 {/* Course Selection block if Enrolled Members is chosen */}
                 {privacy === "enrolled_members" && (
                   <div className="mb-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
-                    <p className="text-[12px] font-bold text-slate-700 mb-2">Select courses to share with:</p>
+                    <p className="text-[12px] font-bold text-slate-700 mb-2">{t("community.composer.selectCoursesToShare", "Select courses to share with:")}</p>
                     {availableCourses.length === 0 ? (
-                      <p className="text-[12px] text-slate-500">No courses available to share with.</p>
+                      <p className="text-[12px] text-slate-500">{t("community.composer.noCoursesToShare", "No courses available to share with.")}</p>
                     ) : (
                       <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
                         {availableCourses.map((course) => (
@@ -351,7 +628,7 @@ export default function CreatePost({
                               className="w-4 h-4 rounded text-[#147b79] border-slate-300 focus:ring-[#147b79]"
                             />
                             <span className="text-[13px] text-slate-700 group-hover:text-slate-900 line-clamp-1 flex-1">
-                              {course?.name || "Unknown Course"}
+                              {course?.name || t("community.composer.unknownCourse", "Unknown Course")}
                             </span>
                           </label>
                         ))}
@@ -360,14 +637,78 @@ export default function CreatePost({
                   </div>
                 )}
 
-                <textarea
-                  ref={textareaRef}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder={`What's on your mind, ${userDisplayName?.split(" ")[0]}?`}
-                  className="w-full resize-none border-none px-4 py-4 text-[15px] font-normal text-slate-950 placeholder:text-slate-400 focus:ring-0 leading-[1.6]"
-                  autoFocus
-                />
+                <div className="relative">
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={handleEditorInput}
+                    onKeyDown={handleEditorKeyDown}
+                    onKeyUp={detectMention}
+                    onClick={detectMention}
+                    onPaste={(event) => {
+                      event.preventDefault();
+                      const pastedText = event.clipboardData.getData("text/plain");
+                      document.execCommand("insertText", false, pastedText);
+                    }}
+                    className="min-h-[150px] w-full overflow-y-auto rounded-2xl border border-transparent px-4 py-4 text-[15px] font-normal leading-[1.6] text-slate-950 outline-none transition focus:border-slate-200 focus:bg-slate-50/50"
+                  />
+                  {editorEmpty ? (
+                    <p className="pointer-events-none absolute left-4 top-4 text-[15px] text-slate-400">
+                      {t(
+                        "community.composer.editorPlaceholder",
+                        "What's on your mind, {name}? Type @ to mention someone.",
+                        { name: userDisplayName?.split(" ")[0] || "" }
+                      )}
+                    </p>
+                  ) : null}
+
+                  {showMentionDropdown ? (
+                    <div
+                      ref={mentionDropdownRef}
+                      className="absolute left-4 right-4 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]"
+                    >
+                      {isSearchingUsers ? (
+                        <div className="px-4 py-3 text-[12px] font-medium text-slate-500">{t("community.composer.findingPeople", "Finding people...")}</div>
+                      ) : mentionSuggestions.length > 0 ? (
+                        <ul className="max-h-[220px] overflow-y-auto py-2">
+                          {mentionSuggestions.map((user, index) => (
+                            <li key={user._id}>
+                              <button
+                                type="button"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  handleSelectMentionUser(user);
+                                }}
+                                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                                  index === selectedIndex ? "bg-slate-50" : "hover:bg-slate-50"
+                                }`}
+                              >
+                                <Avatar
+                                  src={user.profilePhoto?.url}
+                                  name={user.fullName}
+                                  className="h-9 w-9 rounded-full shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <p className="truncate text-[13px] font-semibold text-slate-900">{user.fullName}</p>
+                                  <p className="truncate text-[11px] capitalize text-slate-500">{t(`roles.${user.role}`, user.role)}</p>
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="px-4 py-3 text-[12px] font-medium text-slate-500">
+                          {t("community.composer.noMatchingPeople", "No matching people found.")}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                <p className="mt-2 px-4 text-[11px] font-medium text-slate-400">
+                  {t("community.composer.mentionHint", "Type")} <span className="font-bold text-[#0866FF]">@</span> {t("community.composer.mentionHintSuffix", "to mention someone in your post.")}
+                </p>
                 
                 {showImageUpload && (
                   <div className="mt-5 relative rounded-2xl border-2 border-dashed border-slate-200 p-2 group transition-all hover:border-emerald-200">
@@ -392,7 +733,7 @@ export default function CreatePost({
                 )}
 
                 <div className="mt-8 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 shadow-sm">
-                  <span className="text-[13px] font-semibold text-slate-800">Add to your post</span>
+                  <span className="text-[13px] font-semibold text-slate-800">{t("community.composer.addToPost", "Add to your post")}</span>
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -410,16 +751,16 @@ export default function CreatePost({
 
                 <button
                   type="submit"
-                  disabled={activeIsLoading || (!content.trim() && !image)}
+                  disabled={activeIsLoading || (editorEmpty && !image)}
                   className="site-button-primary mt-5 w-full !py-3 !text-[13px] font-bold disabled:!opacity-50"
                 >
                   {activeIsLoading ? (
                     <div className="flex items-center gap-2 justify-center">
                       <div className="h-4 w-4 border-2 border-white border-t-transparent animate-spin rounded-full" />
-                      <span>{isEditMode ? "Updating..." : "Posting..."}</span>
+                      <span>{isEditMode ? t("community.composer.updating", "Updating...") : t("community.composer.posting", "Posting...")}</span>
                     </div>
                   ) : (
-                    isEditMode ? "Save Changes" : "Post"
+                    isEditMode ? t("community.composer.saveChanges", "Save Changes") : t("community.createPost", "Post")
                   )}
                 </button>
               </form>

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { bn as bnLocale, enUS } from "date-fns/locale";
+import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
@@ -11,8 +13,41 @@ import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import PhotoViewer from "@/components/shared/PhotoViewer";
 
-export default function PostCard({ post, onEdit }) {
-  const { t } = useSiteLanguage();
+function renderContent(content) {
+  if (!content) return null;
+
+  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={`txt-${lastIndex}`}>{content.substring(lastIndex, match.index)}</span>);
+    }
+
+    parts.push(
+      <Link
+        key={`mention-${match.index}`}
+        href={`/users/${match[1]}`}
+        className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
+      >
+        @{match[2]}
+      </Link>
+    );
+
+    lastIndex = mentionRegex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(<span key="txt-end">{content.substring(lastIndex)}</span>);
+  }
+
+  return parts;
+}
+
+export default function PostCard({ post, onEdit, compact = false }) {
+  const { t, language } = useSiteLanguage();
   const searchParams = useSearchParams();
   const params = useParams();
   const targetPostId = searchParams.get("postId") || params.postId;
@@ -61,27 +96,68 @@ export default function PostCard({ post, onEdit }) {
     }
   };
 
+  const cardClassName = compact
+    ? "mb-3 rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md"
+    : "mb-4 rounded-xl lg:rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md";
+  const headerClassName = compact ? "flex items-center gap-2.5 p-2.5 pb-1.5" : "flex items-center gap-3 p-4 pb-2";
+  const avatarClassName = compact ? "h-8.5 w-8.5 rounded-full" : "h-10 w-10 rounded-full";
+  const authorClassName = compact
+    ? "font-display text-[12px] font-semibold text-slate-800 truncate hover:underline"
+    : "font-display text-[14px] font-bold text-slate-800 truncate hover:underline";
+  const metaClassName = compact
+    ? "mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-slate-500"
+    : "flex items-center gap-1.5 mt-0.5";
+  const contentWrapClassName = compact ? "px-2.5 pb-1.5 pt-1" : "px-4 py-2";
+  const contentTextClassName = compact
+    ? "whitespace-pre-wrap text-[12px] leading-[1.5] text-slate-700"
+    : "whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700";
+  const imageClassName = compact
+    ? "w-full object-cover max-h-[320px] transition-transform duration-300 group-hover:scale-[1.02]"
+    : "w-full object-cover max-h-[500px] transition-transform duration-300 group-hover:scale-[1.02]";
+  const statsClassName = compact
+    ? "flex items-center justify-between px-2.5 py-1.5 text-[10px] font-medium text-slate-500"
+    : "flex items-center justify-between px-4 py-2.5 text-[12px] font-medium text-slate-500";
+  const statsIconWrapClassName = compact
+    ? "flex h-3 w-3 items-center justify-center rounded-full bg-[var(--action-start)]"
+    : "flex h-4 w-4 items-center justify-center rounded-full bg-[var(--action-start)]";
+  const statsIconClassName = compact ? "h-1.5 w-1.5 text-white" : "h-2.5 w-2.5 text-white";
+  const actionsWrapClassName = compact ? "mx-2.5 flex border-t border-slate-100 py-0.5" : "flex border-t border-slate-100 mx-4 py-1";
+  const actionButtonClassName = compact
+    ? "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-semibold transition-all hover:bg-slate-50"
+    : "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-[13px] font-bold transition-all hover:bg-slate-50";
+  const likeIconClassName = compact ? "h-3.5 w-3.5" : "h-5 w-5";
+  const commentIconClassName = compact ? "h-3.5 w-3.5" : "h-5 w-5";
+  const relativeTime = formatDistanceToNow(new Date(post.createdAt), {
+    addSuffix: true,
+    locale: language === "bn" ? bnLocale : enUS,
+  });
+
   return (
-    <div ref={postRef} className="mb-4 rounded-xl lg:rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+    <div ref={postRef} className={cardClassName}>
 
       {/* Post Header */}
-      <div className="flex items-center gap-3 p-4 pb-2">
-        <Avatar
-          src={post.author?.profilePhoto?.url}
-          name={post.author?.fullName}
-          className="h-10 w-10 rounded-full"
-        />
+      <div className={headerClassName}>
+        <Link href={`/users/${post.author?._id || ""}`} className="shrink-0">
+          <Avatar
+            src={post.author?.profilePhoto?.url}
+            name={post.author?.fullName}
+            className={avatarClassName}
+          />
+        </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <h4 className="font-display text-[14px] font-bold text-slate-800 truncate">
+            <Link
+              href={`/users/${post.author?._id || ""}`}
+              className={authorClassName}
+            >
               {post.author?.fullName}
-            </h4>
+            </Link>
             {post.author?.role && <RoleBadge role={post.author.role} />}
           </div>
 
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-[12px] font-medium text-slate-500 hover:underline cursor-pointer">
-              {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+          <div className={metaClassName}>
+            <p className={`${compact ? "" : "text-[12px] font-medium"} text-slate-500 hover:underline cursor-pointer`}>
+              {relativeTime}
             </p>
             <span className="text-[10px] text-slate-400">•</span>
             <div 
@@ -106,24 +182,26 @@ export default function PostCard({ post, onEdit }) {
           <div className="relative" ref={optionsRef}>
             <button 
               onClick={() => setShowOptions(!showOptions)}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
+              className={`${compact ? "p-1.5" : "p-2"} rounded-full hover:bg-slate-100 text-slate-400 transition-colors`}
             >
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className={compact ? "h-4 w-4" : "h-5 w-5"} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
               </svg>
             </button>
             
             {showOptions && (
-              <div className="absolute right-0 mt-1 w-32 rounded-xl bg-white shadow-xl border border-slate-100 py-1 z-20 animate-scale-in">
-                <button
-                  onClick={() => {
-                    onEdit && onEdit(post);
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-[13px] font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  {t("community.editPost")}
-                </button>
+              <div className={`absolute right-0 mt-1 ${compact ? "w-28" : "w-32"} rounded-xl bg-white shadow-xl border border-slate-100 py-1 z-20 animate-scale-in`}>
+                {onEdit ? (
+                  <button
+                    onClick={() => {
+                      onEdit(post);
+                      setShowOptions(false);
+                    }}
+                    className={`w-full text-left ${compact ? "px-3 py-1.5 text-[11px]" : "px-4 py-2 text-[13px]"} ${compact ? "font-semibold" : "font-bold"} text-slate-600 hover:bg-slate-50`}
+                  >
+                    {t("community.editPost")}
+                  </button>
+                ) : null}
                 <button
                   onClick={async () => {
                     setShowOptions(false);
@@ -142,7 +220,7 @@ export default function PostCard({ post, onEdit }) {
                       }
                     }
                   }}
-                  className="w-full text-left px-4 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50"
+                  className={`w-full text-left ${compact ? "px-3 py-1.5 text-[11px]" : "px-4 py-2 text-[13px]"} ${compact ? "font-semibold" : "font-bold"} text-red-500 hover:bg-red-50`}
                 >
                   {t("community.deletePost")}
                 </button>
@@ -153,9 +231,9 @@ export default function PostCard({ post, onEdit }) {
       </div>
 
       {/* Post Content */}
-      <div className="px-4 py-2">
-        <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700">
-          {post.content}
+      <div className={contentWrapClassName}>
+        <p className={contentTextClassName}>
+          {renderContent(post.content)}
         </p>
       </div>
 
@@ -178,8 +256,8 @@ export default function PostCard({ post, onEdit }) {
                 >
                   <img
                     src={img.url}
-                    alt={`Post image ${idx + 1}`}
-                    className="w-full object-cover max-h-[500px] transition-transform duration-300 group-hover:scale-[1.02]"
+                    alt={t("community.postImageAlt", "Post image {number}", { number: idx + 1 })}
+                    className={imageClassName}
                     style={{ aspectRatio: post.images.length === 1 ? "auto" : "1 / 1" }}
                   />
                   {/* Hover overlay */}
@@ -207,12 +285,12 @@ export default function PostCard({ post, onEdit }) {
 
       {/* Post Stats */}
       {(post.likesCount > 0 || post.commentsCount > 0) && (
-        <div className="flex items-center justify-between px-4 py-2.5 text-[12px] font-medium text-slate-500">
+        <div className={statsClassName}>
           <div className="flex items-center gap-1.5">
             {post.likesCount > 0 && (
               <div className="flex items-center gap-1">
-                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--action-start)]">
-                  <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div className={statsIconWrapClassName}>
+                  <svg className={statsIconClassName} fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                   </svg>
                 </div>
@@ -234,15 +312,15 @@ export default function PostCard({ post, onEdit }) {
       )}
 
       {/* Post Actions */}
-      <div className="flex border-t border-slate-100 mx-4 py-1">
+      <div className={actionsWrapClassName}>
         <button
           onClick={handleLike}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-[13px] font-bold transition-all hover:bg-slate-50 ${
+          className={`${actionButtonClassName} ${
             post.isLiked ? "text-[var(--action-start)]" : "text-slate-600"
           }`}
         >
           <svg
-            className={`h-5 w-5 ${post.isLiked ? "fill-current" : "fill-none stroke-current"}`}
+            className={`${likeIconClassName} ${post.isLiked ? "fill-current" : "fill-none stroke-current"}`}
             viewBox="0 0 24 24"
             strokeWidth={2}
           >
@@ -256,9 +334,9 @@ export default function PostCard({ post, onEdit }) {
         </button>
         <button
           onClick={() => setShowComments(!showComments)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-[13px] font-bold text-slate-600 transition-all hover:bg-slate-50"
+          className={`${actionButtonClassName} text-slate-600`}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={commentIconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
           {t("community.comment")}

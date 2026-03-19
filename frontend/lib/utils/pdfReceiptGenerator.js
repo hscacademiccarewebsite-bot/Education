@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+const INSTITUTE_NAME = "HSC Academic & Admission Care";
+
 export const generatePaymentReceipt = async ({
   payment,
   studentName,
@@ -51,13 +53,13 @@ export const generatePaymentReceipt = async ({
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(...textDark);
-    doc.text("HSC academic & admission care", 14, 38);
+    doc.text(INSTITUTE_NAME, 14, 38);
   } else {
     // Fallback if image fails to load
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(...textDark);
-    doc.text("HSC academic & admission care", 14, 22);
+    doc.text(INSTITUTE_NAME, 14, 22);
   }
 
   // 3. Header: Receipt Details (Right Aligned)
@@ -165,7 +167,7 @@ export const generatePaymentReceipt = async ({
   doc.setFont("helvetica", "italic");
   doc.setFontSize(9);
   doc.setTextColor(156, 163, 175); // #9CA3AF
-  doc.text("Thank you for choosing HSC academic & admission care.", 105, 275, { align: "center" });
+  doc.text(`Thank you for choosing ${INSTITUTE_NAME}.`, 105, 275, { align: "center" });
 
   // Save PDF
   doc.save(`Receipt_${payment.transactionId || payment._id}.pdf`);

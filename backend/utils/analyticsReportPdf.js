@@ -3,6 +3,7 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 
 const LOGO_PATH = path.join(__dirname, "../../frontend/public/logo.png");
+const INSTITUTE_NAME = "HSC Academic & Admission Care";
 
 const COLORS = {
   ink: "#0f172a",
@@ -93,7 +94,7 @@ const drawPageHeader = (doc, reportMeta) => {
     .fillColor(COLORS.white)
     .font("Helvetica-Bold")
     .fontSize(13)
-    .text("HSC Academic Analytics", PAGE_MARGIN + titleOffset, 24, {
+    .text(`${INSTITUTE_NAME} Analytics`, PAGE_MARGIN + titleOffset, 24, {
       width: fullWidth - PAGE_MARGIN * 2 - titleOffset,
     });
 
@@ -844,7 +845,7 @@ const streamAnalyticsReportPdf = (res, reportPayload) =>
       bufferPages: true,
       info: {
         Title: reportPayload.report.title,
-        Author: "HSC Academic Analytics",
+        Author: `${INSTITUTE_NAME} Analytics`,
         Subject: reportPayload.report.headerLabel,
       },
     });
@@ -1122,7 +1123,7 @@ const streamStudentLedgerReportPdf = (res, reportPayload) =>
       bufferPages: true,
       info: {
         Title: reportPayload.report.title,
-        Author: "HSC Academic Analytics",
+        Author: `${INSTITUTE_NAME} Analytics`,
         Subject: reportPayload.report.headerLabel,
       },
     });

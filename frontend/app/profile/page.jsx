@@ -163,6 +163,8 @@ export default function ProfilePage() {
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
+    school: "",
+    college: "",
     facebookProfileId: "",
     varsity: "",
     experience: "",
@@ -185,6 +187,8 @@ export default function ProfilePage() {
     setForm({
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
+      school: currentUser.school || "",
+      college: currentUser.college || "",
       facebookProfileId: currentUser.facebookProfileId || "",
       varsity: currentUser.varsity || "",
       experience: currentUser.experience || "",
@@ -248,11 +252,13 @@ export default function ProfilePage() {
     return (
       form.fullName.trim() !== String(currentUser.fullName || "").trim() ||
       form.phone.trim() !== String(currentUser.phone || "").trim() ||
+      form.school.trim() !== String(currentUser.school || "").trim() ||
+      form.college.trim() !== String(currentUser.college || "").trim() ||
       form.facebookProfileId.trim() !== String(currentUser.facebookProfileId || "").trim() ||
       form.varsity.trim() !== String(currentUser.varsity || "").trim() ||
       form.experience.trim() !== String(currentUser.experience || "").trim()
     );
-  }, [currentUser, form.facebookProfileId, form.fullName, form.phone, form.varsity, form.experience]);
+  }, [currentUser, form.college, form.facebookProfileId, form.fullName, form.phone, form.school, form.varsity, form.experience]);
 
   const canSaveProfile = Boolean(currentUser) && (textChanged || imageChanged) && !savingProfile;
   const previewPhotoUrl = imageTouched ? profileAsset?.url || "" : photoUrl;
@@ -267,6 +273,8 @@ export default function ProfilePage() {
     const payload = {
       fullName: form.fullName.trim(),
       phone: form.phone.trim(),
+      school: form.school.trim(),
+      college: form.college.trim(),
       facebookProfileId: form.facebookProfileId.trim(),
       varsity: form.varsity.trim(),
       experience: form.experience.trim(),
@@ -303,6 +311,8 @@ export default function ProfilePage() {
     setForm({
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
+      school: currentUser.school || "",
+      college: currentUser.college || "",
       facebookProfileId: currentUser.facebookProfileId || "",
       varsity: currentUser.varsity || "",
       experience: currentUser.experience || "",
@@ -468,6 +478,14 @@ export default function ProfilePage() {
                     <dd className="text-xs md:text-sm font-semibold text-slate-700">{currentUser?.phone || t("profilePage.misc.notSet", "Not set")}</dd>
                   </div>
                   <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.school", "School")}</dt>
+                    <dd className="text-right text-xs md:text-sm font-semibold text-slate-700">{currentUser?.school || t("profilePage.misc.notSet", "Not set")}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.college", "College")}</dt>
+                    <dd className="text-right text-xs md:text-sm font-semibold text-slate-700">{currentUser?.college || t("profilePage.misc.notSet", "Not set")}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
                     <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.facebookId", "Facebook ID")}</dt>
                     <dd className="truncate text-xs md:text-sm font-semibold text-slate-700">
                       {currentUser?.facebookProfileId || t("profilePage.misc.notSet", "Not set")}
@@ -570,7 +588,7 @@ export default function ProfilePage() {
 
                         <div>
                           <FloatingInput
-                            label="Phone"
+                            label={t("profilePage.form.phone", "Phone")}
                             value={form.phone}
                             onChange={(e) => {
                               setForm((prev) => ({ ...prev, phone: e.target.value }));
@@ -578,6 +596,32 @@ export default function ProfilePage() {
                               setSaveSuccess("");
                             }}
                             hint={t("profilePage.form.phoneHint", "Phone number")}
+                          />
+                        </div>
+
+                        <div>
+                          <FloatingInput
+                            label={t("profilePage.form.school", "School")}
+                            value={form.school}
+                            onChange={(e) => {
+                              setForm((prev) => ({ ...prev, school: e.target.value }));
+                              setSaveError("");
+                              setSaveSuccess("");
+                            }}
+                            hint={t("profilePage.form.schoolHint", "Your school name")}
+                          />
+                        </div>
+
+                        <div>
+                          <FloatingInput
+                            label={t("profilePage.form.college", "College")}
+                            value={form.college}
+                            onChange={(e) => {
+                              setForm((prev) => ({ ...prev, college: e.target.value }));
+                              setSaveError("");
+                              setSaveSuccess("");
+                            }}
+                            hint={t("profilePage.form.collegeHint", "Your college name")}
                           />
                         </div>
 

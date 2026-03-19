@@ -7,6 +7,7 @@ router.post("/register", AuthMiddleware.requireAuth, UserController.registerUser
 router.get("/me", AuthMiddleware.requireAuth, UserController.getCurrentUser);
 router.get("/search", AuthMiddleware.requireAuth, UserController.searchUsers);
 router.patch("/me", AuthMiddleware.requireAuth, UserController.updateCurrentUser);
+router.get("/:userId/profile", AuthMiddleware.requireAuth, UserController.getPublicProfile);
 router.get(
   "/",
   AuthMiddleware.requireAuth,

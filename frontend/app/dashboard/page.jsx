@@ -49,7 +49,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.courses.title",
       descriptionKey: "dashboard.actions.admin.courses.description",
       href: "/courses",
-      badge: "COURSES",
+      badgeKey: "dashboard.badges.courses",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />,
       color: "emerald"
     },
@@ -58,7 +58,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.slider.title",
       descriptionKey: "dashboard.actions.admin.slider.description",
       href: "/dashboard/slider-control",
-      badge: "SLIDER",
+      badgeKey: "dashboard.badges.slider",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l1.29 1.29m-4.733 3.523L15.75 17.25l-2.646 2.646a2.25 2.25 0 01-3.181 0l-1.29-1.29m1.408-1.408L7.5 18H3.75c-.621 0-1.125-.504-1.125-1.125V13.5m1.5-1.5H6.75a1.125 1.125 0 011.125 1.125v2.25M6.75 12H3.75a1.125 1.125 0 00-1.125 1.125V18M18 18h3.75c.621 0 1.125-.504 1.125-1.125V13.5m-1.5-1.5H17.25a1.125 1.125 0 00-1.125 1.125v2.25M17.25 12h3" />,
       color: "amber"
     },
@@ -67,7 +67,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.settings.title",
       descriptionKey: "dashboard.actions.admin.settings.description",
       href: "/dashboard/site-settings",
-      badge: "SETTINGS",
+      badgeKey: "dashboard.badges.settings",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1115 0 7.5 7.5 0 01-15 0z" />,
       color: "slate"
     },
@@ -76,7 +76,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.enrollments.title",
       descriptionKey: "dashboard.actions.admin.enrollments.description",
       href: "/enrollments",
-      badge: "REVIEWS",
+      badgeKey: "dashboard.badges.reviews",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
       color: "sky"
     },
@@ -85,7 +85,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.users.title",
       descriptionKey: "dashboard.actions.admin.users.description",
       href: "/users",
-      badge: "USERS",
+      badgeKey: "dashboard.badges.users",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />,
       color: "indigo"
     },
@@ -94,16 +94,16 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.admin.payments.title",
       descriptionKey: "dashboard.actions.admin.payments.description",
       href: "/payments",
-      badge: "FINANCE",
+      badgeKey: "dashboard.badges.finance",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75-3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5h15a2.25 2.25 0 002.25-2.25V14.128a2.25 2.25 0 00-2.25-2.25H4.5a2.25 2.25 0 00-2.25 2.25v2.622z" />,
       color: "rose"
     },
     {
       id: "admin-analytics",
-      title: "Analytics",
-      description: "Open the full admin analytics page for accounts, payments, enrollments, and batch trends.",
+      titleKey: "dashboard.actions.admin.analytics.title",
+      descriptionKey: "dashboard.actions.admin.analytics.description",
       href: "/analytics",
-      badge: "INSIGHTS",
+      badgeKey: "dashboard.badges.insights",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7.5 15.75l3.75-3.75 2.25 2.25 4.5-6" />,
       color: "indigo"
     },
@@ -114,7 +114,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.teacher.courses.title",
       descriptionKey: "dashboard.actions.teacher.courses.description",
       href: "/courses",
-      badge: "CONTENT",
+      badgeKey: "dashboard.badges.content",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />,
       color: "emerald"
     },
@@ -125,7 +125,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.moderator.courses.title",
       descriptionKey: "dashboard.actions.moderator.courses.description",
       href: "/courses",
-      badge: "COURSES",
+      badgeKey: "dashboard.badges.courses",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />,
       color: "emerald"
     },
@@ -134,7 +134,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.moderator.enrollments.title",
       descriptionKey: "dashboard.actions.moderator.enrollments.description",
       href: "/enrollments",
-      badge: "QUEUE",
+      badgeKey: "dashboard.badges.queue",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
       color: "sky"
     },
@@ -143,7 +143,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.moderator.payments.title",
       descriptionKey: "dashboard.actions.moderator.payments.description",
       href: "/payments",
-      badge: "FINANCE",
+      badgeKey: "dashboard.badges.finance",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75-3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5h15a2.25 2.25 0 002.25-2.25V14.128a2.25 2.25 0 00-2.25-2.25H4.5a2.25 2.25 0 00-2.25 2.25v2.622z" />,
       color: "rose"
     },
@@ -154,7 +154,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.student.courses.title",
       descriptionKey: "dashboard.actions.student.courses.description",
       href: "/courses",
-      badge: "COURSES",
+      badgeKey: "dashboard.badges.courses",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />,
       color: "emerald"
     },
@@ -163,7 +163,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.student.enrollments.title",
       descriptionKey: "dashboard.actions.student.enrollments.description",
       href: "/enrollments",
-      badge: "ENROLL",
+      badgeKey: "dashboard.badges.enroll",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
       color: "sky"
     },
@@ -172,7 +172,7 @@ const ROLE_ACTIONS = {
       titleKey: "dashboard.actions.student.payments.title",
       descriptionKey: "dashboard.actions.student.payments.description",
       href: "/payments",
-      badge: "PAY",
+      badgeKey: "dashboard.badges.pay",
       icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75-3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5h15a2.25 2.25 0 002.25-2.25V14.128a2.25 2.25 0 00-2.25-2.25H4.5a2.25 2.25 0 00-2.25 2.25v2.622z" />,
       color: "rose"
     },
@@ -213,10 +213,14 @@ function OperationsCard({ item, t }) {
     slate: "bg-slate-50 text-slate-600 border-slate-100 group-hover:bg-slate-100 group-hover:border-slate-200",
   };
 
+  const title = item.titleKey ? t(item.titleKey) : item.title;
+  const description = item.descriptionKey ? t(item.descriptionKey) : item.description;
+  const badge = item.badgeKey ? t(item.badgeKey) : item.badge;
+
   return (
     <Link
       href={item.href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:border-transparent hover:shadow-[0_20px_40px_rgba(15,23,42,0.08)]"
+      className="group relative flex h-full min-h-[15rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:border-transparent hover:shadow-[0_20px_40px_rgba(15,23,42,0.08)]"
     >
       <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-300 ${colors[item.color] || colors.slate}`}>
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -224,21 +228,21 @@ function OperationsCard({ item, t }) {
         </svg>
       </div>
 
-      <div className="mt-4">
-        <div className="flex items-center justify-between gap-2">
+      <div className="mt-4 flex flex-1 flex-col">
+        <div className="flex items-start justify-between gap-3">
           <h3 className="text-base font-bold text-slate-900 transition-colors duration-300 group-hover:text-indigo-600">
-            {item.title || t(item.titleKey)}
+            {title}
           </h3>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
-            {item.badge}
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black tracking-wider text-slate-500">
+            {badge}
           </span>
         </div>
         <p className="mt-2 text-xs font-medium leading-relaxed text-slate-500">
-          {item.description || t(item.descriptionKey)}
+          {description}
         </p>
       </div>
 
-      <div className="mt-4 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-indigo-500 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
+      <div className="mt-auto pt-4 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-indigo-500 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
         <span>{t("dashboard.open")}</span>
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -461,7 +465,7 @@ export default function DashboardPage() {
             ) : (
               <RevealSection className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {actions.map((item) => (
-                  <RevealItem key={item.id}>
+                  <RevealItem key={item.id} className="h-full">
                     <OperationsCard item={item} t={t} />
                   </RevealItem>
                 ))}

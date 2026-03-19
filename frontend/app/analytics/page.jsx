@@ -93,7 +93,7 @@ export default function AnalyticsPage() {
 
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => null);
-        throw new Error(errorPayload?.message || "Failed to generate the analytics report.");
+        throw new Error(errorPayload?.message || t("analyticsPage.reportGenerateFailed", "Failed to generate the analytics report."));
       }
 
       const blob = await response.blob();
@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
     } catch (error) {
       setReportState({
         activeKey: null,
-        error: error.message || "Failed to generate the analytics report.",
+        error: error.message || t("analyticsPage.reportGenerateFailed", "Failed to generate the analytics report."),
       });
     }
   };

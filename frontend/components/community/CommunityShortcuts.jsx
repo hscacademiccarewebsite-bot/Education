@@ -1,47 +1,52 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { 
   BookOpen, 
-  Share2, 
   FileText, 
-  UserCircle 
+  User,
 } from "lucide-react";
 import { communityApi } from "@/lib/features/community/communityApi";
 import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
+import { selectCurrentUserId } from "@/lib/features/user/userSlice";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function CommunityShortcuts() {
   const router = useRouter();
+  const { t } = useSiteLanguage();
+  const currentUserId = useSelector(selectCurrentUserId);
   const prefetchCommunity = communityApi.usePrefetch("getPosts");
   const prefetchSharedNotes = sharedNotesApi.usePrefetch("getSharedNotes");
 
   const shortcuts = [
     {
-      title: "My Notes",
+      title: t("community.shortcuts.myNotes", "My Notes"),
       icon: <BookOpen className="h-4 w-4" />,
       color: "bg-indigo-50 text-indigo-600",
       path: "/community/my-notes",
       onMouseEnter: () => prefetchSharedNotes({ page: 1, limit: 50, author: "me" }),
     },
     {
-      title: "Shared Notes",
+      title: t("community.shortcuts.sharedNotes", "Shared Notes"),
       icon: <BookOpen className="h-4 w-4" />,
       color: "bg-emerald-50 text-emerald-600",
       path: "/community/shared-notes",
       onMouseEnter: () => prefetchSharedNotes({ page: 1, limit: 10 }),
     },
     {
-      title: "My Posts",
-      icon: <FileText className="h-4 w-4" />,
-      color: "bg-indigo-100 text-indigo-600",
-      path: "/community/my-posts",
-      onMouseEnter: () => prefetchCommunity({ page: 1, limit: 10, author: "me" }),
+      title: t("community.shortcuts.profile", "Profile"),
+      icon: <User className="h-4 w-4" />,
+      color: "bg-sky-50 text-sky-600",
+      path: "/profile",
     },
     {
-      title: "Profile",
-      icon: <UserCircle className="h-4 w-4" />,
-      color: "bg-blue-100 text-blue-600",
-      path: "/profile",
+      title: t("community.shortcuts.myPosts", "My Posts"),
+      icon: <FileText className="h-4 w-4" />,
+      color: "bg-indigo-100 text-indigo-600",
+      path: currentUserId ? `/users/${currentUserId}` : "/community",
+      onMouseEnter: () =>
+        currentUserId ? prefetchCommunity({ page: 1, limit: 10, author: currentUserId }) : undefined,
     },
   ];
 
@@ -66,4 +71,3 @@ export default function CommunityShortcuts() {
     </div>
   );
 }
-
