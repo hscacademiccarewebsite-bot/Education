@@ -31,6 +31,7 @@ import { generatePaymentReceipt } from "@/lib/utils/pdfReceiptGenerator";
 
 const MONTH_NAMES_EN = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_NAMES_BN = ["", "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+const BKASH_SANDBOX_ENABLED = process.env.NEXT_PUBLIC_ENABLE_BKASH_SANDBOX === "true";
 
 function getMonthName(month, language = "en") {
   const m = Number(month);
@@ -432,6 +433,16 @@ function StudentPayments({ t, language }) {
   };
 
   const handlePay = async (paymentId) => {
+    if (!BKASH_SANDBOX_ENABLED) {
+      const unavailableMessage = t(
+        "paymentsPage.messages.bkashTemporarilyDisabled",
+        "bKash payment is temporarily unavailable."
+      );
+      setError(unavailableMessage);
+      showError(unavailableMessage);
+      return;
+    }
+
     setError("");
     setPayingId(paymentId);
     try {
@@ -466,6 +477,18 @@ function StudentPayments({ t, language }) {
           <StatBox label={t("paymentsPage.studentStats.dueMonths")} value={summary.dueCount} accent="slate" />
         </RevealItem>
       </div>
+
+      {!BKASH_SANDBOX_ENABLED ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-bold">{t("paymentsPage.bkashTemporarilyDisabled", "bKash payment is temporarily unavailable.")}</p>
+          <p className="mt-1 text-xs font-medium text-amber-700">
+            {t(
+              "paymentsPage.bkashTemporarilyDisabledHint",
+              "The sandbox button has been disabled until the live API credentials are available."
+            )}
+          </p>
+        </div>
+      ) : null}
 
 
       {/* ── Course billing table ────────────────────── */}
@@ -560,11 +583,15 @@ function StudentPayments({ t, language }) {
                         </TD>
                         <TD className="text-right">
                           <button
-                            onClick={() => handlePay(currentDue)}
-                            disabled={paying}
-                            className="site-button-primary scale-90"
+                            onClick={() => handlePay(currentDue._id)}
+                            disabled={!BKASH_SANDBOX_ENABLED || paying}
+                            className="site-button-primary scale-90 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {paying ? t("paymentsPage.updating") : t("paymentsPage.payNow")}
+                            {!BKASH_SANDBOX_ENABLED
+                              ? t("paymentsPage.bkashTemporarilyDisabledShort", "bKash unavailable")
+                              : paying
+                                ? t("paymentsPage.updating")
+                                : t("paymentsPage.payNow")}
                           </button>
                         </TD>
                       </RevealItem>
@@ -629,11 +656,15 @@ function StudentPayments({ t, language }) {
 
                     <button
                       type="button"
-                      disabled={payingId === currentDue._id}
+                      disabled={!BKASH_SANDBOX_ENABLED || payingId === currentDue._id}
                       onClick={() => handlePay(currentDue._id)}
-                      className="site-button-primary w-full h-10 justify-center text-[11px] disabled:opacity-50"
+                      className="site-button-primary w-full h-10 justify-center text-[11px] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {payingId === currentDue._id ? t("paymentsPage.processing") : t("paymentsPage.payOnlineFallback", "Pay via bKash")}
+                      {!BKASH_SANDBOX_ENABLED
+                        ? t("paymentsPage.bkashTemporarilyDisabledShort", "bKash unavailable")
+                        : payingId === currentDue._id
+                          ? t("paymentsPage.processing")
+                          : t("paymentsPage.payOnlineFallback", "Pay via bKash")}
                     </button>
                   </RevealItem>
                 );

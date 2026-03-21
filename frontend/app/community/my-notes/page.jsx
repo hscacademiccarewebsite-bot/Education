@@ -8,7 +8,6 @@ import { NoteSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
-import RequireAuth from "@/components/RequireAuth";
 import Avatar from "@/components/Avatar";
 import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
@@ -62,9 +61,8 @@ export default function MyNotesPage() {
   };
 
   return (
-    <RequireAuth>
-      <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
-        <div className="container-page py-4 lg:py-6">
+    <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
+      <div className="container-page py-4 lg:py-6">
           {/* Mobile Back Button */}
           <div className="mb-4 lg:hidden">
             <button 
@@ -163,13 +161,12 @@ export default function MyNotesPage() {
             <aside className="hidden xl:block w-[280px]" />
 
           </div>
-        </div>
-        <CreateSharedNote 
-          isOpen={isModalOpen} 
-          onClose={handleCloseModal} 
-          note={editingNote}
-        />
-      </main>
-    </RequireAuth>
+      </div>
+      <CreateSharedNote 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+        note={editingNote}
+      />
+    </main>
   );
 }

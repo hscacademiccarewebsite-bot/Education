@@ -5,9 +5,8 @@ import CreatePost from "@/components/community/CreatePost";
 import PostCard from "@/components/community/PostCard";
 import { PostSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
-import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
+import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import Avatar from "@/components/Avatar";
 import {
   selectCurrentUserDisplayName,
@@ -15,20 +14,16 @@ import {
   selectCurrentUserPhotoUrl,
   selectCurrentUserRole,
 } from "@/lib/features/user/userSlice";
-import RoleBadge from "@/components/RoleBadge";
-import RequireAuth from "@/components/RequireAuth";
 import SharedNotesWidget from "@/components/community/SharedNotesWidget";
 import CommunityShortcuts from "@/components/community/CommunityShortcuts";
 import { communityApi } from "@/lib/features/community/communityApi";
 import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
-
 export default function CommunityPage() {
   const [editingPost, setEditingPost] = useState(null);
   const { t } = useSiteLanguage();
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const isInitialized = useSelector(selectIsAuthInitialized);
   const router = useRouter();
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
@@ -61,11 +56,10 @@ export default function CommunityPage() {
   }, [isLoading, isFetching, hasMore]);
 
   return (
-    <RequireAuth>
-      <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
-        <div className="container-page py-4 lg:py-8">
+    <main className="site-nav-offset min-h-screen bg-[#F0F2F5] pb-12">
+      <div className="container-page py-4 lg:py-8">
 
-          <div className="flex flex-col lg:flex-row gap-6 justify-center items-start">
+        <div className="flex flex-col lg:flex-row gap-6 justify-center items-start">
 
           
           {/* Left Sidebar - Profile & Shortcuts (Hidden on Mobile) */}
@@ -245,6 +239,5 @@ export default function CommunityPage() {
         </div>
       </div>
     </main>
-    </RequireAuth>
   );
 }

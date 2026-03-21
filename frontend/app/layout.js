@@ -31,7 +31,7 @@ const outfit = Outfit({
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#147b79",
 };
 
 export async function generateMetadata() {
@@ -63,9 +63,13 @@ export async function generateMetadata() {
     creator: SITE_SHORT_NAME,
     publisher: SITE_NAME,
     icons: {
-      icon: [{ url: "/logo.png" }],
-      shortcut: [{ url: "/logo.png" }],
-      apple: [{ url: "/logo.png" }],
+      icon: [
+        { url: "/icon.png", sizes: "500x500", type: "image/png" },
+        { url: "/manifest-icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/manifest-icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      shortcut: [{ url: "/icon.png", sizes: "500x500", type: "image/png" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     },
     manifest: "/manifest.webmanifest",
     verification: {
