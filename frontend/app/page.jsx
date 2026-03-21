@@ -94,7 +94,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
 
   return (
     <section className="container-page py-4 md:py-8">
-      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-2 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:px-5 md:px-9 md:py-7">
+      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-4 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:px-5 md:px-9 md:py-7">
         <div className="relative flex flex-col gap-5 lg:grid lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-7 xl:grid-cols-[1.04fr_0.96fr] xl:gap-9">
 
           {/* ── IMAGE (mobile: first/top) ─────────────────────────── */}
