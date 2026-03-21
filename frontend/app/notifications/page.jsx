@@ -217,7 +217,10 @@ export default function NotificationsPage() {
                         <p className={`text-[13px] md:text-[14px] tracking-tight leading-snug ${!notif.isRead ? "font-black text-slate-950" : "font-bold text-slate-700"}`}>
                           {notif.title}
                         </p>
-                        <time className="shrink-0 text-[8px] md:text-[8.5px] font-black uppercase tracking-widest text-slate-400 opacity-80">
+                        <time
+                          className="shrink-0 text-[8px] md:text-[8.5px] font-black uppercase tracking-widest text-slate-400 opacity-80"
+                          suppressHydrationWarning
+                        >
                           {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                         </time>
                       </div>

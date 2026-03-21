@@ -108,7 +108,10 @@ export default function SharedNotesWidget() {
                       <span className="flex items-center justify-center h-full">
                         <span className="block h-[2px] w-[2px] rounded-full bg-slate-200" />
                       </span>
-                      <span className="text-[10px] text-slate-400 font-semibold italic whitespace-nowrap">
+                      <span
+                        className="text-[10px] text-slate-400 font-semibold italic whitespace-nowrap"
+                        suppressHydrationWarning
+                      >
                         {note.createdAt
                           ? formatDistanceToNow(new Date(note.createdAt), {
                               addSuffix: true,

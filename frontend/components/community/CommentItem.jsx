@@ -565,7 +565,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
               {t("community.commentItem.reply", "Reply")}
             </button>
           )}
-          <span className="text-[11px] text-[#8A8D91]">
+          <span className="text-[11px] text-[#8A8D91]" suppressHydrationWarning>
             {relativeTime}
           </span>
         </div>

@@ -1,5 +1,6 @@
 import { getPublicCoursesData } from "@/src/shared/seo/api";
 import { absoluteUrl } from "@/src/shared/seo/site";
+import { LEGAL_PAGE_ROUTES } from "@/src/content/legalRoutes";
 
 export default async function sitemap() {
   const publicRoutes = [
@@ -27,6 +28,36 @@ export default async function sitemap() {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
+    },
+    {
+      url: absoluteUrl(LEGAL_PAGE_ROUTES.helpCenter),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.55,
+    },
+    {
+      url: absoluteUrl(LEGAL_PAGE_ROUTES.privacyPolicy),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.45,
+    },
+    {
+      url: absoluteUrl(LEGAL_PAGE_ROUTES.termsOfService),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.45,
+    },
+    {
+      url: absoluteUrl(LEGAL_PAGE_ROUTES.studentGuidelines),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: absoluteUrl(LEGAL_PAGE_ROUTES.refundPolicy),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.45,
     },
   ];
 

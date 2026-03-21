@@ -16,6 +16,8 @@ import {
   SITE_SHORT_NAME,
 } from "@/src/shared/seo/site";
 
+const PRE_HYDRATION_ROOT_SANITIZER = `(function(){var attrs=["cz-shortcut-listen","data-new-gr-c-s-check-loaded","data-gr-ext-installed","data-lt-installed"];var nodes=[document.documentElement,document.body];for(var i=0;i<nodes.length;i+=1){var node=nodes[i];if(!node){continue;}for(var j=0;j<attrs.length;j+=1){node.removeAttribute(attrs[j]);}}})();`;
+
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
@@ -126,6 +128,11 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable}`}>
       <body className="font-sans text-slate-900 antialiased" suppressHydrationWarning>
+        <script
+          id="pre-hydration-root-sanitizer"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_ROOT_SANITIZER }}
+        />
         <JsonLd id="root-site-schema" data={schema} />
         <Providers>
           <Navbar />

@@ -87,7 +87,7 @@ export default function NoteCard({ note, onEdit, onDelete }) {
               <span className="text-[11px] font-bold text-slate-600">{note.author?.fullName}</span>
             </div>
             <span className="text-slate-300 text-[10px]">•</span>
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[11px] font-semibold text-slate-400" suppressHydrationWarning>
               {relativeTime}
             </span>
             <span className="text-slate-300 text-[10px]">•</span>

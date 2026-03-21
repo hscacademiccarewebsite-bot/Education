@@ -7,6 +7,7 @@ import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/a
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
 import { normalizeWhatsappHref } from "@/lib/utils/whatsapp";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { LEGAL_PAGE_ROUTES } from "@/src/content/legalRoutes";
 
 const DEFAULT_FOOTER_LINKS = [
   { href: "/courses", labelKey: "navbar.courses", requiresAuth: true },
@@ -172,11 +173,11 @@ export default function SiteFooter() {
               </p>
               <ul className="mt-6 flex flex-col gap-3">
                 {[
-                  { href: "#", label: t("footer.helpCenter") },
-                  { href: "#", label: t("footer.privacyPolicy") },
-                  { href: "#", label: t("footer.termsOfService") },
-                  { href: "#", label: t("footer.studentGuidelines") },
-                  { href: "#", label: t("footer.refundPolicy") },
+                  { href: LEGAL_PAGE_ROUTES.helpCenter, label: t("footer.helpCenter") },
+                  { href: LEGAL_PAGE_ROUTES.privacyPolicy, label: t("footer.privacyPolicy") },
+                  { href: LEGAL_PAGE_ROUTES.termsOfService, label: t("footer.termsOfService") },
+                  { href: LEGAL_PAGE_ROUTES.studentGuidelines, label: t("footer.studentGuidelines") },
+                  { href: LEGAL_PAGE_ROUTES.refundPolicy, label: t("footer.refundPolicy") },
                 ].map((item, idx) => (
                   <li key={idx}>
                     <Link

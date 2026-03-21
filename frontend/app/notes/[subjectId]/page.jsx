@@ -76,7 +76,7 @@ function NoteCard({ note, canManage, onEdit, onDelete, deletingNote, t }) {
               {t("notes.card.pdf", "PDF")}
             </span>
             <span className="h-0.5 w-0.5 rounded-full bg-slate-200" />
-            <span className="text-[9px] font-medium text-slate-400">
+            <span className="text-[9px] font-medium text-slate-400" suppressHydrationWarning>
               {new Date(note.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           </div>

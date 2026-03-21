@@ -166,7 +166,7 @@ export default function NotificationBell() {
                     <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-500">
                       {notif.message}
                     </p>
-                    <p className="mt-1.5 text-[10px] font-bold text-slate-400">
+                    <p className="mt-1.5 text-[10px] font-bold text-slate-400" suppressHydrationWarning>
                       {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                     </p>
                   </div>

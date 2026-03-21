@@ -156,7 +156,10 @@ export default function PostCard({ post, onEdit, compact = false }) {
           </div>
 
           <div className={metaClassName}>
-            <p className={`${compact ? "" : "text-[12px] font-medium"} text-slate-500 hover:underline cursor-pointer`}>
+            <p
+              className={`${compact ? "" : "text-[12px] font-medium"} text-slate-500 hover:underline cursor-pointer`}
+              suppressHydrationWarning
+            >
               {relativeTime}
             </p>
             <span className="text-[10px] text-slate-400">•</span>
