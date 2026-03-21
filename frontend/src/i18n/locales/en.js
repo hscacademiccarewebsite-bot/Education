@@ -143,6 +143,19 @@ const en = {
       "Whether you need help with admissions, batch enrollment, payment follow-up, or course navigation, this is the operational contact layer of the platform.",
     responseWindow: "Response Window",
     dailySupport: "Daily Support",
+    quickActions: "Quick Actions",
+    quickActionsHint: "Tap the fastest support route for your device.",
+    officialChannels: "Official Channels",
+    officialChannelsHint:
+      "Use only the contact paths listed here for admissions, billing, and student support.",
+    mapTitle: "Visit The Desk",
+    mapHeading: "Find the official support location",
+    mapDescription:
+      "Use the map for orientation, then confirm the final address and hours from the contact cards above.",
+    mapBadge: "Live Location",
+    mapUnavailableTitle: "Map not configured",
+    mapUnavailableDescription:
+      "Add the map embed URL from the dashboard to show location guidance here.",
     asideNote:
       "Keep official support channels updated here so every page reflects the same information.",
     loadError: "Failed to load contact data from backend.",

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
+import { normalizeWhatsappHref } from "@/lib/utils/whatsapp";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const DEFAULT_FOOTER_LINKS = [
@@ -13,13 +14,6 @@ const DEFAULT_FOOTER_LINKS = [
   { href: "/faculty", labelKey: "navbar.faculty" },
   { href: "/contact-us", labelKey: "navbar.contact" },
 ];
-
-/** Converts a raw phone number (digits only) to a wa.me link */
-function toWaLink(raw = "") {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits}`;
-}
 
 export default function SiteFooter() {
   const [mounted, setMounted] = useState(false);
@@ -80,7 +74,7 @@ export default function SiteFooter() {
     },
     {
       id: "whatsapp",
-      href: toWaLink(contact.whatsapp),
+      href: normalizeWhatsappHref(contact.whatsapp),
       label: t("footer.whatsapp"),
       icon: (
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

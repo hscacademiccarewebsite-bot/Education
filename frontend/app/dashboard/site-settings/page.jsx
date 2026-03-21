@@ -10,6 +10,7 @@ import {
   useGetAdminSiteSettingsQuery,
   useUpdateAdminSiteSettingsMutation,
 } from "@/lib/features/home/homeApi";
+import { normalizeWhatsappHref } from "@/lib/utils/whatsapp";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { useSelector } from "react-redux";
@@ -19,13 +20,6 @@ import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 /* ════════════════════════════════════════════
    HELPERS
 ════════════════════════════════════════════ */
-
-/** Build a canonical wa.me link from a raw phone number string */
-function toWaLink(raw = "") {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits}`;
-}
 
 function settingsToForm(settings) {
   return {
@@ -297,7 +291,7 @@ export default function SiteSettingsPage() {
                       />
                       {form.contactWhatsapp && (
                         <a
-                          href={toWaLink(form.contactWhatsapp)}
+                          href={normalizeWhatsappHref(form.contactWhatsapp)}
                           target="_blank"
                           rel="noreferrer"
                           className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline"
@@ -305,7 +299,7 @@ export default function SiteSettingsPage() {
                           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M20.52 3.48A11.86 11.86 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.59 5.95L0 24l6.34-1.66a11.89 11.89 0 005.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.17-3.45-8.42z" />
                           </svg>
-                          Preview: {toWaLink(form.contactWhatsapp)}
+                          Preview: {normalizeWhatsappHref(form.contactWhatsapp)}
                         </a>
                       )}
                     </div>

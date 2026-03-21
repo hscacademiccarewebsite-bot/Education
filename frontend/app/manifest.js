@@ -1,7 +1,5 @@
 import {
   DEFAULT_SITE_DESCRIPTION,
-  SITE_NAME,
-  SITE_SHORT_NAME,
 } from "@/src/shared/seo/site";
 
 export default function manifest() {
@@ -9,8 +7,8 @@ export default function manifest() {
     id: "/",
     lang: "en-BD",
     dir: "ltr",
-    name: SITE_NAME,
-    short_name: SITE_SHORT_NAME,
+    name: "HSC AAC",
+    short_name: "HSC AAC",
     description: DEFAULT_SITE_DESCRIPTION,
     categories: ["education", "productivity"],
     start_url: "/?source=pwa",
