@@ -1,12 +1,12 @@
 "use client";
 import React, { useState } from "react";
+import Link from "next/link";
 import { useGetPostsQuery } from "@/lib/features/community/communityApi";
 import CreatePost from "@/components/community/CreatePost";
 import PostCard from "@/components/community/PostCard";
 import { PostSkeleton } from "@/components/community/CommunitySkeletons";
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
-import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import {
   selectCurrentUserDisplayName,
@@ -24,7 +24,6 @@ export default function CommunityPage() {
   const [editingPost, setEditingPost] = useState(null);
   const { t } = useSiteLanguage();
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const router = useRouter();
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const currentUserId = useSelector(selectCurrentUserId);
@@ -77,8 +76,8 @@ export default function CommunityPage() {
                 {t("community.shortcuts.title", "Shortcuts")}
               </h4>
               <div className="space-y-1">
-                <div 
-                  onClick={() => router.push("/community/my-notes")}
+                <Link
+                  href="/community/my-notes"
                   onMouseEnter={() => prefetchSharedNotes({ page: 1, limit: 50, author: "me" })}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
@@ -88,9 +87,9 @@ export default function CommunityPage() {
                     </svg>
                   </div>
                   <span className="font-bold text-[14px]">{t("community.shortcuts.myNotes", "My Notes")}</span>
-                </div>
-                <div 
-                  onClick={() => router.push("/community/shared-notes")}
+                </Link>
+                <Link
+                  href="/community/shared-notes"
                   onMouseEnter={() => prefetchSharedNotes({ page: 1, limit: 10 })}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
@@ -100,9 +99,9 @@ export default function CommunityPage() {
                     </svg>
                   </div>
                   <span className="font-bold text-[14px]">{t("community.shortcuts.sharedNotes", "Shared Notes")}</span>
-                </div>
-                                <div 
-                  onClick={() => router.push(currentUserId ? `/users/${currentUserId}` : "/community")}
+                </Link>
+                <Link
+                  href={currentUserId ? `/users/${currentUserId}` : "/community"}
                   onMouseEnter={() => {
                     if (currentUserId) {
                       prefetchCommunity({ page: 1, limit: 10, author: currentUserId });
@@ -116,9 +115,9 @@ export default function CommunityPage() {
                     </svg>
                   </div>
                   <span className="font-bold text-[14px]">{t("community.shortcuts.myPosts", "My Posts")}</span>
-                </div>
-                <div 
-                  onClick={() => router.push("/profile")}
+                </Link>
+                <Link
+                  href="/profile"
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/50 transition-all cursor-pointer text-slate-600"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
@@ -127,7 +126,7 @@ export default function CommunityPage() {
                     </svg>
                   </div>
                   <span className="font-bold text-[14px]">{t("community.shortcuts.profile", "Profile")}</span>
-                </div>
+                </Link>
 
               </div>
             </div>

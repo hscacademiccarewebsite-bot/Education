@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { 
@@ -13,7 +14,6 @@ import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 export default function CommunityShortcuts() {
-  const router = useRouter();
   const { t } = useSiteLanguage();
   const currentUserId = useSelector(selectCurrentUserId);
   const prefetchCommunity = communityApi.usePrefetch("getPosts");
@@ -53,9 +53,9 @@ export default function CommunityShortcuts() {
   return (
     <div className="mb-6 grid grid-cols-2 min-[380px]:grid-cols-4 gap-2 lg:hidden">
       {shortcuts.map((shortcut, index) => (
-        <button
+        <Link
           key={index}
-          onClick={() => router.push(shortcut.path)}
+          href={shortcut.path}
           onMouseEnter={shortcut.onMouseEnter}
           className="group flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2 sm:p-2.5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md active:scale-95"
         >
@@ -66,7 +66,7 @@ export default function CommunityShortcuts() {
           <span className="text-center text-[11px] font-bold text-slate-700 leading-tight">
             {shortcut.title}
           </span>
-        </button>
+        </Link>
       ))}
     </div>
   );
