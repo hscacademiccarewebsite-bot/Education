@@ -46,9 +46,14 @@ const en = {
         "Join our community of A+ achievers and students admitted to top universities like Dhaka University, Chittagong University, Rajshahi University, Khulna University, CUET and leading BSc & Diploma Nursing programs.",
       stats: [
         { value: "200+", label: "GPA 5 Achieved" },
-        { value: "150+", label: "Public University Admissions" },
+        { value: "150+", label: "Public Varsity + Nursing" },
         { value: "500+", label: "Active Members" },
       ],
+      statsLabels: {
+        gpa5: "GPA 5 Achieved",
+        publicAdmission: "Public Varsity + Nursing",
+        students: "Active Members",
+      },
       previousSlide: "Previous slide",
       nextSlide: "Next slide",
       slideAltPrefix: "Hero slide",

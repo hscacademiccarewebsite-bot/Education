@@ -93,18 +93,18 @@ function HomeHeroSlider({ slides, stats = [], t }) {
   };
 
   return (
-    <section className="container-page py-3 md:py-7">
-      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-1 py-4 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:px-4 md:px-8 md:py-6">
-        <div className="relative flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-6 xl:grid-cols-[0.98fr_1.02fr] xl:gap-8">
+    <section className="container-page py-4 md:py-8">
+      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-2 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:px-5 md:px-9 md:py-7">
+        <div className="relative flex flex-col gap-5 lg:grid lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-7 xl:grid-cols-[1.04fr_0.96fr] xl:gap-9">
 
           {/* ── IMAGE (mobile: first/top) ─────────────────────────── */}
           <motion.div
-            className="order-first -mx-3.5 sm:-mx-1 lg:mx-0 lg:order-last"
+            className="order-first lg:order-last"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)]">
+            <div className="relative isolate overflow-hidden">
               <AnimatePresence mode="wait">
                 {slides.map((slide, idx) => (
                   idx === current && slide.imageUrl ? (
@@ -114,7 +114,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="absolute inset-0"
+                      className="absolute inset-0 overflow-hidden"
                     >
                       <img
                         src={slide.imageUrl}
@@ -127,7 +127,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                 ))}
               </AnimatePresence>
               <div
-                className={`h-[240px] sm:h-[245px] lg:h-[410px] xl:h-[440px] ${
+                className={`h-[255px] sm:h-[270px] lg:h-[430px] xl:h-[460px] ${
                   slides[current]?.imageUrl
                     ? ""
                     : "bg-gradient-to-br from-emerald-100 via-teal-50 to-slate-100"
@@ -146,18 +146,18 @@ function HomeHeroSlider({ slides, stats = [], t }) {
           {/* ── TEXT (mobile: second/below image) ────────────────── */}
           <div className="order-last lg:order-first">
           <motion.div variants={staggerContainer} initial="initial" animate="animate">
-            <motion.p variants={fadeInUp} className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-700 sm:px-3">
+            <motion.p variants={fadeInUp} className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
               {t("home.hero.kicker")}
             </motion.p>
-            <motion.h1 variants={fadeInUp} className="mt-2.5 max-w-[16ch] text-[21px] font-black leading-[1.08] tracking-tight text-slate-800 sm:max-w-[18ch] sm:text-[27px] lg:max-w-[17ch] lg:text-[31px] xl:text-[35px]">
-              <span className="block text-emerald-600">{t("home.hero.accent")}</span>
-              <span className="mt-1 block sm:mt-1.5">{t("home.hero.title")}</span>
+            <motion.h1 variants={fadeInUp} className="mt-3 max-w-[16ch] text-[23px] font-black leading-[1.08] tracking-tight text-slate-800 sm:max-w-[18ch] sm:text-[30px] md:max-w-none md:text-[32px] lg:text-[34px] xl:text-[38px]">
+              <span className="block text-emerald-600 md:whitespace-nowrap">{t("home.hero.accent")}</span>
+              <span className="mt-1 block sm:mt-1.5 md:whitespace-nowrap">{t("home.hero.title")}</span>
             </motion.h1>
-            <motion.p variants={fadeInUp} className="mt-2.5 max-w-2xl text-[12px] leading-[1.5] text-slate-600 sm:mt-3 sm:text-[13px] sm:leading-[1.6] lg:text-[14px] lg:leading-6">
+            <motion.p variants={fadeInUp} className="mt-3 max-w-2xl text-[13px] leading-[1.55] text-slate-600 sm:text-[14px] sm:leading-[1.65] lg:text-[15px] lg:leading-7">
               {t("home.hero.description")}
             </motion.p>
 
-            <motion.div variants={staggerContainer} className="mt-3 grid grid-cols-1 gap-2 sm:mt-4 sm:grid-cols-3">
+            <motion.div variants={staggerContainer} className="mt-4 grid grid-cols-1 gap-2.5 sm:mt-5 sm:grid-cols-3">
               {stats.map((stat, idx) => {
                 const configs = [
                   {
@@ -198,16 +198,16 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                 return (
                   <RevealItem
                     key={idx}
-                    className={`group/card flex items-center gap-2 rounded-xl border border-slate-200 border-l-4 ${cfg.border} ${cfg.bg} px-2.5 py-2.5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.1)]`}
+                    className={`group/card flex items-center gap-2.5 rounded-xl border border-slate-200 border-l-4 ${cfg.border} ${cfg.bg} px-3 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.05)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.1)]`}
                   >
-                    <div className={`shrink-0 flex h-7 w-7 items-center justify-center rounded-lg ${cfg.iconBg}`}>
+                    <div className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg ${cfg.iconBg}`}>
                       {cfg.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className={`text-[17px] font-black leading-none tracking-tight sm:text-[18px] ${cfg.valueCls}`}>
+                      <p className={`text-[18px] font-black leading-none tracking-tight sm:text-[20px] ${cfg.valueCls}`}>
                         {stat.value}
                       </p>
-                      <p className="mt-0.5 text-[9px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[10px]">
+                      <p className="mt-0.5 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[11px]">
                         {stat.label}
                       </p>
                     </div>
@@ -217,18 +217,18 @@ function HomeHeroSlider({ slides, stats = [], t }) {
             </motion.div>
 
             {total > 1 && (
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-5 flex items-center gap-3.5">
                 <button
                   type="button"
                   onClick={() => goTo(current - 1)}
                   aria-label={t("home.hero.previousSlide")}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                   </svg>
                 </button>
-                <div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200/50 sm:w-28">
+                <div className="h-1 w-28 overflow-hidden rounded-full bg-slate-200/50 sm:w-32">
                   <div
                     className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
                     style={{ width: `${Math.min(progress, 100)}%` }}
@@ -238,7 +238,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                   type="button"
                   onClick={() => goTo(current + 1)}
                   aria-label={t("home.hero.nextSlide")}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -543,15 +543,15 @@ export default function HomePage() {
   const heroStats = [
     {
       value: apiStats?.gpa5Count ? `${apiStats.gpa5Count}+` : "—",
-      label: t("home.hero.stats.gpa5", "GPA 5 Achieved"),
+      label: t("home.hero.statsLabels.gpa5", "GPA 5 Achieved"),
     },
     {
       value: apiStats?.publicAdmissionCount ? `${apiStats.publicAdmissionCount}+` : "—",
-      label: t("home.hero.stats.publicAdmission", "Public University Admissions"),
+      label: t("home.hero.statsLabels.publicAdmission", "Public Varsity + Nursing"),
     },
     {
       value: apiStats?.studentCount ? `${apiStats.studentCount}+` : "—",
-      label: t("home.hero.stats.students", "Active Students"),
+      label: t("home.hero.statsLabels.students", "Active Students"),
     },
   ];
 

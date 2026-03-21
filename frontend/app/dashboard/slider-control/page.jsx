@@ -419,7 +419,7 @@ export default function SliderControlPage() {
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                      <div className="relative shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white h-24 w-36 md:h-28 md:w-48 shadow-sm">
+                      <div className="relative shrink-0 overflow-hidden border border-slate-200 bg-white h-24 w-36 md:h-28 md:w-48 shadow-sm">
                         <img
                           src={slide.imageUrl}
                           alt={`${t("sliderControlPage.slideWord")} ${index + 1}`}
