@@ -47,7 +47,7 @@ export default function CourseCatalogCard({
     course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length];
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[5%] border border-slate-200 bg-white shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition-all duration-500 hover:-translate-y-1.5 hover:scale-[1.012] hover:shadow-[0_20px_40px_rgba(15,23,42,0.12)]">
+    <article className="group relative flex flex-col overflow-hidden rounded-[clamp(12px,2vw,22px)] border border-slate-200 bg-white shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition-all duration-500 hover:-translate-y-1.5 hover:scale-[1.012] hover:shadow-[0_20px_40px_rgba(15,23,42,0.12)]">
       <div className="relative aspect-[16/9] overflow-hidden">
         <img
           src={bannerUrl}

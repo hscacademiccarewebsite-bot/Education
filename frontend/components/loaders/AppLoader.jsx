@@ -16,7 +16,7 @@ export function Skeleton({ className = "" }) {
 
 export function CourseCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-white shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
+    <div className="overflow-hidden rounded-[clamp(12px,2vw,22px)] border border-slate-300 bg-white shadow-[0_6px_14px_rgba(15,23,42,0.11)]">
       <Skeleton className="h-36 w-full" />
       <div className="p-5">
         <div className="flex justify-between gap-4">

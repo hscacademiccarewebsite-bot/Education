@@ -190,6 +190,7 @@ export default function BatchDetailsPage() {
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm);
   const [editingSubjectId, setEditingSubjectId] = useState("");
   const [editingSubjectTitle, setEditingSubjectTitle] = useState("");
+  const [subjectError, setSubjectError] = useState("");
   const [subjectMessage, setSubjectMessage] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -224,6 +225,8 @@ export default function BatchDetailsPage() {
     setShowSubjectForm(false);
     setEditingSubjectId("");
     setEditingSubjectTitle("");
+    setSubjectError("");
+    setSubjectMessage("");
   };
 
   const handleCreateSubject = async (event) => {
@@ -429,7 +432,7 @@ export default function BatchDetailsPage() {
                 <h1 className="mt-2.5 text-[20px] sm:text-[26px] font-black leading-tight tracking-tight text-slate-950 md:text-3xl">
                   {batch.name}
                 </h1>
-                <p className="mt-1.5 sm:mt-3 max-w-3xl text-[12px] sm:text-[15px] leading-[1.5] sm:leading-7 text-slate-600 md:text-base">
+                <p className="mt-1.5 sm:mt-3 max-w-3xl whitespace-pre-wrap break-words text-[12px] sm:text-[15px] leading-[1.5] sm:leading-7 text-slate-600 md:text-base">
                   {batch.description ||
                     t("batchDetails.layout.defaultDesc", "This course is organized by subject, chapter, and video with guided academic progression.")}
                 </p>
@@ -626,6 +629,9 @@ export default function BatchDetailsPage() {
                   onSubmit={editingSubjectId ? handleUpdateSubject : handleCreateSubject}
                   className="mt-6 space-y-4"
                 >
+                  {subjectError ? <MessageBanner tone="error">{subjectError}</MessageBanner> : null}
+                  {subjectMessage ? <MessageBanner tone="success">{subjectMessage}</MessageBanner> : null}
+
                   <FloatingInput
                     required
                     label={t("batchDetails.layout.subjectTitle", "Subject Title")}
