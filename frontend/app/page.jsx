@@ -93,44 +93,48 @@ function HomeHeroSlider({ slides, stats = [], t }) {
   };
 
   return (
-    <section className="container-page py-4 md:py-10">
-      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-5 py-6 shadow-[0_8px_20px_rgba(15,23,42,0.08)] md:px-10 md:py-10">
-        <div className="relative flex flex-col gap-6 lg:grid lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-8">
+    <section className="container-page py-3 md:py-7">
+      <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-[#eceeee] px-1 py-4 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:px-4 md:px-8 md:py-6">
+        <div className="relative flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-6 xl:grid-cols-[0.98fr_1.02fr] xl:gap-8">
 
           {/* ── IMAGE (mobile: first/top) ─────────────────────────── */}
           <motion.div
-            className="order-first lg:order-last"
+            className="order-first -mx-3.5 sm:-mx-1 lg:mx-0 lg:order-last"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-300 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]">
+            <div className="relative overflow-hidden rounded-[clamp(8px,5%,12px)]">
               <AnimatePresence mode="wait">
                 {slides.map((slide, idx) => (
                   idx === current && slide.imageUrl ? (
-                    <motion.img
-                      key={idx}
-                      src={slide.imageUrl}
+                    <motion.div
+                      key={slide.id || idx}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.5, ease: "easeInOut" }}
-                      alt={`${t("home.hero.slideAltPrefix")} ${idx + 1}`}
-                      className="absolute inset-0 h-[220px] w-full object-cover sm:h-[280px] lg:h-[500px]"
-                      loading={idx === 0 ? "eager" : "lazy"}
-                    />
+                      className="absolute inset-0"
+                    >
+                      <img
+                        src={slide.imageUrl}
+                        alt={`${t("home.hero.slideAltPrefix")} ${idx + 1}`}
+                        className="absolute inset-0 h-full w-full object-contain"
+                        loading={idx === 0 ? "eager" : "lazy"}
+                      />
+                    </motion.div>
                   ) : null
                 ))}
               </AnimatePresence>
               <div
-                className={`h-[220px] sm:h-[280px] lg:h-[500px] ${
+                className={`h-[240px] sm:h-[245px] lg:h-[410px] xl:h-[440px] ${
                   slides[current]?.imageUrl
                     ? ""
                     : "bg-gradient-to-br from-emerald-100 via-teal-50 to-slate-100"
                 }`}
               />
               {total > 1 && (
-                <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
                   <span className="text-emerald-700">{String(current + 1).padStart(2, "0")}</span>
                   <span className="text-slate-400">/</span>
                   <span>{String(total).padStart(2, "0")}</span>
@@ -142,18 +146,18 @@ function HomeHeroSlider({ slides, stats = [], t }) {
           {/* ── TEXT (mobile: second/below image) ────────────────── */}
           <div className="order-last lg:order-first">
           <motion.div variants={staggerContainer} initial="initial" animate="animate">
-            <motion.p variants={fadeInUp} className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+            <motion.p variants={fadeInUp} className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-700 sm:px-3">
               {t("home.hero.kicker")}
             </motion.p>
-            <motion.h1 variants={fadeInUp} className="mt-3 text-[22px] font-black leading-[1.2] tracking-tight text-slate-800 sm:text-3xl lg:text-[42px]">
-              <span className="text-emerald-600">{t("home.hero.accent")}</span>{" "}
-              {t("home.hero.title")}
+            <motion.h1 variants={fadeInUp} className="mt-2.5 max-w-[16ch] text-[21px] font-black leading-[1.08] tracking-tight text-slate-800 sm:max-w-[18ch] sm:text-[27px] lg:max-w-[17ch] lg:text-[31px] xl:text-[35px]">
+              <span className="block text-emerald-600">{t("home.hero.accent")}</span>
+              <span className="mt-1 block sm:mt-1.5">{t("home.hero.title")}</span>
             </motion.h1>
-            <motion.p variants={fadeInUp} className="mt-3 max-w-2xl text-xs leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
+            <motion.p variants={fadeInUp} className="mt-2.5 max-w-2xl text-[12px] leading-[1.5] text-slate-600 sm:mt-3 sm:text-[13px] sm:leading-[1.6] lg:text-[14px] lg:leading-6">
               {t("home.hero.description")}
             </motion.p>
 
-            <motion.div variants={staggerContainer} className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <motion.div variants={staggerContainer} className="mt-3 grid grid-cols-1 gap-2 sm:mt-4 sm:grid-cols-3">
               {stats.map((stat, idx) => {
                 const configs = [
                   {
@@ -194,16 +198,16 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                 return (
                   <RevealItem
                     key={idx}
-                    className={`group/card flex items-center gap-3 rounded-xl border border-slate-200 border-l-4 ${cfg.border} ${cfg.bg} px-3 py-3.5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.1)]`}
+                    className={`group/card flex items-center gap-2 rounded-xl border border-slate-200 border-l-4 ${cfg.border} ${cfg.bg} px-2.5 py-2.5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.1)]`}
                   >
-                    <div className={`shrink-0 flex h-9 w-9 items-center justify-center rounded-xl ${cfg.iconBg}`}>
+                    <div className={`shrink-0 flex h-7 w-7 items-center justify-center rounded-lg ${cfg.iconBg}`}>
                       {cfg.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className={`text-xl font-black leading-none tracking-tight ${cfg.valueCls}`}>
+                      <p className={`text-[17px] font-black leading-none tracking-tight sm:text-[18px] ${cfg.valueCls}`}>
                         {stat.value}
                       </p>
-                      <p className="mt-0.5 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500">
+                      <p className="mt-0.5 text-[9px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[10px]">
                         {stat.label}
                       </p>
                     </div>
@@ -213,18 +217,18 @@ function HomeHeroSlider({ slides, stats = [], t }) {
             </motion.div>
 
             {total > 1 && (
-              <div className="mt-6 flex items-center gap-4">
+              <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => goTo(current - 1)}
                   aria-label={t("home.hero.previousSlide")}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                   </svg>
                 </button>
-                <div className="h-1 w-32 overflow-hidden rounded-full bg-slate-200/50">
+                <div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200/50 sm:w-28">
                   <div
                     className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
                     style={{ width: `${Math.min(progress, 100)}%` }}
@@ -234,7 +238,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                   type="button"
                   onClick={() => goTo(current + 1)}
                   aria-label={t("home.hero.nextSlide")}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:text-emerald-600 active:scale-95"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -283,12 +287,12 @@ function AboutHomeSection({ metrics, t }) {
   ];
 
   return (
-    <section id="about" className="container-page scroll-mt-24 py-10 md:py-20 lg:py-24">
+    <section id="about" className="container-page scroll-mt-24 py-9 md:py-16 lg:py-20">
       <RevealSection noStagger>
-        <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:items-start xl:gap-16">
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start xl:gap-12">
 
           {/* ── LEFT: Text content ─────────────────────────────── */}
-          <div className="flex flex-col gap-5 md:gap-7">
+          <div className="flex flex-col gap-4 md:gap-5">
             {/* Kicker + heading */}
             <RevealItem>
               <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 backdrop-blur-sm">
@@ -298,7 +302,7 @@ function AboutHomeSection({ metrics, t }) {
             </RevealItem>
 
             <RevealItem>
-              <h2 className="text-[26px] font-black leading-[1.15] tracking-tight text-slate-900 sm:text-3xl md:text-[36px] lg:text-[42px]">
+              <h2 className="text-[22px] font-black leading-[1.14] tracking-tight text-slate-900 sm:text-[25px] md:text-[30px] lg:text-[34px]">
                 <span className="text-emerald-600">{headingAccent}</span>{" "}
                 {heading}
               </h2>
@@ -306,7 +310,7 @@ function AboutHomeSection({ metrics, t }) {
 
             {/* Paragraphs */}
             <RevealItem>
-              <p className="text-[15px] leading-[1.7] text-slate-600 md:text-[17px] md:leading-8">{description}</p>
+              <p className="text-[13px] leading-[1.65] text-slate-600 md:text-[14px] md:leading-7">{description}</p>
             </RevealItem>
 
             <RevealItem>
@@ -314,11 +318,11 @@ function AboutHomeSection({ metrics, t }) {
             </RevealItem>
 
             <RevealItem>
-              <p className="text-[15px] leading-[1.7] text-slate-600 md:text-[17px] md:leading-8">{mission}</p>
+              <p className="text-[13px] leading-[1.65] text-slate-600 md:text-[14px] md:leading-7">{mission}</p>
             </RevealItem>
 
             <RevealItem>
-              <p className="text-[13px] sm:text-[14px] leading-[1.6] text-slate-500 md:text-[15px] md:leading-7">{detail}</p>
+              <p className="text-[12px] sm:text-[13px] leading-[1.6] text-slate-500 md:text-[14px] md:leading-6">{detail}</p>
             </RevealItem>
 
             {/* Trust strip */}

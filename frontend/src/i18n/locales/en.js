@@ -39,11 +39,11 @@ const en = {
   },
   home: {
     hero: {
-      kicker: "Academic Care",
-      accent: "Learn Smarter,",
-      title: "prepare with confidence for every academic goal.",
+      kicker: "Since 2017",
+      accent: "We do not search for the talented,",
+      title: "we nurture and create them",
       description:
-        "One focused learning ecosystem for SSC, HSC, and admission preparation with guided classes, structured practice, and dependable support.",
+        "Join our community of A+ achievers and students admitted to top universities like Dhaka University, Chittagong University, Rajshahi University, Khulna University, CUET and leading BSc & Diploma Nursing programs.",
       stats: [
         { value: "200+", label: "GPA 5 Achieved" },
         { value: "150+", label: "Public University Admissions" },
@@ -68,8 +68,8 @@ const en = {
     },
     about: {
       kicker: "About Us",
-      accent: "We Don’t Search for Talent,",
-      heading: "We Nurture and Create It",
+      accent: "The best place for HSC Science students in Rangamati,",
+      heading: "unlocking hidden potential.",
       description:
         "At HSC Academic & Admission Care, we believe every student has hidden potential waiting to shine. Based in Rangamati, we go beyond traditional coaching by turning learning into growth, confidence, and real results, even in a challenging education environment.",
       mission:
