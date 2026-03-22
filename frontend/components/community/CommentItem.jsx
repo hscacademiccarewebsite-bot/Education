@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import { selectToken } from "@/lib/features/auth/authSlice";
 import PhotoViewer from "@/components/shared/PhotoViewer";
 
 import {
@@ -19,13 +20,29 @@ import { useSearchUsersQuery } from "@/lib/features/user/userApi";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+
+const EVERYONE_MENTION_ID = "everyone";
+const EVERYONE_MENTION_NAME = "everyone";
+
+function normalizeMentionContent(value) {
+  return String(value || "").replace(
+    /(^|[\s\u00A0])@everyone\b/gi,
+    (_, prefix) => `${prefix}@[${EVERYONE_MENTION_ID}](${EVERYONE_MENTION_NAME})`
+  );
+}
 
 // ─── Render stored comment content (mention tokens → styled spans) ────────────
 function renderContent(content) {
   if (!content) return null;
 
-  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const mentionRegex = /@\[(everyone|[a-f\d]{24})\]\(([^)]+)\)/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -35,13 +52,22 @@ function renderContent(content) {
       parts.push(<span key={`txt-${lastIndex}`}>{content.substring(lastIndex, match.index)}</span>);
     }
     parts.push(
-      <Link
-        key={`mention-${match.index}`}
-        href={`/users/${match[1]}`}
-        className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
-      >
-        @{match[2]}
-      </Link>
+      match[1] === EVERYONE_MENTION_ID ? (
+        <span
+          key={`mention-${match.index}`}
+          className="font-semibold text-[#0866FF]"
+        >
+          @everyone
+        </span>
+      ) : (
+        <Link
+          key={`mention-${match.index}`}
+          href={`/users/${match[1]}`}
+          className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
+        >
+          @{match[2]}
+        </Link>
+      )
     );
     lastIndex = mentionRegex.lastIndex;
   }
@@ -71,16 +97,17 @@ function getEditorTextValue(el) {
       }
     }
   });
-  return result;
+  return normalizeMentionContent(result);
 }
 
 function convertRawToHtml(content) {
   if (!content) return "";
-  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const mentionRegex = /@\[(everyone|[a-f\d]{24})\]\(([^)]+)\)/g;
   // Replace newlines with <br/> for contenteditable
   const withBr = content.replace(/\n/g, "<br/>");
   return withBr.replace(mentionRegex, (match, id, name) => {
-    return `<span data-mention-id="${id}" data-mention-name="${name}" contenteditable="false" class="inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none">@${name}</span>\u00A0`;
+    const displayName = id === EVERYONE_MENTION_ID ? EVERYONE_MENTION_NAME : name;
+    return `<span data-mention-id="${id}" data-mention-name="${displayName}" contenteditable="false" class="inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none">@${displayName}</span>\u00A0`;
   });
 }
 
@@ -130,6 +157,22 @@ function insertMentionChip(editor, mentionStart, mentionLength, userId, userName
   sel.addRange(newRange);
 }
 
+function insertPlainTextAtSelection(text) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function CommentItem({ comment, replies = [], onReply, depth = 0 }) {
   const { t, language } = useSiteLanguage();
@@ -140,6 +183,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
   const optionsRef = useRef(null);
 
   const currentUserId = useSelector(selectCurrentUserId);
+  const token = useSelector(selectToken);
   const isAuthor = String(comment.author?._id) === String(currentUserId);
 
   const [likeComment, { isLoading: isLiking }] = useLikeCommentMutation();
@@ -155,6 +199,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
   const [showAllReplies, setShowAllReplies] = useState(false);
   const [commentViewerOpen, setCommentViewerOpen] = useState(false);
   const [commentViewerIndex, setCommentViewerIndex] = useState(0);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Deep nesting logic and overflow protection
   const isReply = depth > 0;
@@ -178,8 +223,58 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
   const { data: searchData, isFetching: isSearching } = useSearchUsersQuery(mentionQuery, {
     skip: !mentionActive
   });
-  const suggestions = searchData?.data ?? [];
+  const suggestions = [
+    ...(EVERYONE_MENTION_NAME.startsWith(mentionQuery.trim().toLowerCase())
+      ? [{ _id: EVERYONE_MENTION_ID, fullName: EVERYONE_MENTION_NAME, role: "system", isEveryone: true }]
+      : []),
+    ...((searchData?.data ?? []).filter((user) => String(user?._id) !== String(currentUserId))),
+  ];
   const showDropdown = mentionActive && suggestions.length > 0;
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+
+    setEditContent(comment.content);
+    setEditImage((prev) => {
+      revokeImageAssetPreview(prev);
+      return comment.images?.[0] || null;
+    });
+    setShowEditImageUpload(Boolean(comment.images?.length));
+  }, [comment._id, comment.content, comment.images, isEditing]);
+
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(editImage);
+    },
+    [editImage]
+  );
+
+  const handleStartEdit = () => {
+    revokeImageAssetPreview(editImage);
+    setEditContent(comment.content);
+    setEditImage(comment.images?.[0] || null);
+    setShowEditImageUpload(Boolean(comment.images?.length));
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionStart(-1);
+    setSelectedIndex(0);
+    setIsEditing(true);
+    setShowOptions(false);
+  };
+
+  const handleCancelEdit = () => {
+    revokeImageAssetPreview(editImage);
+    setEditContent(comment.content);
+    setEditImage(comment.images?.[0] || null);
+    setShowEditImageUpload(Boolean(comment.images?.length));
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionStart(-1);
+    setSelectedIndex(0);
+    setIsEditing(false);
+  };
 
   // Scroll to target comment from notification link
   useEffect(() => {
@@ -218,19 +313,25 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
 
     const lastAt = textBeforeCursor.lastIndexOf("@");
     if (lastAt === -1) {
-      setMentionActive(false)
+      setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
       return;
     }
 
     const charBefore = textBeforeCursor[lastAt - 1];
     if (lastAt > 0 && charBefore !== " " && charBefore !== "\n" && charBefore !== "\u00A0") {
       setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
       return;
     }
 
     const query = textBeforeCursor.substring(lastAt + 1);
     if (query.includes(" ") || query.includes("\n")) {
       setMentionActive(false);
+      setMentionQuery("");
+      setMentionStart(-1);
       return;
     }
 
@@ -278,16 +379,38 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
     const editor = editRef.current;
     const finalContent = getEditorTextValue(editor);
     if (!finalContent.trim() && !editImage) return;
+    const hadLocalImage = isLocalImageAsset(editImage);
+    let uploadedImage = null;
+    setUploadingImage(true);
     try {
+      if (editImage?.url) {
+        uploadedImage = await resolveImageAssetForSubmit(editImage, "community-comments", { token });
+      }
       await updateComment({ 
         commentId: comment._id, 
         content: finalContent,
-        images: editImage ? [editImage] : []
+        images:
+          uploadedImage || editImage
+            ? [
+                uploadedImage || {
+                  url: editImage?.url || "",
+                  publicId: editImage?.publicId || "",
+                },
+              ]
+            : []
       }).unwrap();
+      if (hadLocalImage) {
+        revokeImageAssetPreview(editImage);
+      }
       setIsEditing(false);
       setShowEditImageUpload(false);
     } catch (err) {
+      if (hadLocalImage && uploadedImage?.publicId) {
+        await cleanupUploadedImageAsset(uploadedImage, { token });
+      }
       console.error("Failed to update comment:", err);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -363,7 +486,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                 {showOptions && (
                   <div className="absolute right-0 top-full mt-1 w-28 rounded-xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-[#E4E6EB] py-1 z-30">
                     <button
-                      onClick={() => { setIsEditing(true); setShowOptions(false); }}
+                      onClick={handleStartEdit}
                       className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] font-medium text-[#050505] hover:bg-[#F0F2F5] transition-colors"
                     >
                       <svg className="h-3.5 w-3.5 text-[#65676B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -398,11 +521,23 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                     onKeyUp={detectMention}
                     onClick={detectMention}
                     onPaste={(e) => {
-                      e.preventDefault();
                       const text = e.clipboardData.getData("text/plain");
-                      document.execCommand("insertText", false, text);
+                      if (!text) return;
+                      e.preventDefault();
+                      insertPlainTextAtSelection(text);
+                      detectMention();
                     }}
-                    className="w-full rounded-xl border border-[#E4E6EB] p-2 text-[13.5px] text-[#050505] outline-none focus:ring-1 focus:ring-[#0866FF] bg-white min-h-[60px] max-h-[160px] overflow-y-auto break-words"
+                    role="textbox"
+                    aria-multiline="true"
+                    spellCheck
+                    autoCapitalize="sentences"
+                    autoCorrect="on"
+                    className="w-full cursor-text select-text rounded-xl border border-[#E4E6EB] bg-white p-2 text-[16px] text-[#050505] outline-none focus:ring-1 focus:ring-[#0866FF] min-h-[60px] max-h-[160px] overflow-y-auto break-words md:text-[13.5px]"
+                    style={{
+                      WebkitUserSelect: "text",
+                      userSelect: "text",
+                      WebkitTouchCallout: "default",
+                    }}
                     dangerouslySetInnerHTML={{ __html: convertRawToHtml(comment.content) }}
                   />
 
@@ -425,17 +560,27 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                                 idx === selectedIndex ? "bg-[#F0F2F5]" : "hover:bg-[#F0F2F5]"
                               }`}
                             >
-                              <Avatar
-                                src={user.profilePhoto?.url}
-                                name={user.fullName}
-                                className="h-8 w-8 rounded-full shrink-0"
-                              />
+                              {user.isEveryone ? (
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5V18a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.276-.356-1.848M7 20H2V18a4 4 0 015-3.87M7 20v-2c0-.653.126-1.276.356-1.848m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM5 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <Avatar
+                                  src={user.profilePhoto?.url}
+                                  name={user.fullName}
+                                  className="h-8 w-8 rounded-full shrink-0"
+                                />
+                              )}
                               <div className="flex flex-col min-w-0">
                                 <span className="text-[13px] font-semibold text-[#050505] truncate leading-tight">
-                                  {user.fullName}
+                                  {user.isEveryone ? "@everyone" : user.fullName}
                                 </span>
                                 <span className="text-[11px] text-[#65676B] truncate capitalize">
-                                  {t(`roles.${user.role}`, user.role)}
+                                  {user.isEveryone
+                                    ? t("community.everyoneDescription", "Notify all eligible members")
+                                    : t(`roles.${user.role}`, user.role)}
                                 </span>
                               </div>
                             </button>
@@ -471,6 +616,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                         asset={editImage}
                         onChange={setEditImage}
                         folder="community-comments"
+                        mode="local"
                       />
                     </div>
                   )}
@@ -478,17 +624,17 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
 
                 <div className="flex justify-end gap-3">
                   <button
-                    onClick={() => setIsEditing(false)}
+                    onClick={handleCancelEdit}
                     className="text-[12px] font-semibold text-[#65676B] hover:text-[#050505]"
                   >
                     {t("community.commentItem.cancel", "Cancel")}
                   </button>
                   <button
                     onClick={handleUpdate}
-                    disabled={isUpdating}
+                    disabled={isUpdating || uploadingImage}
                     className="text-[12px] font-semibold text-[#0866FF] hover:underline disabled:opacity-50"
                   >
-                    {isUpdating
+                    {isUpdating || uploadingImage
                       ? t("community.commentItem.saving", "Saving...")
                       : t("community.commentItem.save", "Save")}
                   </button>

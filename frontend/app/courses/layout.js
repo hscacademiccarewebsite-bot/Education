@@ -5,19 +5,25 @@ import {
   buildBreadcrumbSchema,
   buildCourseListSchema,
 } from "@/src/shared/seo/structuredData";
-import { buildSeoMetadata } from "@/src/shared/seo/site";
+import { buildSeoMetadata, PRIMARY_CITY } from "@/src/shared/seo/site";
 
 export async function generateMetadata() {
   const siteSettings = await getPublicSiteSettingsData();
   const general = siteSettings?.general || {};
 
   return buildSeoMetadata({
-    title: "Courses",
+    title: `HSC Courses in ${PRIMARY_CITY}`,
     description:
       general.siteTagline ||
-      "Explore active and upcoming courses designed for HSC and admission preparation with structured academic support.",
+      `Explore HSC and admission courses from the best coaching center in ${PRIMARY_CITY}, with structured academic support and Science-focused preparation.`,
     path: "/courses",
-    keywords: ["courses", "HSC courses", "admission courses", "online batch learning"],
+    keywords: [
+      "courses",
+      "HSC courses in Rangamati",
+      "admission courses in Rangamati",
+      "best coaching center in Rangamati",
+      "online batch learning",
+    ],
   });
 }
 

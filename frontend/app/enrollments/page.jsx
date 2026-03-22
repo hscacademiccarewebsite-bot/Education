@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Avatar from "@/components/Avatar";
 import { useSelector } from "react-redux";
-import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
+import { selectIsAuthenticated, selectIsAuthInitialized, selectToken } from "@/lib/features/auth/authSlice";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
@@ -22,6 +22,12 @@ import {
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isStudent } from "@/lib/utils/roleUtils";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
@@ -113,6 +119,7 @@ export default function EnrollmentsPage() {
 
   const role = useSelector(selectCurrentUserRole);
   const currentUser = useSelector(selectCurrentUser);
+  const token = useSelector(selectToken);
   const isStudentRole = isStudent(role);
   const canReview = role === "admin" || role === "moderator";
 
@@ -130,6 +137,7 @@ export default function EnrollmentsPage() {
     applicantPhoto: null,
     facebookGroupJoinRequested: false,
   });
+  const [uploadingApplicantPhoto, setUploadingApplicantPhoto] = useState(false);
 
   const isInitialized = useSelector(selectIsAuthInitialized);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -256,82 +264,115 @@ export default function EnrollmentsPage() {
     }
   }, [availableBatches, form.batchId, isStudentRole, preselectedBatchId]);
 
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(form.applicantPhoto);
+    },
+    [form.applicantPhoto]
+  );
+
   const handleApply = async (event) => {
     event.preventDefault();
     setError("");
     setMessage("");
+    setUploadingApplicantPhoto(true);
 
     if (!form.batchId) {
       const validationMessage = t("enrollmentsPage.messages.noBatch", "No batch is available for application right now.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (!form.applicantName.trim()) {
       const validationMessage = t("enrollmentsPage.messages.nameReq", "Applicant name is required.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (!form.applicantFacebookId.trim()) {
       const validationMessage = t("enrollmentsPage.messages.fbReq", "Facebook ID is required.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (!form.applicantPhoto?.url) {
       const validationMessage = t("enrollmentsPage.messages.photoReq", "Applicant photo is required.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (pendingEnrollment) {
       const validationMessage = t("enrollmentsPage.messages.alreadyPending", "Your application is already pending for this batch.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (approvedEnrollment) {
       const validationMessage = t("enrollmentsPage.messages.alreadyApproved", "You are already approved in this batch.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (!form.facebookGroupJoinRequested) {
       const validationMessage = t("enrollmentsPage.messages.joinGroupReq", "Please send join request to private Facebook group and confirm checkbox.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
     if (!hasSelectedBatchGroupLink) {
       const validationMessage = t("enrollmentsPage.messages.noGroupLink2", "This batch does not have a private Facebook group link configured yet.");
       setError(validationMessage);
       showError(validationMessage);
+      setUploadingApplicantPhoto(false);
       return;
     }
 
+    const hadLocalApplicantPhoto = isLocalImageAsset(form.applicantPhoto);
+    let uploadedApplicantPhoto = null;
+
     try {
+      uploadedApplicantPhoto = await resolveImageAssetForSubmit(
+        form.applicantPhoto,
+        "hsc-academic/enrollments",
+        { token }
+      );
+
       await createEnrollmentRequest({
         batchId: form.batchId,
         applicantName: form.applicantName.trim(),
         applicantFacebookId: form.applicantFacebookId.trim(),
         applicantPhone: form.applicantPhone.trim(),
         applicantPhoto: {
-          url: form.applicantPhoto.url,
-          publicId: form.applicantPhoto.publicId || "",
+          url: uploadedApplicantPhoto?.url || form.applicantPhoto.url,
+          publicId: uploadedApplicantPhoto?.publicId || form.applicantPhoto.publicId || "",
         },
         note: form.note.trim(),
         facebookGroupJoinRequested: true,
       }).unwrap();
 
+      if (hadLocalApplicantPhoto) {
+        revokeImageAssetPreview(form.applicantPhoto);
+      }
       await showSuccess(
         "You already applied for this batch. Your request is pending review.\nEnrollment request submitted successfully.",
         "Application Successful"
       );
       router.push(`/courses/${form.batchId}`);
     } catch (applyError) {
+      if (hadLocalApplicantPhoto && uploadedApplicantPhoto?.publicId) {
+        await cleanupUploadedImageAsset(uploadedApplicantPhoto, { token });
+      }
       const resolvedError = normalizeApiError(applyError);
       showError(resolvedError);
+    } finally {
+      setUploadingApplicantPhoto(false);
     }
   };
 
@@ -574,6 +615,7 @@ export default function EnrollmentsPage() {
                       <ImageUploadField
                         label={t("enrollmentsPage.form.applicantPhoto", "Applicant Photo")}
                         folder="hsc-academic/enrollments"
+                        mode="local"
                         asset={form.applicantPhoto}
                         previewAlt={t("enrollmentsPage.form.photoAlt", "Applicant photo")}
                         className="bg-white"
@@ -581,9 +623,7 @@ export default function EnrollmentsPage() {
                         onChange={(asset) =>
                           setForm((prev) => ({
                             ...prev,
-                            applicantPhoto: asset?.url
-                              ? { url: asset.url, publicId: asset.publicId || "" }
-                              : null,
+                            applicantPhoto: asset?.url ? asset : null,
                           }))
                         }
                       />
@@ -614,6 +654,7 @@ export default function EnrollmentsPage() {
                         type="submit"
                         disabled={
                           applying ||
+                          uploadingApplicantPhoto ||
                           pendingEnrollment ||
                           approvedEnrollment ||
                           !form.facebookGroupJoinRequested ||
@@ -621,7 +662,7 @@ export default function EnrollmentsPage() {
                         }
                         className="site-button-primary min-w-[190px] px-5 py-2.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none"
                       >
-                        {applying
+                        {applying || uploadingApplicantPhoto
                           ? t("enrollmentsPage.actions.submitting", "Submitting...")
                           : pendingEnrollment
                           ? t("enrollmentsPage.actions.alreadyApplied", "Already Applied (Pending)")

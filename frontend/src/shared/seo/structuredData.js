@@ -1,4 +1,34 @@
-import { absoluteUrl, SITE_NAME } from "@/src/shared/seo/site";
+import {
+  absoluteUrl,
+  buildLocalSeoDescription,
+  LOCAL_POSITIONING,
+  PRIMARY_CITY,
+  PRIMARY_REGION,
+  SITE_NAME,
+} from "@/src/shared/seo/site";
+
+function buildAddress(contact = {}) {
+  return {
+    "@type": "PostalAddress",
+    streetAddress: contact.address || PRIMARY_CITY,
+    addressLocality: PRIMARY_CITY,
+    addressRegion: "Chattogram",
+    addressCountry: "BD",
+  };
+}
+
+function buildAreaServed() {
+  return [
+    {
+      "@type": "City",
+      name: PRIMARY_CITY,
+    },
+    {
+      "@type": "AdministrativeArea",
+      name: PRIMARY_REGION,
+    },
+  ];
+}
 
 export function buildOrganizationSchema({ general = {}, contact = {} } = {}) {
   const sameAs = [contact.facebookPage].filter(Boolean);
@@ -6,23 +36,27 @@ export function buildOrganizationSchema({ general = {}, contact = {} } = {}) {
 
   return {
     "@context": "https://schema.org",
-    "@type": "EducationalOrganization",
+    "@type": ["EducationalOrganization", "LocalBusiness"],
     name: SITE_NAME,
     url: absoluteUrl("/"),
-    description:
+    description: buildLocalSeoDescription(
       general.siteTagline ||
-      "Focused academic care for HSC and admission preparation with structured courses and transparent operations.",
-    logo: general.logoUrl || absoluteUrl("/logo.png"),
+      "Focused academic care for HSC and admission preparation with structured courses and transparent operations."
+    ),
+    slogan: LOCAL_POSITIONING,
+    logo: general.logoUrl || absoluteUrl("/icon.png"),
     image: general.logoUrl || absoluteUrl("/logo.png"),
-    address: contact.address
-      ? {
-          "@type": "PostalAddress",
-          streetAddress: contact.address,
-          addressCountry: "BD",
-        }
-      : undefined,
+    address: buildAddress(contact),
     telephone: contact.phone || undefined,
     email: contact.email || undefined,
+    areaServed: buildAreaServed(),
+    hasMap: contact.mapEmbedUrl || undefined,
+    knowsAbout: [
+      "HSC Science coaching",
+      "HSC board preparation",
+      "admission preparation",
+      "academic mentoring",
+    ],
     sameAs: sameAs.length ? sameAs : undefined,
     contactPoint: contactPoints.length
       ? [
@@ -44,7 +78,7 @@ export function buildWebsiteSchema({ description } = {}) {
     "@type": "WebSite",
     name: SITE_NAME,
     url: absoluteUrl("/"),
-    description,
+    description: buildLocalSeoDescription(description),
     inLanguage: ["en", "bn"],
     publisher: {
       "@type": "EducationalOrganization",
@@ -71,7 +105,7 @@ export function buildCourseListSchema(courses = []) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Course Catalog",
+    name: `Best HSC courses in ${PRIMARY_CITY}`,
     itemListElement: courses.map((course, index) => ({
       "@type": "ListItem",
       position: index + 1,
@@ -100,9 +134,10 @@ export function buildCourseSchema(course = {}) {
     "@context": "https://schema.org",
     "@type": "Course",
     name: course.name,
-    description:
+    description: buildLocalSeoDescription(
       course.description ||
-      "Structured academic progression with guided subjects, chapters, and learner support.",
+      `Structured academic progression with guided subjects, chapters, and learner support in ${PRIMARY_CITY}.`
+    ),
     provider: {
       "@type": "EducationalOrganization",
       name: SITE_NAME,
@@ -127,14 +162,16 @@ export function buildContactPageSchema({ contact = {} } = {}) {
     "@type": "ContactPage",
     name: "Contact Us",
     url: absoluteUrl("/contact-us"),
-    description:
-      "Get in touch for admissions, course guidance, enrollment support, and payment help.",
+    description: buildLocalSeoDescription(
+      `Get in touch with the ${PRIMARY_CITY} coaching center for admissions, course guidance, enrollment support, and payment help.`
+    ),
     mainEntity: {
-      "@type": "EducationalOrganization",
+      "@type": ["EducationalOrganization", "LocalBusiness"],
       name: SITE_NAME,
       email: contact.email || undefined,
       telephone: contact.phone || undefined,
-      address: contact.address || undefined,
+      address: buildAddress(contact),
+      areaServed: buildAreaServed(),
     },
   };
 }
@@ -145,7 +182,7 @@ export function buildFacultyCollectionSchema(faculty = []) {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Faculty and Support Team",
+    name: `Faculty of the best HSC coaching center in ${PRIMARY_CITY}`,
     url: absoluteUrl("/faculty"),
     mainEntity: {
       "@type": "ItemList",

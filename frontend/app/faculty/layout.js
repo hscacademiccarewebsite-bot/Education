@@ -5,19 +5,24 @@ import {
   buildBreadcrumbSchema,
   buildFacultyCollectionSchema,
 } from "@/src/shared/seo/structuredData";
-import { buildSeoMetadata } from "@/src/shared/seo/site";
+import { buildSeoMetadata, PRIMARY_CITY } from "@/src/shared/seo/site";
 
 export async function generateMetadata() {
   const faculty = await getPublicFacultyData();
 
   return buildSeoMetadata({
-    title: "Faculty",
+    title: `Faculty in ${PRIMARY_CITY}`,
     description:
       faculty.length > 0
-        ? `Meet ${faculty.length} faculty and support team members responsible for course delivery and academic guidance.`
-        : "Meet the faculty and support team behind course delivery and student guidance.",
+        ? `Meet ${faculty.length} faculty and support team members behind the best HSC coaching center in ${PRIMARY_CITY}.`
+        : `Meet the faculty and support team behind the best HSC coaching center in ${PRIMARY_CITY}.`,
     path: "/faculty",
-    keywords: ["faculty", "teachers", "academic mentors", "support team"],
+    keywords: [
+      "faculty",
+      "teachers in Rangamati coaching center",
+      "academic mentors Rangamati",
+      "support team",
+    ],
   });
 }
 

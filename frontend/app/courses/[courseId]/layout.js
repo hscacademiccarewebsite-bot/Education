@@ -4,18 +4,18 @@ import {
   buildBreadcrumbSchema,
   buildCourseSchema,
 } from "@/src/shared/seo/structuredData";
-import { buildSeoMetadata } from "@/src/shared/seo/site";
+import { buildSeoMetadata, PRIMARY_CITY } from "@/src/shared/seo/site";
 
 function buildCourseDescription(course) {
   if (course?.description) {
-    return course.description;
+    return `${course.description} This course is delivered from the best HSC coaching center in ${PRIMARY_CITY}.`;
   }
 
   if (Number.isFinite(Number(course?.monthlyFee))) {
-    return `${course.name} is an academic course with structured progression and a monthly fee of ${Number(course.monthlyFee)} ${course.currency || "BDT"}.`;
+    return `${course.name} is an academic course from the best HSC coaching center in ${PRIMARY_CITY}, with structured progression and a monthly fee of ${Number(course.monthlyFee)} ${course.currency || "BDT"}.`;
   }
 
-  return `${course?.name || "Course"} offers structured academic progression with guided support and organized learning materials.`;
+  return `${course?.name || "Course"} offers structured academic progression with guided support and organized learning materials from the best coaching center in ${PRIMARY_CITY}.`;
 }
 
 export async function generateMetadata({ params }) {
@@ -32,10 +32,16 @@ export async function generateMetadata({ params }) {
   }
 
   return buildSeoMetadata({
-    title: course.name,
+    title: `${course.name} in ${PRIMARY_CITY}`,
     description: buildCourseDescription(course),
     path: `/courses/${courseId}`,
-    keywords: [course.name, course.slug, course.status].filter(Boolean),
+    keywords: [
+      course.name,
+      course.slug,
+      course.status,
+      `${course.name} Rangamati`,
+      "best coaching center in Rangamati",
+    ].filter(Boolean),
     images: [
       {
         url: course.banner?.url || course.thumbnail?.url || "/opengraph-image",

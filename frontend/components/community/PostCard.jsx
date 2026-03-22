@@ -13,10 +13,12 @@ import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import PhotoViewer from "@/components/shared/PhotoViewer";
 
+const EVERYONE_MENTION_ID = "everyone";
+
 function renderContent(content) {
   if (!content) return null;
 
-  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const mentionRegex = /@\[(everyone|[a-f\d]{24})\]\(([^)]+)\)/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -27,13 +29,19 @@ function renderContent(content) {
     }
 
     parts.push(
-      <Link
-        key={`mention-${match.index}`}
-        href={`/users/${match[1]}`}
-        className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
-      >
-        @{match[2]}
-      </Link>
+      match[1] === EVERYONE_MENTION_ID ? (
+        <span key={`mention-${match.index}`} className="font-semibold text-[#0866FF]">
+          @everyone
+        </span>
+      ) : (
+        <Link
+          key={`mention-${match.index}`}
+          href={`/users/${match[1]}`}
+          className="font-semibold text-[#0866FF] hover:underline cursor-pointer"
+        >
+          @{match[2]}
+        </Link>
+      )
     );
 
     lastIndex = mentionRegex.lastIndex;
@@ -46,6 +54,49 @@ function renderContent(content) {
   return parts;
 }
 
+function getGalleryLayout(totalImages, compact) {
+  const visibleCount = Math.min(totalImages, 4);
+  const heightScale = compact
+    ? {
+        two: "h-[210px] sm:h-[240px]",
+        grid: "h-[240px] sm:h-[280px]",
+      }
+    : {
+        two: "h-[240px] sm:h-[310px] lg:h-[360px]",
+        grid: "h-[280px] sm:h-[360px] lg:h-[420px]",
+      };
+
+  if (visibleCount === 1) {
+    return {
+      containerClassName: "grid grid-cols-1 gap-[2px]",
+      itemClassNames: [
+        compact ? "aspect-[4/3] max-h-[320px]" : "aspect-[16/11] md:aspect-[16/10] max-h-[520px]",
+      ],
+    };
+  }
+
+  if (visibleCount === 2) {
+    return {
+      containerClassName: `grid grid-cols-2 gap-[2px] ${heightScale.two}`,
+      itemClassNames: ["h-full", "h-full"],
+    };
+  }
+
+  if (visibleCount === 3) {
+    return {
+      containerClassName: `grid grid-cols-2 grid-rows-2 gap-[2px] ${heightScale.grid}`,
+      itemClassNames: ["row-span-2 h-full", "h-full", "h-full"],
+    };
+  }
+
+  if (visibleCount === 4) {
+    return {
+      containerClassName: `grid grid-cols-2 grid-rows-2 gap-[2px] ${heightScale.grid}`,
+      itemClassNames: ["h-full", "h-full", "h-full", "h-full"],
+    };
+  }
+}
+
 export default function PostCard({ post, onEdit, compact = false }) {
   const { t, language } = useSiteLanguage();
   const searchParams = useSearchParams();
@@ -53,6 +104,7 @@ export default function PostCard({ post, onEdit, compact = false }) {
   const targetPostId = searchParams.get("postId") || params.postId;
   const targetCommentId = searchParams.get("commentId");
   const postRef = useRef(null);
+  const contentRef = useRef(null);
   
   const currentUserId = useSelector(selectCurrentUserId);
   const isAuthor = String(post.author?._id) === String(currentUserId);
@@ -67,6 +119,8 @@ export default function PostCard({ post, onEdit, compact = false }) {
   const optionsRef = useRef(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showSeeMore, setShowSeeMore] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -87,6 +141,39 @@ export default function PostCard({ post, onEdit, compact = false }) {
       }, 100);
     }
   }, [targetPostId, post._id]);
+
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [post._id]);
+
+  useEffect(() => {
+    if (isExpanded) return undefined;
+
+    const contentElement = contentRef.current;
+    if (!contentElement || !post.content) {
+      setShowSeeMore(false);
+      return undefined;
+    }
+
+    const measureOverflow = () => {
+      setShowSeeMore(contentElement.scrollHeight > contentElement.clientHeight + 1);
+    };
+
+    measureOverflow();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => {
+        measureOverflow();
+      });
+
+      observer.observe(contentElement);
+
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", measureOverflow);
+    return () => window.removeEventListener("resize", measureOverflow);
+  }, [compact, isExpanded, post.content]);
 
   const handleLike = async () => {
     try {
@@ -109,11 +196,9 @@ export default function PostCard({ post, onEdit, compact = false }) {
     : "flex items-center gap-1.5 mt-0.5";
   const contentWrapClassName = compact ? "px-2.5 pb-1.5 pt-1" : "px-4 py-2";
   const contentTextClassName = compact
-    ? "whitespace-pre-wrap text-[12px] leading-[1.5] text-slate-700"
-    : "whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700";
-  const imageClassName = compact
-    ? "w-full object-cover max-h-[320px] transition-transform duration-300 group-hover:scale-[1.02]"
-    : "w-full object-cover max-h-[500px] transition-transform duration-300 group-hover:scale-[1.02]";
+    ? "whitespace-break-spaces break-words text-[12px] leading-[1.5] text-slate-700"
+    : "whitespace-break-spaces break-words text-[14px] leading-relaxed text-slate-700";
+  const collapsedContentClassName = compact ? "line-clamp-4" : "line-clamp-6";
   const statsClassName = compact
     ? "flex items-center justify-between px-2.5 py-1.5 text-[10px] font-medium text-slate-500"
     : "flex items-center justify-between px-4 py-2.5 text-[12px] font-medium text-slate-500";
@@ -131,6 +216,11 @@ export default function PostCard({ post, onEdit, compact = false }) {
     addSuffix: true,
     locale: language === "bn" ? bnLocale : enUS,
   });
+  const visibleImages = post.images?.slice(0, 4) || [];
+  const galleryLayout = visibleImages.length > 0 ? getGalleryLayout(post.images.length, compact) : null;
+  const galleryTileBaseClassName =
+    "group relative w-full overflow-hidden bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#147b79]/30";
+  const galleryImageClassName = "h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]";
 
   return (
     <div ref={postRef} className={cardClassName}>
@@ -234,49 +324,65 @@ export default function PostCard({ post, onEdit, compact = false }) {
       </div>
 
       {/* Post Content */}
-      <div className={contentWrapClassName}>
-        <p className={contentTextClassName}>
-          {renderContent(post.content)}
-        </p>
-      </div>
+      {post.content ? (
+        <div className={contentWrapClassName}>
+          <p
+            ref={contentRef}
+            className={`${contentTextClassName} ${isExpanded ? "" : collapsedContentClassName}`}
+          >
+            {renderContent(post.content)}
+          </p>
+          {showSeeMore ? (
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className={`mt-1.5 inline-flex items-center text-slate-500 transition-colors hover:text-slate-700 ${
+                compact ? "text-[11px] font-semibold" : "text-[13px] font-semibold"
+              }`}
+            >
+              {isExpanded ? t("community.seeLess") : t("community.seeMore")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Post Images */}
-      {post.images && post.images.length > 0 && (
-        <div className="mt-2 border-y border-slate-50 overflow-hidden">
-          <div className={`grid gap-0.5 ${
-            post.images.length === 1 ? "grid-cols-1" :
-            post.images.length === 3 ? "grid-cols-3" :
-            "grid-cols-2"
-          }`}>
-            {post.images.slice(0, 4).map((img, idx) => {
-              const isLast = idx === 3 && post.images.length > 4;
+      {visibleImages.length > 0 && galleryLayout ? (
+        <div className="mt-2 overflow-hidden border-y border-slate-100 bg-slate-50/40">
+          <div className={galleryLayout.containerClassName}>
+            {visibleImages.map((img, idx) => {
+              const isOverflowTile = idx === visibleImages.length - 1 && post.images.length > visibleImages.length;
+
               return (
                 <button
-                  key={idx}
+                  key={`${img.publicId || img.url || "image"}-${idx}`}
                   type="button"
-                  onClick={() => { setViewerStartIndex(idx); setViewerOpen(true); }}
-                  className="relative w-full overflow-hidden focus:outline-none group"
+                  onClick={() => {
+                    setViewerStartIndex(idx);
+                    setViewerOpen(true);
+                  }}
+                  className={`${galleryTileBaseClassName} ${galleryLayout.itemClassNames[idx] || "h-full"}`}
+                  aria-label={t("community.postImageAlt", "Post image {number}", { number: idx + 1 })}
                 >
                   <img
                     src={img.url}
                     alt={t("community.postImageAlt", "Post image {number}", { number: idx + 1 })}
-                    className={imageClassName}
-                    style={{ aspectRatio: post.images.length === 1 ? "auto" : "1 / 1" }}
+                    className={galleryImageClassName}
                   />
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
-                  {/* +N badge on last tile if images > 4 */}
-                  {isLast && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <span className="text-white text-2xl font-bold">+{post.images.length - 4}</span>
+                  <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/10" />
+                  {isOverflowTile ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                      <span className={compact ? "text-lg font-bold text-white" : "text-2xl font-bold text-white"}>
+                        +{post.images.length - visibleImages.length}
+                      </span>
                     </div>
-                  )}
+                  ) : null}
                 </button>
               );
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Photo Viewer */}
       <PhotoViewer

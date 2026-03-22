@@ -11,6 +11,7 @@ import ImageUploadField from "@/components/uploads/ImageUploadField";
 import Avatar from "@/components/Avatar";
 import { FloatingInput } from "@/components/forms/FloatingField";
 import { useUpdateCurrentUserMutation } from "@/lib/features/auth/authApi";
+import { selectToken } from "@/lib/features/auth/authSlice";
 import {
   selectCurrentUser,
   selectCurrentUserDisplayName,
@@ -24,6 +25,12 @@ import { useGetGlobalPaymentsQuery } from "@/lib/features/payment/paymentApi";
 import { useListUsersQuery } from "@/lib/features/user/userApi";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 /* ─── Role-based theme config ─── */
@@ -158,6 +165,7 @@ export default function ProfilePage() {
   const currentUser = useSelector(selectCurrentUser);
   const displayName = useSelector(selectCurrentUserDisplayName);
   const photoUrl = useSelector(selectCurrentUserPhotoUrl);
+  const token = useSelector(selectToken);
   const [updateCurrentUser, { isLoading: savingProfile }] = useUpdateCurrentUserMutation();
 
   const [form, setForm] = useState({
@@ -173,6 +181,7 @@ export default function ProfilePage() {
   const [imageTouched, setImageTouched] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
   const { showSuccess, showError, popupNode } = useActionPopup();
 
   const studentRole = isStudent(role);
@@ -184,6 +193,12 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!currentUser) return;
 
+    setProfileAsset((prev) => {
+      revokeImageAssetPreview(prev);
+      return currentUser.profilePhoto?.url
+        ? { url: currentUser.profilePhoto.url, publicId: currentUser.profilePhoto.publicId || "" }
+        : null;
+    });
     setForm({
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
@@ -193,15 +208,17 @@ export default function ProfilePage() {
       varsity: currentUser.varsity || "",
       experience: currentUser.experience || "",
     });
-    setProfileAsset(
-      currentUser.profilePhoto?.url
-        ? { url: currentUser.profilePhoto.url, publicId: currentUser.profilePhoto.publicId || "" }
-        : null
-    );
     setImageTouched(false);
     setSaveError("");
     setSaveSuccess("");
   }, [currentUser]);
+
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(profileAsset);
+    },
+    [profileAsset]
+  );
 
   /* ─ Data queries ─ */
   const { data: myEnrollmentsData, isLoading: myEnrollmentsLoading } = useGetMyEnrollmentRequestsQuery(
@@ -260,7 +277,8 @@ export default function ProfilePage() {
     );
   }, [currentUser, form.college, form.facebookProfileId, form.fullName, form.phone, form.school, form.varsity, form.experience]);
 
-  const canSaveProfile = Boolean(currentUser) && (textChanged || imageChanged) && !savingProfile;
+  const isSavingProfile = savingProfile || uploadingProfileImage;
+  const canSaveProfile = Boolean(currentUser) && (textChanged || imageChanged) && !isSavingProfile;
   const previewPhotoUrl = imageTouched ? profileAsset?.url || "" : photoUrl;
 
   const handleProfileSave = async (event) => {
@@ -269,6 +287,7 @@ export default function ProfilePage() {
 
     setSaveSuccess("");
     setSaveError("");
+    setUploadingProfileImage(true);
 
     const payload = {
       fullName: form.fullName.trim(),
@@ -283,31 +302,53 @@ export default function ProfilePage() {
       const validationMessage = t("profilePage.messages.nameReq", "Full name is required.");
       setSaveError(validationMessage);
       showError(validationMessage);
+      setUploadingProfileImage(false);
       return;
     }
 
-    if (imageChanged) {
-      if (profileAsset?.url) {
-        payload.profilePhoto = { url: profileAsset.url, publicId: profileAsset.publicId || "" };
-      } else if (originalAsset?.url) {
-        payload.removeProfilePhoto = true;
-      }
-    }
+    const hadLocalProfileAsset = isLocalImageAsset(profileAsset);
+    let uploadedProfileAsset = null;
 
     try {
+      if (imageChanged) {
+        if (profileAsset?.url) {
+          uploadedProfileAsset = await resolveImageAssetForSubmit(profileAsset, "hsc-academic/profiles", {
+            token,
+          });
+          payload.profilePhoto = uploadedProfileAsset || {
+            url: profileAsset.url,
+            publicId: profileAsset.publicId || "",
+          };
+        } else if (originalAsset?.url) {
+          payload.removeProfilePhoto = true;
+        }
+      }
+
       await updateCurrentUser(payload).unwrap();
+      if (hadLocalProfileAsset) {
+        revokeImageAssetPreview(profileAsset);
+        if (uploadedProfileAsset?.url) {
+          setProfileAsset(uploadedProfileAsset);
+        }
+      }
       setSaveSuccess(t("profilePage.messages.updateSuccess", "Profile updated successfully."));
       showSuccess(t("profilePage.messages.updateSuccess", "Profile updated successfully."));
       setImageTouched(false);
     } catch (error) {
+      if (uploadedProfileAsset?.publicId) {
+        await cleanupUploadedImageAsset(uploadedProfileAsset, { token });
+      }
       const resolvedError = extractErrorMessage(error, t);
       setSaveError(resolvedError);
       showError(resolvedError);
+    } finally {
+      setUploadingProfileImage(false);
     }
   };
 
   const handleProfileReset = () => {
     if (!currentUser) return;
+    revokeImageAssetPreview(profileAsset);
     setForm({
       fullName: currentUser.fullName || "",
       phone: currentUser.phone || "",
@@ -542,13 +583,12 @@ export default function ProfilePage() {
                         <ImageUploadField
                           label={t("profilePage.form.profilePhoto", "Profile Photo")}
                           folder="hsc-academic/profiles"
+                          mode="local"
                           asset={profileAsset}
                           previewAlt={t("profilePage.form.photoAlt", "Profile image preview")}
                           className="border-slate-200 bg-slate-50/80"
                           onChange={(asset) => {
-                            setProfileAsset(
-                              asset?.url ? { url: asset.url, publicId: asset.publicId || "" } : null
-                            );
+                            setProfileAsset(asset?.url ? asset : null);
                             setImageTouched(true);
                             setSaveError("");
                             setSaveSuccess("");
@@ -687,12 +727,12 @@ export default function ProfilePage() {
                         disabled={!canSaveProfile}
                         className="site-button-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                       >
-                        {savingProfile ? t("profilePage.actions.saving", "Saving...") : t("profilePage.actions.saveProfile", "Save Profile")}
+                        {isSavingProfile ? t("profilePage.actions.saving", "Saving...") : t("profilePage.actions.saveProfile", "Save Profile")}
                       </button>
                       <button
                         type="button"
                         onClick={handleProfileReset}
-                        disabled={savingProfile}
+                        disabled={isSavingProfile}
                         className="site-button-secondary disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {t("profilePage.actions.reset", "Reset")}

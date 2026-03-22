@@ -5,19 +5,24 @@ import {
   buildBreadcrumbSchema,
   buildContactPageSchema,
 } from "@/src/shared/seo/structuredData";
-import { buildSeoMetadata } from "@/src/shared/seo/site";
+import { buildSeoMetadata, PRIMARY_CITY } from "@/src/shared/seo/site";
 
 export async function generateMetadata() {
   const contact = await getPublicContactData();
 
   return buildSeoMetadata({
-    title: "Contact Us",
+    title: `Contact the ${PRIMARY_CITY} Center`,
     description:
       contact?.email || contact?.phone
-        ? `Reach the support team for admissions, course guidance, payments, and platform help.${contact?.email ? ` Email: ${contact.email}.` : ""}`
-        : "Reach the support team for admissions, course guidance, payments, and platform help.",
+        ? `Reach the best HSC coaching center in ${PRIMARY_CITY} for admissions, course guidance, payments, and platform help.${contact?.email ? ` Email: ${contact.email}.` : ""}`
+        : `Reach the best HSC coaching center in ${PRIMARY_CITY} for admissions, course guidance, payments, and platform help.`,
     path: "/contact-us",
-    keywords: ["contact HSC Academic", "admission support", "student support Bangladesh"],
+    keywords: [
+      "contact HSC Academic",
+      "Rangamati coaching center contact",
+      "admission support Rangamati",
+      "student support Bangladesh",
+    ],
   });
 }
 

@@ -72,7 +72,7 @@ export default function OpenGraphImage() {
                 color: "#475569",
               }}
             >
-              Structured learning for HSC and admission preparation
+              Best HSC coaching center in Rangamati
             </div>
           </div>
         </div>
@@ -87,13 +87,13 @@ export default function OpenGraphImage() {
         >
           <div
             style={{
-              fontSize: "62px",
+              fontSize: "58px",
               lineHeight: 1.05,
               fontWeight: 900,
               letterSpacing: "-0.03em",
             }}
           >
-            Guided courses, disciplined study flow, and transparent academic operations.
+            The best coaching center in Rangamati for HSC Science, board exams, and admission preparation.
           </div>
           <div
             style={{
@@ -103,10 +103,10 @@ export default function OpenGraphImage() {
               color: "#334155",
             }}
           >
-            <span>Courses</span>
-            <span>Faculty</span>
+            <span>Rangamati</span>
+            <span>HSC Science</span>
             <span>Admissions</span>
-            <span>Payments</span>
+            <span>Results</span>
           </div>
         </div>
       </div>

@@ -1,11 +1,22 @@
 const SITE_NAME = "HSC Academic and Admission Care";
 const SITE_SHORT_NAME = "HSC Academic";
+const PRIMARY_CITY = "Rangamati";
+const PRIMARY_REGION = "Rangamati, Chattogram, Bangladesh";
+const LOCAL_POSITIONING = "Best HSC coaching center in Rangamati";
+const LOCAL_SUPPORTING_DESCRIPTION =
+  "Best HSC coaching center in Rangamati for Science students, board exam excellence, and admission preparation.";
 const DEFAULT_SITE_DESCRIPTION =
-  "Structured HSC and admission preparation with guided courses, disciplined learning workflows, transparent enrollments, and dependable payment operations.";
+  `${SITE_NAME} is positioned as the best HSC coaching center in Rangamati, offering Science coaching, disciplined course workflows, and admission preparation support.`;
 const DEFAULT_KEYWORDS = [
   "HSC Academic",
   "admission care",
   "HSC preparation",
+  "best HSC coaching center in Rangamati",
+  "best coaching center in Rangamati",
+  "Rangamati HSC coaching",
+  "HSC Science coaching Rangamati",
+  "coaching center in Rangamati",
+  "admission coaching Rangamati",
   "admission coaching Bangladesh",
   "online courses Bangladesh",
   "academic care platform",
@@ -50,6 +61,27 @@ function mergeKeywords(extraKeywords = []) {
   return [...new Set([...DEFAULT_KEYWORDS, ...extraKeywords.filter(Boolean)])];
 }
 
+function normalizeCopy(value = "") {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+export function buildLocalSeoDescription(description = "") {
+  const normalized = normalizeCopy(description);
+  if (!normalized) {
+    return LOCAL_SUPPORTING_DESCRIPTION;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (
+    lower.includes("rangamati") &&
+    (lower.includes("best hsc coaching") || lower.includes("best coaching center"))
+  ) {
+    return normalized;
+  }
+
+  return `${normalized} ${LOCAL_SUPPORTING_DESCRIPTION}`;
+}
+
 function buildRobotsConfig({ noIndex = false } = {}) {
   if (noIndex) {
     return {
@@ -89,10 +121,14 @@ export function buildSeoMetadata({
   openGraphType = "website",
   images,
   noIndex = false,
+  applyLocalSeo = true,
 } = {}) {
   const resolvedPath = withLeadingSlash(path);
   const resolvedCanonicalPath = withLeadingSlash(canonicalPath || resolvedPath);
   const resolvedTitle = title || SITE_NAME;
+  const resolvedDescription = applyLocalSeo
+    ? buildLocalSeoDescription(description)
+    : normalizeCopy(description);
   const resolvedImages =
     images?.length
       ? images
@@ -107,7 +143,7 @@ export function buildSeoMetadata({
 
   return {
     title: resolvedTitle,
-    description,
+    description: resolvedDescription,
     keywords: mergeKeywords(keywords),
     alternates: {
       canonical: absoluteUrl(resolvedCanonicalPath),
@@ -116,7 +152,7 @@ export function buildSeoMetadata({
     robots: buildRobotsConfig({ noIndex }),
     openGraph: {
       title: resolvedTitle,
-      description,
+      description: resolvedDescription,
       url: absoluteUrl(resolvedCanonicalPath),
       siteName: SITE_NAME,
       locale: "en_US",
@@ -126,7 +162,7 @@ export function buildSeoMetadata({
     twitter: {
       card: "summary_large_image",
       title: resolvedTitle,
-      description,
+      description: resolvedDescription,
       images: resolvedImages.map((image) => image.url),
     },
   };
@@ -144,6 +180,7 @@ export function buildNoIndexMetadata({
     path,
     canonicalPath: canonicalPath || path,
     noIndex: true,
+    applyLocalSeo: false,
   });
 }
 
@@ -151,6 +188,10 @@ export {
   DEFAULT_KEYWORDS,
   DEFAULT_OG_IMAGE_PATH,
   DEFAULT_SITE_DESCRIPTION,
+  LOCAL_POSITIONING,
+  LOCAL_SUPPORTING_DESCRIPTION,
+  PRIMARY_CITY,
+  PRIMARY_REGION,
   SITE_NAME,
   SITE_SHORT_NAME,
 };

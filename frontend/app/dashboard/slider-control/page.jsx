@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
+import { selectIsAuthenticated, selectIsAuthInitialized, selectToken } from "@/lib/features/auth/authSlice";
 import RequireAuth from "@/components/RequireAuth";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
 import { InlineLoader, ListSkeleton } from "@/components/loaders/AppLoader";
@@ -18,6 +18,12 @@ import {
 } from "@/lib/features/home/homeApi";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const makeEmptyForm = (priority = 0) => ({
@@ -76,6 +82,7 @@ function formatUpdatedAt(value, language = "en") {
 export default function SliderControlPage() {
   const isInitialized = useSelector(selectIsAuthInitialized);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const token = useSelector(selectToken);
 
   const {
     data: sliderData,
@@ -96,10 +103,11 @@ export default function SliderControlPage() {
   const [form, setForm] = useState(() => makeEmptyForm(0));
   const [imageTouched, setImageTouched] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const { showSuccess, showError, requestDeleteConfirmation, popupNode } = useActionPopup();
   const { t, language } = useSiteLanguage();
 
-  const submitting = creating || updating;
+  const submitting = creating || updating || uploadingImage;
   const editingSlide = useMemo(
     () => slides.find((slide) => slide.id === editingSlideId) || null,
     [slides, editingSlideId]
@@ -118,7 +126,15 @@ export default function SliderControlPage() {
     }
   }, [editingSlideId, form.imageAsset?.url, form.priority, nextPriority, slides.length]);
 
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(form.imageAsset);
+    },
+    [form.imageAsset]
+  );
+
   const resetForm = () => {
+    revokeImageAssetPreview(form.imageAsset);
     setForm(makeEmptyForm(nextPriority));
     setEditingSlideId("");
     setImageTouched(false);
@@ -126,6 +142,7 @@ export default function SliderControlPage() {
   };
 
   const handleStartEdit = (slide) => {
+    revokeImageAssetPreview(form.imageAsset);
     setEditingSlideId(slide.id);
     setForm(formFromSlide(slide));
     setImageTouched(false);
@@ -140,6 +157,9 @@ export default function SliderControlPage() {
     };
 
     setError("");
+    setUploadingImage(true);
+    const hadLocalImageAsset = isLocalImageAsset(form.imageAsset);
+    let uploadedImageAsset = null;
 
     try {
       if (editingSlideId) {
@@ -148,11 +168,15 @@ export default function SliderControlPage() {
             const validationMessage = t("sliderControlPage.messages.sliderImageRequired");
             setError(validationMessage);
             showError(validationMessage);
+            setUploadingImage(false);
             return;
           }
+          uploadedImageAsset = await resolveImageAssetForSubmit(form.imageAsset, "hsc-academic/sliders", {
+            token,
+          });
           payload.image = {
-            url: form.imageAsset.url,
-            publicId: form.imageAsset.publicId || "",
+            url: uploadedImageAsset?.url || form.imageAsset.url,
+            publicId: uploadedImageAsset?.publicId || form.imageAsset.publicId || "",
           };
         }
 
@@ -166,25 +190,37 @@ export default function SliderControlPage() {
           const validationMessage = t("sliderControlPage.messages.uploadBeforeCreate");
           setError(validationMessage);
           showError(validationMessage);
+          setUploadingImage(false);
           return;
         }
 
+        uploadedImageAsset = await resolveImageAssetForSubmit(form.imageAsset, "hsc-academic/sliders", {
+          token,
+        });
         payload.image = {
-          url: form.imageAsset.url,
-          publicId: form.imageAsset.publicId || "",
+          url: uploadedImageAsset?.url || form.imageAsset.url,
+          publicId: uploadedImageAsset?.publicId || form.imageAsset.publicId || "",
         };
 
         await createHeroSlide(payload).unwrap();
         showSuccess(t("sliderControlPage.messages.slideCreated"));
       }
 
+      if (hadLocalImageAsset) {
+        revokeImageAssetPreview(form.imageAsset);
+      }
       setEditingSlideId("");
       setImageTouched(false);
       setForm(makeEmptyForm(nextPriority));
     } catch (submitError) {
+      if (hadLocalImageAsset && uploadedImageAsset?.publicId) {
+        await cleanupUploadedImageAsset(uploadedImageAsset, { token });
+      }
       const resolvedError = normalizeApiError(submitError);
       setError(resolvedError);
       showError(resolvedError);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -330,15 +366,14 @@ export default function SliderControlPage() {
               <ImageUploadField
                 label={t("sliderControlPage.sliderImageUpload")}
                 folder="hsc-academic/sliders"
+                mode="local"
                 asset={form.imageAsset}
                 previewAlt={t("sliderControlPage.sliderPreviewAlt")}
                 className="border-slate-200 bg-white"
                 onChange={(asset) => {
                   setForm((prev) => ({
                     ...prev,
-                    imageAsset: asset?.url
-                      ? { url: asset.url, publicId: asset.publicId || "" }
-                      : null,
+                    imageAsset: asset?.url ? asset : null,
                   }));
                   setImageTouched(true);
                 }}

@@ -2,6 +2,10 @@ const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
+function isBrowserFile(value) {
+  return typeof File !== "undefined" && value instanceof File;
+}
+
 function isUnsignedCloudinaryConfigured() {
   return Boolean(CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET);
 }
@@ -12,6 +16,17 @@ function canUseBackendUpload(token) {
 
 export function isCloudinaryUploadConfigured(token) {
   return isUnsignedCloudinaryConfigured() || canUseBackendUpload(token);
+}
+
+export function isLocalImageAsset(asset) {
+  return Boolean(asset?.isLocal && isBrowserFile(asset?.file));
+}
+
+export function revokeImageAssetPreview(asset) {
+  const previewUrl = String(asset?.url || "");
+  if (isLocalImageAsset(asset) && previewUrl.startsWith("blob:")) {
+    URL.revokeObjectURL(previewUrl);
+  }
 }
 
 function uploadWithXhr({ url, body, headers = {}, onProgress }) {
@@ -167,6 +182,21 @@ export async function uploadImageToCloudinary(file, folder = "hsc-courses", opti
   );
 }
 
+export async function resolveImageAssetForSubmit(asset, folder = "hsc-courses", options = {}) {
+  if (!asset?.url) {
+    return null;
+  }
+
+  if (isLocalImageAsset(asset)) {
+    return uploadImageToCloudinary(asset.file, folder, options);
+  }
+
+  return {
+    url: String(asset.url || "").trim(),
+    publicId: String(asset.publicId || "").trim(),
+  };
+}
+
 export async function deleteImageFromCloudinary(publicId, options = {}) {
   const normalizedPublicId = String(publicId || "").trim();
   if (!normalizedPublicId) {
@@ -193,4 +223,17 @@ export async function deleteImageFromCloudinary(publicId, options = {}) {
   }
 
   return payload;
+}
+
+export async function cleanupUploadedImageAsset(asset, options = {}) {
+  const publicId = String(asset?.publicId || "").trim();
+  if (!publicId) {
+    return;
+  }
+
+  try {
+    await deleteImageFromCloudinary(publicId, options);
+  } catch (error) {
+    console.warn("Cloudinary cleanup skipped:", error?.message || error);
+  }
 }

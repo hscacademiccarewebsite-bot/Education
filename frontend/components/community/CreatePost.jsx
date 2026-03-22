@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Avatar from "@/components/Avatar";
 import { useCreatePostMutation, useUpdatePostMutation } from "@/lib/features/community/communityApi";
 import { useSelector } from "react-redux";
+import { selectToken } from "@/lib/features/auth/authSlice";
 import {
   selectCurrentUserDisplayName,
   selectCurrentUserId,
@@ -13,10 +14,28 @@ import {
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
 import { useSearchUsersQuery } from "@/lib/features/user/userApi";
-import ImageUploadField from "@/components/uploads/ImageUploadField";
 import CreateSharedNote from "./CreateSharedNote";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
+import { resizeImage } from "@/lib/utils/imageResizer";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+
+const EVERYONE_MENTION_ID = "everyone";
+const EVERYONE_MENTION_NAME = "everyone";
+const POST_IMAGE_LIMIT = 500 * 1024;
+const MAX_POST_IMAGES = 10;
+
+function normalizeMentionContent(value) {
+  return String(value || "").replace(
+    /(^|[\s\u00A0])@everyone\b/gi,
+    (_, prefix) => `${prefix}@[${EVERYONE_MENTION_ID}](${EVERYONE_MENTION_NAME})`
+  );
+}
 
 function serializeEditorNode(node) {
   if (!node) return "";
@@ -44,12 +63,13 @@ function serializeEditorNode(node) {
 function getEditorTextValue(el) {
   if (!el) return "";
 
-  return Array.from(el.childNodes)
-    .map(serializeEditorNode)
-    .join("")
-    .replace(/\u00A0/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+  return normalizeMentionContent(
+    Array.from(el.childNodes)
+      .map(serializeEditorNode)
+      .join("")
+      .replace(/\u00A0/g, " ")
+      .trimEnd()
+  );
 }
 
 function escapeHtml(value) {
@@ -68,9 +88,10 @@ function editorHasContent(el) {
 
 function convertRawToHtml(content) {
   if (!content) return "";
-  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+  const mentionRegex = /@\[(everyone|[a-f\d]{24})\]\(([^)]+)\)/g;
   return escapeHtml(content).replace(/\n/g, "<br/>").replace(mentionRegex, (_, id, name) => {
-    return `<span data-mention-id="${id}" data-mention-name="${name}" contenteditable="false" class="inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none">@${name}</span>&nbsp;`;
+    const displayName = id === EVERYONE_MENTION_ID ? EVERYONE_MENTION_NAME : name;
+    return `<span data-mention-id="${id}" data-mention-name="${displayName}" contenteditable="false" class="inline-flex items-center font-semibold text-[#0866FF] cursor-pointer select-none">@${displayName}</span>&nbsp;`;
   });
 }
 
@@ -122,6 +143,22 @@ function insertMentionChip(editor, mentionStart, userId, userName) {
   selection.addRange(nextRange);
 }
 
+function insertPlainTextAtSelection(text) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 function clearEditor(el) {
   if (!el) return;
   el.innerHTML = "";
@@ -139,6 +176,10 @@ function placeCursorAtEnd(el) {
   selection.addRange(range);
 }
 
+function cleanupImagePreviewList(images = []) {
+  images.forEach((asset) => revokeImageAssetPreview(asset));
+}
+
 export default function CreatePost({ 
   post = null, 
   isOpen = false, 
@@ -148,7 +189,7 @@ export default function CreatePost({
   const { t } = useSiteLanguage();
   const isEditMode = !!post;
   const [content, setContent] = useState("");
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [privacy, setPrivacy] = useState("public");
   const [enrolledBatches, setEnrolledBatches] = useState([]);
   const [localIsOpen, setLocalIsOpen] = useState(false);
@@ -163,6 +204,8 @@ export default function CreatePost({
   const privacyDropdownRef = useRef(null);
   const editorRef = useRef(null);
   const mentionDropdownRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const imagesRef = useRef([]);
 
   const [createPost, { isLoading: isCreating }] = useCreatePostMutation();
   const [updatePost, { isLoading: isUpdating }] = useUpdatePostMutation();
@@ -172,6 +215,8 @@ export default function CreatePost({
   const currentUserId = useSelector(selectCurrentUserId);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
   const userRole = useSelector(selectCurrentUserRole);
+  const token = useSelector(selectToken);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const activeIsOpen = post ? isOpen : (isTriggerVisible ? localIsOpen : isOpen);
   const isStaff = ["admin", "teacher", "moderator"].includes(userRole);
@@ -188,27 +233,40 @@ export default function CreatePost({
     ? (allBatchesData?.data || [])
     : (myEnrollmentsData?.data?.filter(e => e.status === "approved").map(e => e.batch) || []);
 
-  const activeIsLoading = isCreating || isUpdating;
+  const activeIsLoading = isCreating || isUpdating || uploadingImage;
   const { data: searchData, isFetching: isSearchingUsers } = useSearchUsersQuery(mentionQuery, {
     skip: !mentionActive,
   });
-  const mentionSuggestions = (searchData?.data || []).filter(
-    (user) => String(user?._id) !== String(currentUserId)
-  );
+  const mentionSuggestions = [
+    ...(EVERYONE_MENTION_NAME.startsWith(mentionQuery.trim().toLowerCase())
+      ? [{ _id: EVERYONE_MENTION_ID, fullName: EVERYONE_MENTION_NAME, role: "system", isEveryone: true }]
+      : []),
+    ...((searchData?.data || []).filter((user) => String(user?._id) !== String(currentUserId))),
+  ];
   const showMentionDropdown =
     mentionActive && (isSearchingUsers || mentionSuggestions.length > 0 || mentionQuery.trim().length > 0);
 
   useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
     if (post) {
+      cleanupImagePreviewList(imagesRef.current);
       setContent(post.content || "");
       setPrivacy(post.privacy || "public");
       setEnrolledBatches(post.enrolledBatches || []);
-      if (post.images && post.images.length > 0) {
-        setImage(post.images[0]);
-        setShowImageUpload(true);
-      }
+      setImages(post.images || []);
+      setShowImageUpload(Boolean(post.images?.length));
     }
   }, [post, isOpen]);
+
+  useEffect(
+    () => () => {
+      cleanupImagePreviewList(imagesRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!activeIsOpen || !editorRef.current) return;
@@ -289,7 +347,7 @@ export default function CreatePost({
 
   const handleEditorInput = useCallback(() => {
     const editor = editorRef.current;
-    const nextContent = getEditorTextValue(editor);
+    const nextContent = normalizeMentionContent(getEditorTextValue(editor));
     setContent(nextContent);
     setEditorEmpty(!editorHasContent(editor));
     detectMention();
@@ -301,7 +359,7 @@ export default function CreatePost({
       if (!editor) return;
 
       insertMentionChip(editor, mentionStart, user._id, user.fullName);
-      const nextContent = getEditorTextValue(editor);
+      const nextContent = normalizeMentionContent(getEditorTextValue(editor));
       setContent(nextContent);
       setEditorEmpty(!editorHasContent(editor));
       setMentionActive(false);
@@ -340,32 +398,47 @@ export default function CreatePost({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalContent = getEditorTextValue(editorRef.current).trim();
+    const finalContent = normalizeMentionContent(getEditorTextValue(editorRef.current)).trim();
 
-    if (!finalContent && !image) return;
+    if (!finalContent && images.length === 0) return;
     if (privacy === "enrolled_members" && enrolledBatches.length === 0) {
       showError(t("community.composer.selectCourseError", "Please select at least one course to share with."));
       return;
     }
 
+    const uploadedLocalImages = [];
+    const resolvedImages = [];
+    setUploadingImage(true);
+
     try {
+      for (const imageAsset of images) {
+        const resolvedImage = await resolveImageAssetForSubmit(imageAsset, "community-posts", { token });
+        if (resolvedImage?.url) {
+          resolvedImages.push(resolvedImage);
+          if (isLocalImageAsset(imageAsset) && resolvedImage.publicId) {
+            uploadedLocalImages.push(resolvedImage);
+          }
+        }
+      }
+
       if (isEditMode) {
         await updatePost({
           postId: post._id,
           content: finalContent,
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
-          images: image ? [image] : [],
+          images: resolvedImages,
         }).unwrap();
       } else {
         await createPost({
           content: finalContent,
           privacy,
           enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
-          images: image ? [image] : [],
+          images: resolvedImages,
         }).unwrap();
       }
 
+      cleanupImagePreviewList(imagesRef.current);
       showSuccess(
         t(
           isEditMode ? "community.postUpdated" : "community.postCreated",
@@ -374,6 +447,9 @@ export default function CreatePost({
       );
       handleClose();
     } catch (err) {
+      for (const uploadedImage of uploadedLocalImages) {
+        await cleanupUploadedImageAsset(uploadedImage, { token });
+      }
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} post:`, err);
       showError(
         err?.data?.message ||
@@ -382,21 +458,125 @@ export default function CreatePost({
             isEditMode ? "Failed to update post. Please try again." : "Failed to create post. Please try again."
           )
       );
+    } finally {
+      setUploadingImage(false);
     }
   };
 
+  const handleOpenImagePicker = () => {
+    if (activeIsLoading) {
+      return;
+    }
+    imageInputRef.current?.click();
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setImages((prev) => {
+      const target = prev[indexToRemove];
+      revokeImageAssetPreview(target);
+      return prev.filter((_, index) => index !== indexToRemove);
+    });
+  };
+
+  const handleClearAllImages = () => {
+    cleanupImagePreviewList(imagesRef.current);
+    setImages([]);
+    setShowImageUpload(false);
+  };
+
+  const handleSelectImages = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (!files.length) {
+      return;
+    }
+
+    const remainingSlots = MAX_POST_IMAGES - imagesRef.current.length;
+    if (remainingSlots <= 0) {
+      showError(
+        t("community.composer.maxPhotosReached", "You can attach up to {count} photos in one post.", {
+          count: MAX_POST_IMAGES,
+        })
+      );
+      return;
+    }
+
+    const nextFiles = files.slice(0, remainingSlots);
+    const preparedImages = [];
+    let skippedInvalid = false;
+    let skippedResizeFailure = false;
+
+    for (const file of nextFiles) {
+      if (!file.type.startsWith("image/")) {
+        skippedInvalid = true;
+        continue;
+      }
+
+      let finalFile = file;
+      if (file.size > POST_IMAGE_LIMIT) {
+        try {
+          finalFile = await resizeImage(file, POST_IMAGE_LIMIT);
+        } catch (error) {
+          skippedResizeFailure = true;
+          continue;
+        }
+      }
+
+      preparedImages.push({
+        url: URL.createObjectURL(finalFile),
+        publicId: "",
+        file: finalFile,
+        isLocal: true,
+        name: finalFile.name,
+        size: finalFile.size,
+      });
+    }
+
+    if (skippedInvalid) {
+      showError(t("uploadField.errors.invalidImage", "Please choose a valid image file."));
+    }
+
+    if (skippedResizeFailure) {
+      showError(
+        t(
+          "community.composer.photoPrepareFailed",
+          "Some photos could not be prepared. Please try JPG, PNG, or WebP images."
+        )
+      );
+    }
+
+    if (files.length > remainingSlots) {
+      showError(
+        t("community.composer.maxPhotosReached", "You can attach up to {count} photos in one post.", {
+          count: MAX_POST_IMAGES,
+        })
+      );
+    }
+
+    if (!preparedImages.length) {
+      return;
+    }
+
+    setImages((prev) => [...prev, ...preparedImages]);
+    setShowImageUpload(true);
+  };
+
   const handleClose = () => {
+    cleanupImagePreviewList(imagesRef.current);
     setMentionActive(false);
     setMentionQuery("");
     setMentionStart(-1);
     setSelectedIndex(0);
 
     if (post) {
+      setImages(post.images || []);
+      setShowImageUpload(Boolean(post.images?.length));
       onClose();
     } else {
       setLocalIsOpen(false);
       setContent("");
-      setImage(null);
+      setImages([]);
       setPrivacy("public");
       setEnrolledBatches([]);
       setShowImageUpload(false);
@@ -647,11 +827,23 @@ export default function CreatePost({
                     onKeyUp={detectMention}
                     onClick={detectMention}
                     onPaste={(event) => {
-                      event.preventDefault();
                       const pastedText = event.clipboardData.getData("text/plain");
-                      document.execCommand("insertText", false, pastedText);
+                      if (!pastedText) return;
+                      event.preventDefault();
+                      insertPlainTextAtSelection(pastedText);
+                      handleEditorInput();
                     }}
-                    className="min-h-[150px] w-full overflow-y-auto rounded-2xl border border-transparent px-4 py-4 text-[15px] font-normal leading-[1.6] text-slate-950 outline-none transition focus:border-slate-200 focus:bg-slate-50/50"
+                    role="textbox"
+                    aria-multiline="true"
+                    spellCheck
+                    autoCapitalize="sentences"
+                    autoCorrect="on"
+                    className="min-h-[150px] w-full cursor-text select-text overflow-y-auto rounded-2xl border border-transparent px-4 py-4 text-[16px] font-normal leading-[1.6] text-slate-950 outline-none transition focus:border-slate-200 focus:bg-slate-50/50 md:text-[15px]"
+                    style={{
+                      WebkitUserSelect: "text",
+                      userSelect: "text",
+                      WebkitTouchCallout: "default",
+                    }}
                   />
                   {editorEmpty ? (
                     <p className="pointer-events-none absolute left-4 top-4 text-[15px] text-slate-400">
@@ -684,14 +876,28 @@ export default function CreatePost({
                                   index === selectedIndex ? "bg-slate-50" : "hover:bg-slate-50"
                                 }`}
                               >
-                                <Avatar
-                                  src={user.profilePhoto?.url}
-                                  name={user.fullName}
-                                  className="h-9 w-9 rounded-full shrink-0"
-                                />
+                                {user.isEveryone ? (
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5V18a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.276-.356-1.848M7 20H2V18a4 4 0 015-3.87M7 20v-2c0-.653.126-1.276.356-1.848m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM5 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                  </div>
+                                ) : (
+                                  <Avatar
+                                    src={user.profilePhoto?.url}
+                                    name={user.fullName}
+                                    className="h-9 w-9 rounded-full shrink-0"
+                                  />
+                                )}
                                 <div className="min-w-0">
-                                  <p className="truncate text-[13px] font-semibold text-slate-900">{user.fullName}</p>
-                                  <p className="truncate text-[11px] capitalize text-slate-500">{t(`roles.${user.role}`, user.role)}</p>
+                                  <p className="truncate text-[13px] font-semibold text-slate-900">
+                                    {user.isEveryone ? "@everyone" : user.fullName}
+                                  </p>
+                                  <p className="truncate text-[11px] capitalize text-slate-500">
+                                    {user.isEveryone
+                                      ? t("community.everyoneDescription", "Notify all eligible members")
+                                      : t(`roles.${user.role}`, user.role)}
+                                  </p>
                                 </div>
                               </button>
                             </li>
@@ -707,28 +913,119 @@ export default function CreatePost({
                 </div>
 
                 <p className="mt-2 px-4 text-[11px] font-medium text-slate-400">
-                  {t("community.composer.mentionHint", "Type")} <span className="font-bold text-[#0866FF]">@</span> {t("community.composer.mentionHintSuffix", "to mention someone in your post.")}
+                  {t("community.composer.mentionHint", "Type")} <span className="font-bold text-[#0866FF]">@</span> {t("community.composer.mentionHintSuffix", "to mention someone or everyone in your post.")}
                 </p>
                 
                 {showImageUpload && (
-                  <div className="mt-5 relative rounded-2xl border-2 border-dashed border-slate-200 p-2 group transition-all hover:border-emerald-200">
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setShowImageUpload(false);
-                        setImage(null);
-                      }}
-                      className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md text-slate-500 hover:text-slate-900"
-                    >
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    <ImageUploadField
-                      asset={image}
-                      onChange={setImage}
-                      folder="community-posts"
+                  <div className="mt-5 rounded-2xl border-2 border-dashed border-slate-200 p-3 transition-all hover:border-emerald-200">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleSelectImages}
                     />
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-800">
+                          {t("community.composer.addPhotosTitle", "Add photos to your post")}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {t("community.composer.photoCountHint", "{count} of {max} selected. Photos upload only when you post.", {
+                            count: images.length,
+                            max: MAX_POST_IMAGES,
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {images.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={handleClearAllImages}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
+                          >
+                            {t("community.composer.clearPhotos", "Clear All")}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowImageUpload(false)}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
+                          >
+                            {t("community.composer.closePhotos", "Close")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleOpenImagePicker}
+                          disabled={images.length >= MAX_POST_IMAGES}
+                          className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {images.length > 0
+                            ? t("community.composer.addMorePhotos", "Add More")
+                            : t("community.composer.choosePhotos", "Choose Photos")}
+                        </button>
+                      </div>
+                    </div>
+
+                    {images.length > 0 ? (
+                      <div
+                        className={`mt-3 grid gap-2 ${
+                          images.length === 1
+                            ? "grid-cols-1"
+                            : images.length === 2
+                            ? "grid-cols-2"
+                            : "grid-cols-2 md:grid-cols-3"
+                        }`}
+                      >
+                        {images.map((imageAsset, index) => (
+                          <div
+                            key={`${imageAsset.publicId || imageAsset.url || "image"}-${index}`}
+                            className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"
+                          >
+                            <img
+                              src={imageAsset.url}
+                              alt={t("community.postImageAlt", "Post image {number}", { number: index + 1 })}
+                              className="h-full w-full object-cover"
+                              style={{ aspectRatio: images.length === 1 ? "16 / 10" : "1 / 1" }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index)}
+                              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/70"
+                              aria-label={t("community.composer.removePhoto", "Remove photo")}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            <div className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
+                              {index + 1}/{images.length}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleOpenImagePicker}
+                        className="mt-3 flex w-full flex-col items-center justify-center rounded-2xl bg-slate-50 px-4 py-10 text-center transition hover:bg-slate-100"
+                      >
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <p className="mt-3 text-[13px] font-bold text-slate-800">
+                          {t("community.composer.pickPhotosPrompt", "Choose one or more photos")}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {t("community.composer.pickPhotosHint", "You can attach up to 10 photos in one post.")}
+                        </p>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -737,7 +1034,14 @@ export default function CreatePost({
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      onClick={() => setShowImageUpload(true)}
+                      onClick={() => {
+                        if (showImageUpload || images.length > 0) {
+                          handleOpenImagePicker();
+                          return;
+                        }
+
+                        setShowImageUpload(true);
+                      }}
                       className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
                         showImageUpload ? "bg-emerald-50 text-emerald-600" : "hover:bg-slate-50 text-emerald-500"
                       }`}
@@ -751,7 +1055,7 @@ export default function CreatePost({
 
                 <button
                   type="submit"
-                  disabled={activeIsLoading || (editorEmpty && !image)}
+                  disabled={activeIsLoading || (editorEmpty && images.length === 0)}
                   className="site-button-primary mt-5 w-full !py-3 !text-[13px] font-bold disabled:!opacity-50"
                 >
                   {activeIsLoading ? (

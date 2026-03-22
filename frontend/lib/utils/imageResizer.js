@@ -10,18 +10,24 @@ export async function resizeImage(file, maxSizeBytes) {
     return file;
   }
 
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return file;
+  }
+
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    const cleanup = () => {
+      URL.revokeObjectURL(imageUrl);
+    };
+
+    img.onload = () => {
+      try {
         const canvas = document.createElement("canvas");
         let width = img.width;
         let height = img.height;
 
-        // Initial scale down if very large (prevent memory issues)
         const maxInitialDimension = 2500;
         if (width > maxInitialDimension || height > maxInitialDimension) {
           const ratio = Math.min(maxInitialDimension / width, maxInitialDimension / height);
@@ -33,34 +39,39 @@ export async function resizeImage(file, maxSizeBytes) {
         let scale = 1.0;
 
         const attemptResize = () => {
-          canvas.width = width * scale;
-          canvas.height = height * scale;
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+
           const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            cleanup();
+            reject(new Error("Failed to create image canvas."));
+            return;
+          }
+
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
           canvas.toBlob(
             (blob) => {
               if (!blob) {
+                cleanup();
                 reject(new Error("Failed to create image blob."));
                 return;
               }
 
               if (blob.size <= maxSizeBytes || (quality <= 0.5 && scale <= 0.3)) {
-                // If it's still bigger but we've reached our limits, just return what we have
-                // with a filename to make it a File object if possible
+                cleanup();
                 const resizedFile = new File([blob], file.name, {
                   type: "image/jpeg",
                   lastModified: Date.now(),
                 });
                 resolve(resizedFile);
               } else {
-                // Reduce quality first
                 if (quality > 0.5) {
                   quality -= 0.1;
                 } else {
-                  // Then reduce scale
                   scale -= 0.1;
-                  quality = 0.8; // reset quality slightly for smaller dimensions
+                  quality = 0.8;
                 }
                 attemptResize();
               }
@@ -71,9 +82,17 @@ export async function resizeImage(file, maxSizeBytes) {
         };
 
         attemptResize();
-      };
-      img.onerror = () => reject(new Error("Failed to load image for resizing."));
+      } catch (error) {
+        cleanup();
+        reject(error instanceof Error ? error : new Error("Failed to resize image."));
+      }
     };
-    reader.onerror = () => reject(new Error("Failed to read file for resizing."));
+
+    img.onerror = () => {
+      cleanup();
+      reject(new Error("Failed to load image for resizing."));
+    };
+
+    img.src = imageUrl;
   });
 }

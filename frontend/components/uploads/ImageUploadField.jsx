@@ -42,6 +42,7 @@ export default function ImageUploadField({
   asset = null,
   onChange,
   folder = "hsc-courses",
+  mode = "immediate",
   previewAlt = "",
   className = "",
   previewClassName = "",
@@ -58,6 +59,7 @@ export default function ImageUploadField({
   const { t } = useSiteLanguage();
   const resolvedLabel = label || t("uploadField.label");
   const resolvedPreviewAlt = previewAlt || t("uploadField.previewAlt");
+  const isLocalMode = mode === "local";
 
   const isConfigured = isCloudinaryUploadConfigured(token);
   const pixelHint = recommendedPixels || defaultPixelHint(folder, resolvedLabel, t);
@@ -100,13 +102,30 @@ export default function ImageUploadField({
 
       setUploadStage(t("uploadField.stage.preparing"));
 
-      const uploaded = await uploadImageToCloudinary(finalFile, folder, {
-        onProgress: (value) => setProgress(Math.max(15, value)),
-        onStage: (value) => setUploadStage(value),
-        token,
-      });
-      onChange?.(uploaded);
-      showSuccess(t("uploadField.messages.uploaded"));
+      if (isLocalMode) {
+        const previousPreviewUrl = String(asset?.url || "");
+        if (asset?.isLocal && previousPreviewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previousPreviewUrl);
+        }
+
+        const previewUrl = URL.createObjectURL(finalFile);
+        onChange?.({
+          url: previewUrl,
+          publicId: "",
+          file: finalFile,
+          isLocal: true,
+          name: finalFile.name,
+          size: finalFile.size,
+        });
+      } else {
+        const uploaded = await uploadImageToCloudinary(finalFile, folder, {
+          onProgress: (value) => setProgress(Math.max(15, value)),
+          onStage: (value) => setUploadStage(value),
+          token,
+        });
+        onChange?.(uploaded);
+        showSuccess(t("uploadField.messages.uploaded"));
+      }
     } catch (uploadError) {
       const resolvedError = uploadError?.message || t("uploadField.errors.uploadFailed");
       setError(resolvedError);
@@ -119,6 +138,16 @@ export default function ImageUploadField({
 
   const handleRemove = async () => {
     if (!asset?.url) {
+      return;
+    }
+
+    if (isLocalMode) {
+      const previewUrl = String(asset?.url || "");
+      if (asset?.isLocal && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      onChange?.(null);
+      showSuccess(t("uploadField.messages.removed"));
       return;
     }
 

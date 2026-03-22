@@ -16,10 +16,17 @@ import {
   useListBatchesQuery,
   useUpdateBatchMutation,
 } from "@/lib/features/batch/batchApi";
+import { selectToken } from "@/lib/features/auth/authSlice";
 import { useGetMyEnrollmentRequestsQuery } from "@/lib/features/enrollment/enrollmentApi";
 import { selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
 const initialCourseForm = {
@@ -29,8 +36,7 @@ const initialCourseForm = {
   facebookGroupUrl: "",
   monthlyFee: "",
   status: "active",
-  bannerUrl: "",
-  bannerPublicId: "",
+  bannerAsset: null,
 };
 
 function toSlug(value) {
@@ -49,8 +55,13 @@ function mapCourseToForm(course) {
     facebookGroupUrl: course?.facebookGroupUrl || "",
     monthlyFee: String(course?.monthlyFee ?? ""),
     status: course?.status || "active",
-    bannerUrl: course?.banner?.url || course?.thumbnail?.url || "",
-    bannerPublicId: course?.banner?.publicId || course?.thumbnail?.publicId || "",
+    bannerAsset:
+      course?.banner?.url || course?.thumbnail?.url
+        ? {
+            url: course?.banner?.url || course?.thumbnail?.url || "",
+            publicId: course?.banner?.publicId || course?.thumbnail?.publicId || "",
+          }
+        : null,
   };
 }
 
@@ -62,10 +73,10 @@ function toCoursePayload(form) {
     facebookGroupUrl: form.facebookGroupUrl.trim(),
     monthlyFee: Number(form.monthlyFee),
     status: form.status,
-    banner: form.bannerUrl.trim()
+    banner: form.bannerAsset?.url
       ? {
-          url: form.bannerUrl.trim(),
-          publicId: form.bannerPublicId.trim(),
+          url: String(form.bannerAsset.url || "").trim(),
+          publicId: String(form.bannerAsset.publicId || "").trim(),
         }
       : null,
   };
@@ -74,6 +85,7 @@ function toCoursePayload(form) {
 export default function CoursesPage() {
   const { t } = useSiteLanguage();
   const role = useSelector(selectCurrentUserRole);
+  const token = useSelector(selectToken);
   const adminRole = role === "admin";
   const teacherRole = role === "teacher";
   const studentRole = isStudent(role);
@@ -93,6 +105,8 @@ export default function CoursesPage() {
   const [editForm, setEditForm] = useState(initialCourseForm);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [portalMounted, setPortalMounted] = useState(false);
+  const [creatingWithImage, setCreatingWithImage] = useState(false);
+  const [updatingWithImage, setUpdatingWithImage] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -118,7 +132,16 @@ export default function CoursesPage() {
     setPortalMounted(true);
   }, []);
 
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(createForm.bannerAsset);
+      revokeImageAssetPreview(editForm.bannerAsset);
+    },
+    [createForm.bannerAsset, editForm.bannerAsset]
+  );
+
   const openEditForm = (course) => {
+    revokeImageAssetPreview(editForm.bannerAsset);
     setEditCourseId(course._id);
     setEditForm(mapCourseToForm(course));
     setMessage("");
@@ -126,9 +149,10 @@ export default function CoursesPage() {
   };
 
   const closeEditForm = () => {
-    if (updatingCourse || deletingCourse) {
+    if (updatingCourse || updatingWithImage || deletingCourse) {
       return;
     }
+    revokeImageAssetPreview(editForm.bannerAsset);
     setEditCourseId(null);
     setEditForm(initialCourseForm);
   };
@@ -140,9 +164,11 @@ export default function CoursesPage() {
   };
 
   const closeCreateModal = () => {
-    if (creatingCourse) {
+    if (creatingCourse || creatingWithImage) {
       return;
     }
+    revokeImageAssetPreview(createForm.bannerAsset);
+    setCreateForm(initialCourseForm);
     setShowCreateModal(false);
   };
 
@@ -167,7 +193,7 @@ export default function CoursesPage() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [showCreateModal, showEditModal, creatingCourse, updatingCourse, deletingCourse]);
+  }, [showCreateModal, showEditModal, creatingCourse, creatingWithImage, updatingCourse, updatingWithImage, deletingCourse]);
 
   useEffect(() => {
     if (!showCreateModal && !showEditModal) {
@@ -185,23 +211,42 @@ export default function CoursesPage() {
     setMessage("");
     setError("");
 
-    if (!createForm.bannerUrl.trim()) {
+    if (!createForm.bannerAsset?.url) {
       const validationMessage = t("batchesPage.messages.uploadBannerReq", "Upload a course banner before creating the course.");
       setError(validationMessage);
       showError(validationMessage);
       return;
     }
 
+    const hadLocalBannerAsset = isLocalImageAsset(createForm.bannerAsset);
+    let uploadedBannerAsset = null;
+    setCreatingWithImage(true);
+
     try {
-      await createCourse(toCoursePayload(createForm)).unwrap();
+      uploadedBannerAsset = await resolveImageAssetForSubmit(createForm.bannerAsset, "hsc-academic/courses", {
+        token,
+      });
+
+      await createCourse(
+        toCoursePayload({
+          ...createForm,
+          bannerAsset: uploadedBannerAsset || createForm.bannerAsset,
+        })
+      ).unwrap();
+      revokeImageAssetPreview(createForm.bannerAsset);
       setMessage(t("batchesPage.messages.createSuccess", "Course created successfully."));
       showSuccess(t("batchesPage.messages.createSuccess", "Course created successfully."));
       setCreateForm(initialCourseForm);
       setShowCreateModal(false);
     } catch (createError) {
+      if (hadLocalBannerAsset && uploadedBannerAsset?.publicId) {
+        await cleanupUploadedImageAsset(uploadedBannerAsset, { token });
+      }
       const resolvedError = createError?.data?.message || t("batchesPage.messages.createFail", "Failed to create course.");
       setError(resolvedError);
       showError(resolvedError);
+    } finally {
+      setCreatingWithImage(false);
     }
   };
 
@@ -214,18 +259,38 @@ export default function CoursesPage() {
     setMessage("");
     setError("");
 
+    const hadLocalBannerAsset = isLocalImageAsset(editForm.bannerAsset);
+    let uploadedBannerAsset = null;
+    setUpdatingWithImage(true);
+
     try {
+      if (editForm.bannerAsset?.url) {
+        uploadedBannerAsset = await resolveImageAssetForSubmit(editForm.bannerAsset, "hsc-academic/courses", {
+          token,
+        });
+      }
+
       await updateCourse({
         batchId: editCourseId,
-        ...toCoursePayload(editForm),
+        ...toCoursePayload({
+          ...editForm,
+          bannerAsset:
+            uploadedBannerAsset || editForm.bannerAsset,
+        }),
       }).unwrap();
+      revokeImageAssetPreview(editForm.bannerAsset);
       setMessage(t("batchesPage.messages.updateSuccess", "Course updated successfully."));
       showSuccess(t("batchesPage.messages.updateSuccess", "Course updated successfully."));
       closeEditForm();
     } catch (updateError) {
+      if (hadLocalBannerAsset && uploadedBannerAsset?.publicId) {
+        await cleanupUploadedImageAsset(uploadedBannerAsset, { token });
+      }
       const resolvedError = updateError?.data?.message || t("batchesPage.messages.updateFail", "Failed to update course.");
       setError(resolvedError);
       showError(resolvedError);
+    } finally {
+      setUpdatingWithImage(false);
     }
   };
 
@@ -414,16 +479,12 @@ export default function CoursesPage() {
                         <ImageUploadField
                           label={t("batchesPage.form.visualBanner", "Visual Banner")}
                           folder="hsc-academic/courses"
-                          asset={
-                            createForm.bannerUrl
-                              ? { url: createForm.bannerUrl, publicId: createForm.bannerPublicId }
-                              : null
-                          }
+                          mode="local"
+                          asset={createForm.bannerAsset}
                           onChange={(asset) => {
                             setCreateForm((prev) => ({
                               ...prev,
-                              bannerUrl: asset?.url || "",
-                              bannerPublicId: asset?.publicId || "",
+                              bannerAsset: asset?.url ? asset : null,
                             }));
                             setError("");
                           }}
@@ -434,10 +495,10 @@ export default function CoursesPage() {
                     <div className="flex border-t border-slate-100 pt-6">
                       <button
                         type="submit"
-                        disabled={creatingCourse}
+                        disabled={creatingCourse || creatingWithImage}
                         className="site-button-primary w-full py-2.5 text-xs disabled:opacity-50 disabled:hover:translate-y-0"
                       >
-                        {creatingCourse ? t("batchesPage.actions.creating", "Creating Course...") : t("batchesPage.actions.createCourseBtn", "Create Course")}
+                        {creatingCourse || creatingWithImage ? t("batchesPage.actions.creating", "Creating Course...") : t("batchesPage.actions.createCourseBtn", "Create Course")}
                       </button>
                     </div>
                 </form>
@@ -472,7 +533,7 @@ export default function CoursesPage() {
                     type="button"
                     onClick={closeEditForm}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
-                    disabled={updatingCourse || deletingCourse}
+                    disabled={updatingCourse || updatingWithImage || deletingCourse}
                     aria-label="Close popup"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -561,16 +622,12 @@ export default function CoursesPage() {
                         <ImageUploadField
                           label={t("batchesPage.form.courseCover", "Course Cover Image")}
                           folder="hsc-academic/courses"
-                          asset={
-                            editForm.bannerUrl
-                              ? { url: editForm.bannerUrl, publicId: editForm.bannerPublicId }
-                              : null
-                          }
+                          mode="local"
+                          asset={editForm.bannerAsset}
                           onChange={(asset) => {
                             setEditForm((prev) => ({
                               ...prev,
-                              bannerUrl: asset?.url || "",
-                              bannerPublicId: asset?.publicId || "",
+                              bannerAsset: asset?.url ? asset : null,
                             }));
                             setError("");
                           }}
@@ -581,15 +638,15 @@ export default function CoursesPage() {
                     <div className="flex flex-wrap items-center gap-4 border-t border-slate-100 pt-6">
                       <button
                         type="submit"
-                        disabled={updatingCourse || deletingCourse}
+                        disabled={updatingCourse || updatingWithImage || deletingCourse}
                         className="site-button-primary disabled:opacity-50 disabled:hover:translate-y-0"
                       >
-                        {updatingCourse ? t("batchesPage.actions.updating", "Updating...") : t("batchesPage.actions.saveAll", "Save All Changes")}
+                        {updatingCourse || updatingWithImage ? t("batchesPage.actions.updating", "Updating...") : t("batchesPage.actions.saveAll", "Save All Changes")}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteCourse(selectedEditCourse)}
-                        disabled={deletingCourse || updatingCourse}
+                        disabled={deletingCourse || updatingCourse || updatingWithImage}
                         className="site-button-secondary disabled:opacity-50"
                       >
                         {deletingCourse ? t("batchesPage.actions.deleting", "Deleting...") : t("batchesPage.actions.deletePerm", "Delete Permanently")}

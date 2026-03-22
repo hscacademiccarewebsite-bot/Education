@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Avatar from "@/components/Avatar";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
+import { selectToken } from "@/lib/features/auth/authSlice";
 import {
   useGetCommentsQuery,
   useAddCommentMutation,
@@ -12,7 +13,23 @@ import { useSelector } from "react-redux";
 import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl } from "@/lib/features/user/userSlice";
 import CommentItem from "./CommentItem";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
+import {
+  cleanupUploadedImageAsset,
+  isLocalImageAsset,
+  resolveImageAssetForSubmit,
+  revokeImageAssetPreview,
+} from "@/lib/utils/cloudinaryUpload";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+
+const EVERYONE_MENTION_ID = "everyone";
+const EVERYONE_MENTION_NAME = "everyone";
+
+function normalizeMentionContent(value) {
+  return String(value || "").replace(
+    /(^|[\s\u00A0])@everyone\b/gi,
+    (_, prefix) => `${prefix}@[${EVERYONE_MENTION_ID}](${EVERYONE_MENTION_NAME})`
+  );
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -36,7 +53,7 @@ function getEditorTextValue(el) {
       }
     }
   });
-  return result;
+  return normalizeMentionContent(result);
 }
 
 /** Returns true when the editor has any visible content */
@@ -100,6 +117,22 @@ function insertMentionChip(editor, mentionStart, mentionLength, userId, userName
   sel.addRange(newRange);
 }
 
+function insertPlainTextAtSelection(text) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 /** Clear all content from the editor div */
 function clearEditor(el) {
   if (!el) return;
@@ -117,6 +150,7 @@ export default function CommentSection({ postId }) {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [editorEmpty, setEditorEmpty] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Mention state
   // mentionActive = true  → we are in @mention mode (even with empty query)
@@ -129,9 +163,19 @@ export default function CommentSection({ postId }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   // Always query – even for empty string – so bare "@" shows all users
-  const { data: searchData, isFetching: isSearching } = useSearchUsersQuery(debouncedQuery);
-  const suggestions = searchData?.data ?? [];
-  const showDropdown = mentionActive && suggestions.length > 0;
+  const { data: searchData, isFetching: isSearching } = useSearchUsersQuery(debouncedQuery, {
+    skip: !mentionActive,
+  });
+  const suggestions = useMemo(
+    () => [
+      ...(EVERYONE_MENTION_NAME.startsWith(mentionQuery.trim().toLowerCase())
+        ? [{ _id: EVERYONE_MENTION_ID, fullName: EVERYONE_MENTION_NAME, role: "system", isEveryone: true }]
+        : []),
+      ...(searchData?.data ?? []),
+    ],
+    [mentionQuery, searchData]
+  );
+  const showDropdown = mentionActive && (isSearching || suggestions.length > 0);
 
   // Instant debounce – update debouncedQuery with no delay
   useEffect(() => {
@@ -143,6 +187,7 @@ export default function CommentSection({ postId }) {
 
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
+  const token = useSelector(selectToken);
   const { showSuccess } = useActionPopup();
 
   // ── Mention detection ────────────────────────────────────────────────────
@@ -242,25 +287,50 @@ export default function CommentSection({ postId }) {
     e?.preventDefault();
     const editor = editorRef.current;
     const textValue = getEditorTextValue(editor);
-    if ((!textValue.trim() && !image) || isSubmitting) return;
+    if ((!textValue.trim() && !image) || isSubmitting || uploadingImage) return;
+
+    const hadLocalImage = isLocalImageAsset(image);
+    let uploadedImage = null;
+    setUploadingImage(true);
 
     try {
+      if (image?.url) {
+        uploadedImage = await resolveImageAssetForSubmit(image, "community-comments", { token });
+      }
+
       await addComment({
         postId,
         content: textValue,
         parentId: replyingTo?._id,
-        images: image ? [image] : [],
+        images:
+          uploadedImage || image
+            ? [
+                uploadedImage || {
+                  url: image?.url || "",
+                  publicId: image?.publicId || "",
+                },
+              ]
+            : [],
       }).unwrap();
+      if (hadLocalImage) {
+        revokeImageAssetPreview(image);
+      }
       showSuccess(t("community.commentAdded"));
       handleReset();
     } catch (err) {
+      if (hadLocalImage && uploadedImage?.publicId) {
+        await cleanupUploadedImageAsset(uploadedImage, { token });
+      }
       console.error("Failed to add comment:", err);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
   const handleReset = () => {
     clearEditor(editorRef.current);
     setEditorEmpty(true);
+    revokeImageAssetPreview(image);
     setImage(null);
     setShowImageUpload(false);
     setReplyingTo(null);
@@ -268,6 +338,13 @@ export default function CommentSection({ postId }) {
     setMentionQuery("");
     setMentionStart(-1);
   };
+
+  useEffect(
+    () => () => {
+      revokeImageAssetPreview(image);
+    },
+    [image]
+  );
 
   // ── Reply click (from CommentItem) ───────────────────────────────────────
   const handleReplyClick = (comment) => {
@@ -327,9 +404,11 @@ export default function CommentSection({ postId }) {
 
   // ── Paste handler: strip formatting ──────────────────────────────────────
   const handlePaste = (e) => {
-    e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    if (!text) return;
+    e.preventDefault();
+    insertPlainTextAtSelection(text);
+    handleInput();
   };
 
   // Close dropdown when clicking outside
@@ -337,7 +416,9 @@ export default function CommentSection({ postId }) {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
           editorRef.current && !editorRef.current.contains(e.target)) {
+        setMentionActive(false);
         setMentionQuery("");
+        setMentionStart(-1);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -423,9 +504,19 @@ export default function CommentSection({ postId }) {
               onClick={detectMention}
               onBlur={handleEditorBlur}
               onPaste={handlePaste}
-              className="min-h-[36px] max-h-[160px] overflow-y-auto w-full rounded-full bg-[#F0F2F5] px-4 py-[8px] text-[15px] text-[#050505] leading-snug outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-[#8A8D91] empty:before:pointer-events-none break-words custom-scrollbar"
+              role="textbox"
+              aria-multiline="true"
+              spellCheck
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              className="min-h-[36px] max-h-[160px] w-full cursor-text select-text overflow-y-auto rounded-full bg-[#F0F2F5] px-4 py-[8px] text-[16px] text-[#050505] leading-snug outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-[#8A8D91] empty:before:pointer-events-none break-words custom-scrollbar md:text-[15px]"
               data-placeholder={replyingTo ? t("community.replyPlaceholder", { name: replyingTo.author?.fullName }) : t("community.writeComment")}
-              style={{ wordBreak: "break-word" }}
+              style={{
+                wordBreak: "break-word",
+                WebkitUserSelect: "text",
+                userSelect: "text",
+                WebkitTouchCallout: "default",
+              }}
             />
 
             {/* Send button — only when content exists (text or image) */}
@@ -433,10 +524,10 @@ export default function CommentSection({ postId }) {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || uploadingImage}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#0866FF] hover:bg-[#0866FF]/10 rounded-full transition-all disabled:opacity-40"
               >
-                {isSubmitting ? (
+                {isSubmitting || uploadingImage ? (
                   <div className="h-4 w-4 border-2 border-[#0866FF] border-t-transparent animate-spin rounded-full" />
                 ) : (
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
@@ -473,17 +564,27 @@ export default function CommentSection({ postId }) {
                           idx === selectedIndex ? "bg-[#F0F2F5]" : "hover:bg-[#F0F2F5]"
                         }`}
                       >
-                        <Avatar
-                          src={user.profilePhoto?.url}
-                          name={user.fullName}
-                          className="h-9 w-9 rounded-full shrink-0"
-                        />
+                        {user.isEveryone ? (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                            <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5V18a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.276-.356-1.848M7 20H2V18a4 4 0 015-3.87M7 20v-2c0-.653.126-1.276.356-1.848m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM5 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <Avatar
+                            src={user.profilePhoto?.url}
+                            name={user.fullName}
+                            className="h-9 w-9 rounded-full shrink-0"
+                          />
+                        )}
                         <div className="flex flex-col min-w-0">
                           <span className="text-[14px] font-semibold text-[#050505] truncate leading-tight">
-                            {user.fullName}
+                            {user.isEveryone ? "@everyone" : user.fullName}
                           </span>
                           <span className="text-[12px] text-[#65676B] truncate capitalize">
-                            {t(`roles.${user.role}`, user.role)}
+                            {user.isEveryone
+                              ? t("community.everyoneDescription", "Notify all eligible members")
+                              : t(`roles.${user.role}`, user.role)}
                           </span>
                         </div>
                       </button>
@@ -523,6 +624,7 @@ export default function CommentSection({ postId }) {
                 asset={image}
                 onChange={setImage}
                 folder="community-comments"
+                mode="local"
               />
             </div>
           )}

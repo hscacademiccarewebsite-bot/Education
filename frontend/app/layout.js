@@ -10,8 +10,11 @@ import {
   buildWebsiteSchema,
 } from "@/src/shared/seo/structuredData";
 import {
+  buildLocalSeoDescription,
   buildSeoMetadata,
   getMetadataBase,
+  LOCAL_POSITIONING,
+  PRIMARY_CITY,
   SITE_NAME,
   SITE_SHORT_NAME,
 } from "@/src/shared/seo/site";
@@ -40,23 +43,29 @@ export async function generateMetadata() {
   const siteSettings = await getPublicSiteSettingsData();
   const general = siteSettings?.general || {};
   const contact = siteSettings?.contact || {};
-  const description =
+  const description = buildLocalSeoDescription(
     general.siteTagline ||
-    "Structured HSC and admission preparation with guided learning, transparent enrollments, and dependable academic support.";
+      `${SITE_NAME} is the best coaching center for HSC students in ${PRIMARY_CITY}, offering Science preparation, board exam discipline, and admission support.`
+  );
 
   return {
     metadataBase: getMetadataBase(),
     ...buildSeoMetadata({
+      title: LOCAL_POSITIONING,
       description,
       path: "/",
       keywords: [
+        "best HSC coaching center in Rangamati",
+        "best coaching center in Rangamati",
+        "HSC Science coaching Rangamati",
+        "Rangamati admission coaching",
         "HSC admission platform",
         "academic learning ecosystem",
         "Bangladesh education platform",
       ],
     }),
     title: {
-      default: SITE_NAME,
+      default: `${LOCAL_POSITIONING} | ${SITE_NAME}`,
       template: `%s | ${SITE_NAME}`,
     },
     applicationName: SITE_NAME,
@@ -84,7 +93,7 @@ export async function generateMetadata() {
       canonical: "/",
     },
     openGraph: {
-      title: SITE_NAME,
+      title: LOCAL_POSITIONING,
       description,
       url: "/",
       siteName: SITE_NAME,
@@ -101,7 +110,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: "summary_large_image",
-      title: SITE_NAME,
+      title: LOCAL_POSITIONING,
       description,
       images: ["/twitter-image"],
     },
@@ -117,9 +126,10 @@ export default async function RootLayout({ children }) {
   const siteSettings = await getPublicSiteSettingsData();
   const general = siteSettings?.general || {};
   const contact = siteSettings?.contact || {};
-  const description =
+  const description = buildLocalSeoDescription(
     general.siteTagline ||
-    "Structured HSC and admission preparation with guided learning, transparent enrollments, and dependable academic support.";
+      `${SITE_NAME} is the best coaching center for HSC students in ${PRIMARY_CITY}, offering Science preparation, board exam discipline, and admission support.`
+  );
   const schema = [
     buildOrganizationSchema({ general, contact }),
     buildWebsiteSchema({ description }),
