@@ -5,6 +5,8 @@ const User = require("../model/userSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const { deleteCloudinaryAssetByPublicId } = require("../utils/cloudinaryAsset");
 
+const EVERYONE_MENTION_ID = "everyone";
+
 // Helper to get batch IDs a student is approved for
 async function getStudentBatchIds(studentId) {
   const userEnrollments = await EnrollmentRequest.find({
@@ -14,32 +16,106 @@ async function getStudentBatchIds(studentId) {
   return userEnrollments.map((e) => String(e.batch));
 }
 
-function extractMentionIds(content, currentUserId) {
-  const mentionRegex = /@\[([a-f\d]{24})\]\(([^)]+)\)/g;
+function extractMentionMeta(content, currentUserId) {
+  const mentionRegex = /@\[(everyone|[a-f\d]{24})\]\(([^)]+)\)/g;
   const mentionIds = new Set();
+  let hasEveryoneMention = /(^|[\s\u00A0])@everyone\b/i.test(String(content || ""));
   let match;
 
   while ((match = mentionRegex.exec(String(content || ""))) !== null) {
-    const mentionedUserId = match[1];
+    const mentionedUserId = String(match[1] || "");
+    if (mentionedUserId === EVERYONE_MENTION_ID) {
+      hasEveryoneMention = true;
+      continue;
+    }
+
     if (String(mentionedUserId) !== String(currentUserId)) {
-      mentionIds.add(String(mentionedUserId));
+      mentionIds.add(mentionedUserId);
     }
   }
 
-  return [...mentionIds];
+  return {
+    mentionedUserIds: [...mentionIds],
+    hasEveryoneMention,
+  };
 }
 
-async function createPostMentionNotifications({ mentionedUserIds, actor, postId }) {
-  if (!mentionedUserIds.length) return;
+async function getAudienceUserIdsForPost(post, currentUserId) {
+  const audienceIds = new Set();
+
+  if (!post) return audienceIds;
+
+  if (post.privacy === "enrolled_members" && Array.isArray(post.enrolledBatches) && post.enrolledBatches.length > 0) {
+    const [staffIds, studentIds] = await Promise.all([
+      User.distinct("_id", { isActive: true, role: { $ne: "student" } }),
+      EnrollmentRequest.distinct("student", {
+        status: "approved",
+        batch: { $in: post.enrolledBatches },
+      }),
+    ]);
+
+    staffIds.forEach((id) => audienceIds.add(String(id)));
+    studentIds.forEach((id) => audienceIds.add(String(id)));
+    audienceIds.add(String(post.author));
+  } else {
+    const activeUserIds = await User.distinct("_id", { isActive: true });
+    activeUserIds.forEach((id) => audienceIds.add(String(id)));
+  }
+
+  audienceIds.delete(String(currentUserId));
+  return audienceIds;
+}
+
+async function resolveMentionRecipientIds({ mentionedUserIds = [], hasEveryoneMention = false, currentUserId, post }) {
+  const uniqueMentionIds = [...new Set((mentionedUserIds || []).map((id) => String(id)).filter(Boolean))];
+
+  if (!post) {
+    return uniqueMentionIds.filter((id) => String(id) !== String(currentUserId));
+  }
+
+  if (post.privacy === "enrolled_members" || hasEveryoneMention) {
+    const allowedAudienceIds = await getAudienceUserIdsForPost(post, currentUserId);
+    const recipientIds = new Set();
+
+    uniqueMentionIds.forEach((id) => {
+      if (allowedAudienceIds.has(String(id))) {
+        recipientIds.add(String(id));
+      }
+    });
+
+    if (hasEveryoneMention) {
+      allowedAudienceIds.forEach((id) => recipientIds.add(String(id)));
+    }
+
+    return [...recipientIds];
+  }
+
+  return uniqueMentionIds.filter((id) => String(id) !== String(currentUserId));
+}
+
+async function createMentionNotifications({
+  recipientIds,
+  actor,
+  postId,
+  commentId = null,
+  source = "post",
+  everyoneMentioned = false,
+}) {
+  if (!recipientIds.length) return;
+
+  const link = commentId ? `/community/posts/${postId}?commentId=${commentId}` : `/community/posts/${postId}`;
+  const message = everyoneMentioned
+    ? `${actor.fullName} mentioned everyone in a ${source}.`
+    : `${actor.fullName} mentioned you in a ${source}.`;
 
   await Notification.insertMany(
-    mentionedUserIds.map((recipientId) => ({
+    recipientIds.map((recipientId) => ({
       recipient: recipientId,
       title: "New Mention",
-      message: `${actor.fullName} mentioned you in a post.`,
+      message,
       type: "new_mention",
-      link: `/community/posts/${postId}`,
-      metadata: { postId },
+      link,
+      metadata: commentId ? { postId, commentId } : { postId },
     }))
   );
 }
@@ -49,7 +125,9 @@ class CommunityController {
   static async createPost(req, res) {
     try {
       const { content, images, privacy, enrolledBatches } = req.body;
-      const mentionedUserIds = extractMentionIds(content, req.user._id);
+      const normalizedPrivacy = privacy || "public";
+      const targetBatches = normalizedPrivacy === "enrolled_members" ? (enrolledBatches || []) : [];
+      const mentionMeta = extractMentionMeta(content, req.user._id);
 
       if (!content && (!images || images.length === 0)) {
         return res.status(400).json({
@@ -58,26 +136,39 @@ class CommunityController {
         });
       }
 
-      if (privacy === "enrolled_members" && (!enrolledBatches || enrolledBatches.length === 0)) {
+      if (normalizedPrivacy === "enrolled_members" && targetBatches.length === 0) {
         return res.status(400).json({
           success: false,
           message: "You must select at least one course when sharing with Enrolled Members.",
         });
       }
 
+      const mentionRecipientIds = await resolveMentionRecipientIds({
+        mentionedUserIds: mentionMeta.mentionedUserIds,
+        hasEveryoneMention: mentionMeta.hasEveryoneMention,
+        currentUserId: req.user._id,
+        post: {
+          author: req.user._id,
+          privacy: normalizedPrivacy,
+          enrolledBatches: targetBatches,
+        },
+      });
+
       const post = await CommunityPost.create({
         author: req.user._id,
         content,
-        privacy: privacy || "public",
-        enrolledBatches: privacy === "enrolled_members" ? enrolledBatches : [],
+        privacy: normalizedPrivacy,
+        enrolledBatches: targetBatches,
         images: images || [],
-        mentions: mentionedUserIds,
+        mentions: mentionMeta.mentionedUserIds,
       });
 
-      await createPostMentionNotifications({
-        mentionedUserIds,
+      await createMentionNotifications({
+        recipientIds: mentionRecipientIds,
         actor: req.user,
         postId: post._id,
+        source: "post",
+        everyoneMentioned: mentionMeta.hasEveryoneMention,
       });
 
       const populatedPost = await post.populate("author", "fullName profilePhoto role");
@@ -233,11 +324,12 @@ class CommunityController {
       }
 
       const previousMentionIds = new Set((post.mentions || []).map((id) => String(id)));
+      const previousMentionMeta = extractMentionMeta(post.content, userId);
       const nextContent = content !== undefined ? content : post.content;
-      const nextMentionIds = extractMentionIds(nextContent, userId);
+      const nextMentionMeta = extractMentionMeta(nextContent, userId);
 
       post.content = nextContent;
-      post.mentions = nextMentionIds;
+      post.mentions = nextMentionMeta.mentionedUserIds;
       if (images) {
         // Find images that were removed
         const oldImages = post.images || [];
@@ -256,12 +348,27 @@ class CommunityController {
 
       await post.save();
 
-      const newlyMentionedUserIds = nextMentionIds.filter((mentionId) => !previousMentionIds.has(String(mentionId)));
-      await createPostMentionNotifications({
-        mentionedUserIds: newlyMentionedUserIds,
-        actor: req.user,
-        postId: post._id,
-      });
+      const everyoneMentionAdded = nextMentionMeta.hasEveryoneMention && !previousMentionMeta.hasEveryoneMention;
+      const newlyMentionedUserIds = everyoneMentionAdded
+        ? nextMentionMeta.mentionedUserIds
+        : nextMentionMeta.mentionedUserIds.filter((mentionId) => !previousMentionIds.has(String(mentionId)));
+
+      if (everyoneMentionAdded || newlyMentionedUserIds.length > 0) {
+        const mentionRecipientIds = await resolveMentionRecipientIds({
+          mentionedUserIds: newlyMentionedUserIds,
+          hasEveryoneMention: everyoneMentionAdded,
+          currentUserId: userId,
+          post,
+        });
+
+        await createMentionNotifications({
+          recipientIds: mentionRecipientIds,
+          actor: req.user,
+          postId: post._id,
+          source: "post",
+          everyoneMentioned: everyoneMentionAdded,
+        });
+      }
 
       res.status(200).json({
         success: true,
@@ -429,33 +536,22 @@ class CommunityController {
         });
       }
 
-      // Mention logic: Parse @[userId] (Name)
-      const mentionRegex = /@\[([a-f\d]{24})\]/g;
-      const mentions = [];
-      let match;
-      while ((match = mentionRegex.exec(content)) !== null) {
-        const mentionedUserId = match[1];
-        if (String(mentionedUserId) !== String(req.user._id) && !mentions.includes(mentionedUserId)) {
-          mentions.push(mentionedUserId);
-        }
-      }
+      const mentionMeta = extractMentionMeta(content, req.user._id);
+      const mentionRecipientIds = await resolveMentionRecipientIds({
+        mentionedUserIds: mentionMeta.mentionedUserIds,
+        hasEveryoneMention: mentionMeta.hasEveryoneMention,
+        currentUserId: req.user._id,
+        post,
+      });
 
-      if (mentions.length > 0) {
-        for (const mentionId of mentions) {
-          // Avoid duplicate notification if already notified as post author/parent author
-          const isPostAuthor = String(post.author) === String(mentionId);
-          // (Simple check for now, could be more robust)
-
-          await Notification.create({
-            recipient: mentionId,
-            title: "New Mention",
-            message: `${req.user.fullName} mentioned you in a comment.`,
-            type: "new_mention",
-            link: `/community/posts/${postId}?commentId=${comment._id}`,
-            metadata: { postId, commentId: comment._id },
-          });
-        }
-      }
+      await createMentionNotifications({
+        recipientIds: mentionRecipientIds,
+        actor: req.user,
+        postId,
+        commentId: comment._id,
+        source: "comment",
+        everyoneMentioned: mentionMeta.hasEveryoneMention,
+      });
 
       res.status(201).json({
         success: true,
@@ -570,7 +666,10 @@ class CommunityController {
         return res.status(403).json({ success: false, message: "Unauthorized to edit this comment." });
       }
 
-      comment.content = content || comment.content;
+      const previousMentionMeta = extractMentionMeta(comment.content, userId);
+      const nextContent = content !== undefined ? content : comment.content;
+
+      comment.content = nextContent;
       if (images) {
         // Find images that were removed
         const oldImages = comment.images || [];
@@ -588,6 +687,32 @@ class CommunityController {
       }
 
       await comment.save();
+
+      const nextMentionMeta = extractMentionMeta(nextContent, userId);
+      const everyoneMentionAdded = nextMentionMeta.hasEveryoneMention && !previousMentionMeta.hasEveryoneMention;
+      const previousMentionIds = new Set(previousMentionMeta.mentionedUserIds.map((id) => String(id)));
+      const newlyMentionedUserIds = everyoneMentionAdded
+        ? nextMentionMeta.mentionedUserIds
+        : nextMentionMeta.mentionedUserIds.filter((mentionId) => !previousMentionIds.has(String(mentionId)));
+
+      if (everyoneMentionAdded || newlyMentionedUserIds.length > 0) {
+        const post = await CommunityPost.findById(comment.post).select("author privacy enrolledBatches");
+        const mentionRecipientIds = await resolveMentionRecipientIds({
+          mentionedUserIds: newlyMentionedUserIds,
+          hasEveryoneMention: everyoneMentionAdded,
+          currentUserId: userId,
+          post,
+        });
+
+        await createMentionNotifications({
+          recipientIds: mentionRecipientIds,
+          actor: req.user,
+          postId: comment.post,
+          commentId: comment._id,
+          source: "comment",
+          everyoneMentioned: everyoneMentionAdded,
+        });
+      }
 
       res.status(200).json({
         success: true,

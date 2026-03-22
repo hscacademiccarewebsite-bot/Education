@@ -71,8 +71,19 @@ class UserController {
       const existingUser = await User.findOne({ firebaseUid });
 
       if (existingUser) {
+        const existingName = String(existingUser.fullName || "").trim();
+        const tokenDerivedNames = new Set(
+          [tokenName, tokenEmail, bodyEmail, bodyEmail?.split("@")[0], tokenEmail?.split("@")[0], "Student User"]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+        );
+
         existingUser.email = email ?? existingUser.email;
-        existingUser.fullName = fullName ?? existingUser.fullName;
+        // Preserve names changed from the profile page instead of overwriting them
+        // on every auth sync with the Firebase token display name.
+        if (!existingName || tokenDerivedNames.has(existingName)) {
+          existingUser.fullName = fullName ?? existingUser.fullName;
+        }
         existingUser.phone = phone ?? existingUser.phone;
         if (school !== undefined) {
           existingUser.school = String(school || "").trim();

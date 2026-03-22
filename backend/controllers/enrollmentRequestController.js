@@ -1,6 +1,7 @@
 const Batch = require("../model/batchSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const PaymentRecord = require("../model/paymentRecordSchema");
+const Notification = require("../model/notificationSchema");
 const User = require("../model/userSchema");
 const { canAccessBatch, getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 const { normalizeCloudinaryAsset } = require("../utils/cloudinaryAsset");
@@ -26,6 +27,28 @@ const parseBoolean = (value, fallbackValue = false) => {
 
   return fallbackValue;
 };
+
+async function createAdminEnrollmentNotification({ student, batch, isResubmission = false }) {
+  const studentName = String(
+    student?.fullName || student?.applicantName || student?.name || "A student"
+  ).trim();
+  const batchName = String(batch?.name || "a batch").trim();
+
+  await Notification.create({
+    isGlobalAdmin: true,
+    title: isResubmission ? "Enrollment Request Re-submitted" : "New Enrollment Request",
+    message: isResubmission
+      ? `${studentName} re-submitted an enrollment request for "${batchName}".`
+      : `${studentName} submitted a new enrollment request for "${batchName}".`,
+    type: "system",
+    link: `/enrollments?batchId=${batch?._id || ""}`,
+    metadata: {
+      batchId: batch?._id,
+      studentId: student?._id,
+      event: isResubmission ? "enrollment_resubmitted" : "enrollment_created",
+    },
+  });
+}
 
 class EnrollmentRequestController {
   static async createEnrollmentRequest(req, res) {
@@ -136,6 +159,16 @@ class EnrollmentRequestController {
 
         await existingRequest.save();
 
+        try {
+          await createAdminEnrollmentNotification({
+            student: req.user,
+            batch,
+            isResubmission: true,
+          });
+        } catch (notifErr) {
+          console.error("Failed to create admin enrollment re-submission notification:", notifErr);
+        }
+
         return res.status(200).json({
           success: true,
           message: "Enrollment request re-submitted successfully.",
@@ -153,6 +186,15 @@ class EnrollmentRequestController {
         note: resolvedNote,
         facebookGroupJoinRequested: resolvedJoinRequested,
       });
+
+      try {
+        await createAdminEnrollmentNotification({
+          student: req.user,
+          batch,
+        });
+      } catch (notifErr) {
+        console.error("Failed to create admin enrollment notification:", notifErr);
+      }
 
       // --- Email Notification Trigger (Admins & Moderators) ---
       try {
