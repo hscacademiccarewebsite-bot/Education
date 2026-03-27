@@ -151,7 +151,7 @@ export default function EnrollmentsPage() {
   });
   const { data: reviewData, isLoading: reviewLoading } = useGetEnrollmentRequestsForReviewQuery(
     { status: statusFilter },
-    { skip: enrollmentSkip || isStudentRole }
+    { skip: enrollmentSkip || !canReview }
   );
 
   const [createEnrollmentRequest, { isLoading: applying }] = useCreateEnrollmentRequestMutation();

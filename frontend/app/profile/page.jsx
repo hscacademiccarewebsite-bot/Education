@@ -12,6 +12,7 @@ import Avatar from "@/components/Avatar";
 import { FloatingInput } from "@/components/forms/FloatingField";
 import { useUpdateCurrentUserMutation } from "@/lib/features/auth/authApi";
 import { selectToken } from "@/lib/features/auth/authSlice";
+import { ArrowUpRight, Facebook } from "lucide-react";
 import {
   selectCurrentUser,
   selectCurrentUserDisplayName,
@@ -131,6 +132,13 @@ function formatDate(dateString, t) {
   });
 }
 
+function resolveFacebookProfileUrl(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return `https://facebook.com/${value.replace(/^@/, "").replace(/^\/+/, "")}`;
+}
+
 /* ─── Sub-components ─── */
 function StatCard({ label, value, loading, borderClass, icon, t }) {
   return (
@@ -187,8 +195,10 @@ export default function ProfilePage() {
   const studentRole = isStudent(role);
   const adminRole = isAdmin(role);
   const staffRole = role === "teacher" || role === "moderator";
+  const canReviewEnrollments = role === "admin" || role === "moderator";
 
   const theme = ROLE_THEME[role] || ROLE_THEME.student;
+  const facebookProfileUrl = resolveFacebookProfileUrl(currentUser?.facebookProfileId);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -230,7 +240,7 @@ export default function ProfilePage() {
   });
   const { data: reviewData, isLoading: reviewLoading } = useGetEnrollmentRequestsForReviewQuery(
     { status: "pending" },
-    { skip: !staffRole && !adminRole }
+    { skip: !canReviewEnrollments }
   );
   const { data: usersData, isLoading: usersLoading } = useListUsersQuery(undefined, {
     skip: !adminRole,
@@ -248,7 +258,7 @@ export default function ProfilePage() {
   const approvedEnrollments = enrollments.filter((item) => item.status === "approved").length;
   const pendingEnrollments = enrollments.filter((item) => item.status === "pending").length;
   const paymentSummary = myPaymentsData?.summary || { dueCount: 0, totalDue: 0 };
-  const pendingReviews = reviewData?.data?.length || 0;
+  const pendingReviews = canReviewEnrollments ? reviewData?.data?.length || 0 : 0;
   const totalUsers = usersData?.data?.length || 0;
   const totalGlobalPayments = globalPaymentsData?.count || 0;
   const courses = coursesData?.data || [];
@@ -416,7 +426,7 @@ export default function ProfilePage() {
         {
           label: t("profilePage.stats.pendingReviews", "Pending Reviews"),
           value: pendingReviews,
-          loading: reviewLoading,
+          loading: canReviewEnrollments ? reviewLoading : false,
           icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>,
         },
         {
@@ -439,7 +449,7 @@ export default function ProfilePage() {
       {
         label: t("profilePage.stats.pendingReviews", "Pending Reviews"),
         value: pendingReviews,
-        loading: reviewLoading,
+        loading: canReviewEnrollments ? reviewLoading : false,
         icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>,
       },
       {
@@ -494,6 +504,18 @@ export default function ProfilePage() {
                     <RoleBadge role={role} />
                   </h2>
                   <p className="mt-1 text-xs md:text-sm font-semibold text-slate-400/80 tracking-wide">{currentUser?.email || ""}</p>
+                  {facebookProfileUrl ? (
+                    <a
+                      href={facebookProfileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-bold text-sky-700 transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-100"
+                    >
+                      <Facebook className="h-3.5 w-3.5" strokeWidth={2.1} />
+                      <span>{t("profilePage.form.facebookId", "Facebook ID")}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.1} />
+                    </a>
+                  ) : null}
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -525,12 +547,6 @@ export default function ProfilePage() {
                   <div className="flex items-center justify-between gap-3">
                     <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.college", "College")}</dt>
                     <dd className="text-right text-xs md:text-sm font-semibold text-slate-700">{currentUser?.college || t("profilePage.misc.notSet", "Not set")}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.facebookId", "Facebook ID")}</dt>
-                    <dd className="truncate text-xs md:text-sm font-semibold text-slate-700">
-                      {currentUser?.facebookProfileId || t("profilePage.misc.notSet", "Not set")}
-                    </dd>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <dt className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{t("profilePage.form.role", "Role")}</dt>
