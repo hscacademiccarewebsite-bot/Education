@@ -25,7 +25,7 @@ import RoleBadge from "@/components/RoleBadge";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { ListSkeleton } from "@/components/loaders/AppLoader";
 import Avatar from "@/components/Avatar";
-import { useReviewEnrollmentRequestMutation } from "@/lib/features/enrollment/enrollmentApi";
+import { useKickOutEnrollmentMutation } from "@/lib/features/enrollment/enrollmentApi";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useGetUserDetailsQuery } from "@/lib/features/user/userApi";
 import { ROLES } from "@/lib/utils/roleUtils";
@@ -57,12 +57,14 @@ function formatAmount(value, language, currency = "BDT") {
 function enrollmentStatusClass(status) {
   if (status === "approved") return "bg-emerald-100 text-emerald-700";
   if (status === "rejected") return "bg-rose-100 text-rose-700";
+  if (status === "kicked_out") return "bg-slate-200 text-slate-700";
   return "bg-amber-100 text-amber-700";
 }
 
 function enrollmentAccentClass(status) {
   if (status === "approved") return "bg-emerald-400";
   if (status === "rejected") return "bg-rose-400";
+  if (status === "kicked_out") return "bg-slate-400";
   return "bg-amber-400";
 }
 
@@ -184,12 +186,15 @@ function EmptyState({ message }) {
 
 function EnrollmentRecord({
   item,
-  isStudentUser,
+  canKickOut,
   kickingOutEnrollmentId,
   handleKickOut,
   t,
   language,
 }) {
+  const statusReason =
+    item.status === "kicked_out" ? item.kickoutReason : item.rejectionReason;
+
   return (
     <article className="relative overflow-hidden rounded-[18px] border border-slate-200 bg-slate-50/75 p-3.5">
       <div className={cn("absolute left-0 top-4 bottom-4 w-1 rounded-r", enrollmentAccentClass(item.status))} />
@@ -213,7 +218,7 @@ function EnrollmentRecord({
             <span className={cn("rounded-full px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em]", enrollmentStatusClass(item.status))}>
               {t(`enrollmentsPage.status.${item.status}`, item.status)}
             </span>
-            {isStudentUser && item.status === "approved" ? (
+            {canKickOut && item.status === "approved" ? (
               <button
                 type="button"
                 onClick={() => handleKickOut(item)}
@@ -228,9 +233,9 @@ function EnrollmentRecord({
           </div>
         </div>
 
-        {item.rejectionReason ? (
+        {statusReason ? (
           <div className="mt-3 rounded-[16px] border border-rose-200 bg-rose-50/80 px-3 py-2 text-[13px] text-rose-700 md:text-sm">
-            {t("userDetails.misc.reason", "Reason")}: {item.rejectionReason}
+            {t("userDetails.misc.reason", "Reason")}: {statusReason}
           </div>
         ) : null}
       </div>
@@ -298,14 +303,16 @@ export default function UserDetailsPage() {
   const currentUser = useSelector(selectCurrentUser);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isAuthInitialized = useSelector(selectIsAuthInitialized);
-  const { showSuccess, showError, popupNode } = useActionPopup();
-  const [reviewEnrollmentRequest] = useReviewEnrollmentRequestMutation();
+  const { showSuccess, showError, requestPrompt, popupNode } = useActionPopup();
+  const [kickOutEnrollment] = useKickOutEnrollmentMutation();
   const [kickingOutEnrollmentId, setKickingOutEnrollmentId] = useState("");
   const authReady = isAuthInitialized && isAuthenticated && Boolean(currentUser?._id);
 
   const {
+    currentData,
     data: userDetailsData,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,
@@ -314,16 +321,22 @@ export default function UserDetailsPage() {
     refetchOnMountOrArgChange: true,
   });
 
-  const payload = userDetailsData?.data;
+  const payload =
+    currentData?.data ||
+    (String(userDetailsData?.data?.user?._id || "") === userId ? userDetailsData?.data : null);
   const user = payload?.user || null;
   const summary = payload?.summary || {};
   const enrollments = payload?.enrollmentRequests || [];
   const payments = payload?.payments || [];
+  const isPageLoading = isLoading || (isFetching && !payload);
   const isStudentUser = user?.role === ROLES.STUDENT;
+  const canKickOutEnrollments =
+    currentRole === ROLES.ADMIN || currentRole === ROLES.MODERATOR;
   const approvedEnrollmentCount = enrollments.filter((item) => item.status === "approved").length;
   const duePaymentCount = payments.filter((item) => item.status === "due").length;
   const pendingEnrollmentCount = summary?.enrollment?.pending || 0;
   const rejectedEnrollmentCount = summary?.enrollment?.rejected || 0;
+  const kickedOutEnrollmentCount = summary?.enrollment?.kickedOut || 0;
   const paidPaymentCount = summary?.payments?.paidCount || 0;
   const waivedPaymentCount = summary?.payments?.waivedCount || 0;
   const totalWaivedAmount = summary?.payments?.totalWaived || 0;
@@ -399,21 +412,23 @@ export default function UserDetailsPage() {
   const handleKickOut = async (enrollment) => {
     const targetCourse =
       enrollment?.batch?.name || t("userDetails.misc.thisCourse", "this course");
-    const proceed = window.confirm(
-      t("userDetails.messages.removeConfirm", `Remove this student from ${targetCourse}?`, {
+    const inputReason = await requestPrompt({
+      title: t("userDetails.messages.kickoutTitle", "Kick Out Student"),
+      text: t("userDetails.messages.removeConfirm", `Remove this student from ${targetCourse}?`, {
         course: targetCourse,
-      })
-    );
-    if (!proceed) return;
-
-    const inputReason = window.prompt(
-      t("userDetails.messages.kickoutReasonPrompt", "Kick-out reason"),
-      t(
+      }),
+      input: "textarea",
+      placeholder: t(
+        "userDetails.messages.kickoutReasonPrompt",
+        "Kick-out reason"
+      ),
+      inputValue: t(
         "userDetails.messages.defaultKickoutReason",
         "Removed from course by staff"
-      )
-    );
-    if (inputReason === null) return;
+      ),
+      confirmText: t("userDetails.actions.kickOut", "Kick Out"),
+    });
+    if (inputReason === undefined) return;
 
     const reason =
       String(inputReason || "").trim() ||
@@ -424,10 +439,9 @@ export default function UserDetailsPage() {
 
     try {
       setKickingOutEnrollmentId(enrollment._id);
-      await reviewEnrollmentRequest({
+      await kickOutEnrollment({
         enrollmentId: enrollment._id,
-        status: "rejected",
-        rejectionReason: reason,
+        reason,
       }).unwrap();
       showSuccess(
         t(
@@ -471,7 +485,7 @@ export default function UserDetailsPage() {
                     )}
                   </p>
 
-                  {isLoading ? (
+                  {isPageLoading ? (
                     <div className="mt-3.5 rounded-[18px] border border-slate-200 bg-slate-50 p-3 shadow-sm">
                       <ListSkeleton rows={4} />
                     </div>
@@ -542,7 +556,7 @@ export default function UserDetailsPage() {
                           icon={Users}
                           label={t("userDetails.layout.enrollmentSummary", "Enrollment Summary")}
                           value={totalEnrollmentCount}
-                          helper={`${t("userDetails.layout.approved", "Approved")}: ${approvedEnrollmentCount} · ${t("userDetails.layout.pending", "Pending")}: ${pendingEnrollmentCount} · ${t("userDetails.layout.rejected", "Rejected")}: ${rejectedEnrollmentCount}`}
+                          helper={`${t("userDetails.layout.approved", "Approved")}: ${approvedEnrollmentCount} · ${t("userDetails.layout.pending", "Pending")}: ${pendingEnrollmentCount} · ${t("userDetails.layout.rejected", "Rejected")}: ${rejectedEnrollmentCount} · ${t("userDetails.layout.kickedOut", "Removed")}: ${kickedOutEnrollmentCount}`}
                           tone="emerald"
                         />
                         {isStudentUser ? (
@@ -604,7 +618,7 @@ export default function UserDetailsPage() {
                     </Link>
                   </div>
 
-                  {!isLoading && !isError && user ? (
+                  {!isPageLoading && !isError && user ? (
                     <div className="mt-2.5 rounded-[16px] border border-slate-200 bg-slate-50 p-2.5">
                       <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
                         {t("userDetails.layout.currentStanding", "Current Standing")}
@@ -640,7 +654,7 @@ export default function UserDetailsPage() {
               </div>
             </RevealItem>
 
-            {!isLoading && !isError && user ? (
+            {!isPageLoading && !isError && user ? (
               <RevealItem className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:gap-4">
                 <div className="min-w-0 space-y-3 md:space-y-4">
                   <SectionCard
@@ -825,7 +839,7 @@ export default function UserDetailsPage() {
                           <EnrollmentRecord
                             key={item._id}
                             item={item}
-                            isStudentUser={isStudentUser}
+                            canKickOut={isStudentUser && canKickOutEnrollments}
                             kickingOutEnrollmentId={kickingOutEnrollmentId}
                             handleKickOut={handleKickOut}
                             t={t}

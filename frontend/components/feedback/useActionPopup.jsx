@@ -88,24 +88,39 @@ export function useActionPopup() {
     return result.isConfirmed;
   }, []);
 
-  const requestPrompt = useCallback(async (text, title = "Input Required", placeholder = "", confirmText = "Submit") => {
-    const { value: result } = await Swal.fire({
-      title,
-      text,
-      input: "text",
-      inputPlaceholder: placeholder,
+  const requestPrompt = useCallback(async (optionsOrText, title = "Input Required", placeholder = "", confirmText = "Submit") => {
+    const options =
+      typeof optionsOrText === "object" && optionsOrText !== null
+        ? optionsOrText
+        : {
+            text: optionsOrText,
+            title,
+            placeholder,
+            confirmText,
+          };
+
+    const result = await Swal.fire({
+      title: options.title || "Input Required",
+      text: options.text || "",
+      input: options.input || "text",
+      inputLabel: options.inputLabel || "",
+      inputPlaceholder: options.placeholder || "",
+      inputValue: options.inputValue || "",
       showCancelButton: true,
       confirmButtonColor: "#0f766e",
       cancelButtonColor: "#64748b",
-      confirmButtonText: confirmText,
+      confirmButtonText: options.confirmText || "Submit",
+      cancelButtonText: options.cancelText || "Cancel",
       reverseButtons: true,
+      inputValidator: options.inputValidator,
       customClass: {
         popup: "rounded-2xl",
         title: "text-lg font-bold text-slate-800",
         input: "rounded-xl border-slate-200 focus:border-teal-500 focus:ring-teal-500",
       },
     });
-    return result; // returns the string or undefined if cancelled
+
+    return result.isConfirmed ? result.value : undefined;
   }, []);
 
   return {

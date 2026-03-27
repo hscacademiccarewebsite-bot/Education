@@ -32,7 +32,7 @@ import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
 
-const REVIEW_FILTERS = ["pending", "approved", "rejected"];
+const REVIEW_FILTERS = ["pending", "approved", "rejected", "kicked_out"];
 
 const STATUS_META = {
   pending: {
@@ -55,6 +55,13 @@ const STATUS_META = {
     pillClass: "bg-rose-100 text-rose-700",
     helperKey: "enrollmentsPage.status.helperRejected",
     defaultHelper: "You can apply again",
+  },
+  kicked_out: {
+    key: "enrollmentsPage.status.kicked_out",
+    defaultLabel: "Removed",
+    pillClass: "bg-slate-200 text-slate-700",
+    helperKey: "enrollmentsPage.status.helperKickedOut",
+    defaultHelper: "Access removed by staff",
   },
   default: {
     key: "enrollmentsPage.status.notApplied",
@@ -126,7 +133,7 @@ export default function EnrollmentsPage() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const { showSuccess, showError, popupNode } = useActionPopup();
+  const { showSuccess, showError, requestPrompt, popupNode } = useActionPopup();
 
   const [form, setForm] = useState({
     batchId: "",
@@ -195,6 +202,7 @@ export default function EnrollmentsPage() {
   const selectedEnrollmentStatus = String(selectedBatchEnrollment?.status || "");
   const pendingEnrollment = selectedEnrollmentStatus === "pending";
   const approvedEnrollment = selectedEnrollmentStatus === "approved";
+  const kickedOutEnrollment = selectedEnrollmentStatus === "kicked_out";
   const selectedBatch = availableBatches.find((batch) => String(batch._id) === String(form.batchId));
   const hasSelectedBatchGroupLink = Boolean(selectedBatch?.facebookGroupUrl);
   const reviewItems = reviewData?.data || [];
@@ -381,12 +389,27 @@ export default function EnrollmentsPage() {
     setMessage("");
 
     try {
+      let rejectionReason;
+      if (nextStatus === "rejected") {
+        rejectionReason = await requestPrompt({
+          title: t("enrollmentsPage.actions.reject", "Reject"),
+          text: t("enrollmentsPage.messages.rejectReason", "Rejection reason (optional):"),
+          input: "textarea",
+          placeholder: t("enrollmentsPage.messages.rejectReason", "Rejection reason (optional):"),
+          confirmText: t("enrollmentsPage.actions.reject", "Reject"),
+        });
+
+        if (rejectionReason === undefined) {
+          return;
+        }
+      }
+
       await reviewEnrollmentRequest({
         enrollmentId,
         status: nextStatus,
         rejectionReason:
           nextStatus === "rejected"
-            ? window.prompt(t("enrollmentsPage.messages.rejectReason", "Rejection reason (optional):")) || t("enrollmentsPage.messages.notProvided", "Not provided")
+            ? String(rejectionReason || "").trim() || t("enrollmentsPage.messages.notProvided", "Not provided")
             : undefined,
       }).unwrap();
       setMessage(t("enrollmentsPage.messages.requestStatus", `Request ${nextStatus}.`, { status: nextStatus }));
@@ -657,6 +680,7 @@ export default function EnrollmentsPage() {
                           uploadingApplicantPhoto ||
                           pendingEnrollment ||
                           approvedEnrollment ||
+                          kickedOutEnrollment ||
                           !form.facebookGroupJoinRequested ||
                           !hasSelectedBatchGroupLink
                         }
@@ -668,6 +692,8 @@ export default function EnrollmentsPage() {
                           ? t("enrollmentsPage.actions.alreadyApplied", "Already Applied (Pending)")
                           : approvedEnrollment
                           ? t("enrollmentsPage.actions.alreadyApproved", "Already Approved")
+                          : kickedOutEnrollment
+                          ? t("enrollmentsPage.actions.removedByStaff", "Removed by Staff")
                           : selectedBatchEnrollment?.status === "rejected"
                           ? t("enrollmentsPage.actions.reApply", "Re-Apply for Batch")
                           : t("enrollmentsPage.actions.applyForBatchBtn", "Apply for Batch")}
@@ -759,7 +785,7 @@ export default function EnrollmentsPage() {
                       onClick={() => setStatusFilter(filter)}
                       className={`px-3 py-1.5 text-xs ${active ? "site-button-primary" : "site-button-secondary"}`}
                     >
-                      {filter}
+                      {getStatusMeta(filter, t).label}
                     </button>
                   );
                 })}
@@ -847,9 +873,9 @@ export default function EnrollmentsPage() {
                               <p className="mt-1 text-xs text-slate-500">{t("enrollmentsPage.layout.notePrefix", "Note:")} {item.note}</p>
                             ) : null}
 
-                            {item.status === "rejected" ? (
+                            {item.status === "rejected" || item.status === "kicked_out" ? (
                               <p className="mt-1 text-xs font-semibold text-rose-700">
-                                Reason: {item.rejectionReason || t("enrollmentsPage.messages.notProvided", "Not provided")}
+                                Reason: {(item.status === "kicked_out" ? item.kickoutReason : item.rejectionReason) || t("enrollmentsPage.messages.notProvided", "Not provided")}
                               </p>
                             ) : null}
                           </div>

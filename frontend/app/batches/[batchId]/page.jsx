@@ -54,6 +54,9 @@ function enrollmentTone(status) {
   if (status === "rejected") {
     return "bg-rose-100 text-rose-700";
   }
+  if (status === "kicked_out") {
+    return "bg-slate-200 text-slate-700";
+  }
   if (status === "pending") {
     return "bg-amber-100 text-amber-700";
   }
@@ -69,6 +72,9 @@ function enrollmentLabel(status, t) {
   }
   if (status === "rejected") {
     return t ? t("batchDetails.status.rejected", "Rejected") : "Rejected";
+  }
+  if (status === "kicked_out") {
+    return t ? t("batchDetails.status.kickedOut", "Removed") : "Removed";
   }
   return t ? t("batchDetails.status.notApplied", "Not Applied") : "Not Applied";
 }
@@ -365,6 +371,8 @@ export default function BatchDetailsPage() {
       ? t("batchDetails.messages.enrollPending", "Your application is under review.")
       : studentEnrollmentStatus === "rejected"
       ? t("batchDetails.messages.enrollRejected", "Your previous application was rejected. You can apply again.")
+      : studentEnrollmentStatus === "kicked_out"
+      ? t("batchDetails.messages.enrollKickedOut", "Your course access was removed by staff. Please contact admin for help.")
       : t("batchDetails.messages.enrollNotApplied", "You have not applied to this course yet.");
   const accessLabel = studentRole
     ? enrollmentLabel(studentEnrollmentStatus, t)
@@ -382,7 +390,7 @@ export default function BatchDetailsPage() {
     ? t("batchDetails.messages.signInPrompt", "Sign in as a student to apply and track enrollment.")
     : t("batchDetails.messages.staffPrompt", "As a teacher, you have full access to manage subjects and chapters.");
   const primaryAccessAction = studentRole
-    ? studentApproved || studentEnrollmentStatus === "pending"
+    ? studentApproved || studentEnrollmentStatus === "pending" || studentEnrollmentStatus === "kicked_out"
       ? null
       : {
           type: "link",

@@ -50,6 +50,19 @@ export const enrollmentApi = baseApi.injectEndpoints({
         { type: "Payment", id: "MY" },
       ],
     }),
+
+    kickOutEnrollment: builder.mutation({
+      query: ({ enrollmentId, reason }) => ({
+        url: `/enrollments/${enrollmentId}/kickout`,
+        method: "PATCH",
+        body: { reason },
+      }),
+      invalidatesTags: [
+        { type: "Enrollment", id: "REVIEW" },
+        { type: "Enrollment", id: "MY" },
+        { type: "Payment", id: "MY" },
+      ],
+    }),
   }),
 });
 
@@ -58,4 +71,5 @@ export const {
   useGetMyEnrollmentRequestsQuery,
   useGetEnrollmentRequestsForReviewQuery,
   useReviewEnrollmentRequestMutation,
+  useKickOutEnrollmentMutation,
 } = enrollmentApi;

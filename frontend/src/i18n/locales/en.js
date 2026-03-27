@@ -1004,6 +1004,7 @@ const en = {
       approved: "Approved",
       applied: "Applied (Pending)",
       rejected: "Rejected",
+      kickedOut: "Removed",
       notApplied: "Not Applied"
     },
     actions: {
@@ -1037,6 +1038,7 @@ const en = {
       enrollApproved: "Your enrollment is approved. You can access all course content.",
       enrollPending: "Your application is under review.",
       enrollRejected: "Your previous application was rejected. You can apply again.",
+      enrollKickedOut: "Your course access was removed by staff. Please contact admin for help.",
       enrollNotApplied: "You have not applied to this course yet.",
       signInRequired: "Sign In Required",
       staffAccess: "Staff Access",
@@ -1198,6 +1200,7 @@ const en = {
       unnamedUser: "Unnamed User",
       noEmail: "No email",
       removeConfirm: "Remove this student from {course}?",
+      kickoutTitle: "Kick Out Student",
       kickoutReasonPrompt: "Kick-out reason",
       defaultKickoutReason: "Removed from course by staff",
       kickoutSuccess: "Student removed from the selected course.",
@@ -1220,6 +1223,7 @@ const en = {
       approved: "Approved",
       pending: "Pending",
       rejected: "Rejected",
+      kickedOut: "Removed",
       openDues: "Open Dues",
       totalDue: "Total Due",
       totalPaid: "Total Paid",
@@ -1375,6 +1379,7 @@ const en = {
       photoReq: "Applicant photo is required.",
       alreadyPending: "Your application is already pending for this batch.",
       alreadyApproved: "You are already approved in this batch.",
+      accessRemoved: "Your access was removed from this batch. Please contact the admin team.",
       joinGroupReq: "Please send join request to private Facebook group and confirm checkbox.",
       noGroupLink: "This batch does not have a private Facebook group link configured yet.",
       noGroupLink2: "This batch does not have a private Facebook group link configured yet.",
@@ -1438,6 +1443,7 @@ const en = {
       submitting: "Submitting...",
       alreadyApplied: "Already Applied (Pending)",
       alreadyApproved: "Already Approved",
+      removedByStaff: "Removed by Staff",
       reApply: "Re-Apply for Batch",
       applyForBatchBtn: "Apply for Batch",
       openPrivateFbCard: "Open private Facebook group",
@@ -1469,6 +1475,8 @@ const en = {
       helperApproved: "Access granted",
       rejected: "Rejected",
       helperRejected: "You can apply again",
+      kicked_out: "Removed",
+      helperKickedOut: "Access removed by staff",
       notApplied: "Not Applied",
       helperNotApplied: "No request submitted"
     }

@@ -29,6 +29,7 @@ const ENROLLMENT_META = {
   pending: { label: "Pending", colorClass: "bg-amber-500" },
   approved: { label: "Approved", colorClass: "bg-emerald-500" },
   rejected: { label: "Rejected", colorClass: "bg-rose-500" },
+  kicked_out: { label: "Removed", colorClass: "bg-slate-500" },
 };
 
 const BATCH_META = {
@@ -590,6 +591,7 @@ function EnrollmentPipeline({ enrollments, language, t }) {
     { key: "pending", value: enrollments.pending || 0, meta: ENROLLMENT_META.pending },
     { key: "approved", value: enrollments.approved || 0, meta: ENROLLMENT_META.approved },
     { key: "rejected", value: enrollments.rejected || 0, meta: ENROLLMENT_META.rejected },
+    { key: "kicked_out", value: enrollments.kickedOut || 0, meta: ENROLLMENT_META.kicked_out },
   ];
 
   return (
@@ -606,7 +608,7 @@ function EnrollmentPipeline({ enrollments, language, t }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
         {segments.map((segment) => (
           <div key={segment.key} className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-2.5 md:rounded-2xl md:p-3">
             <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 md:text-[9px]">{segment.meta.label}</p>
