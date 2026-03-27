@@ -103,11 +103,11 @@ const en = {
       },
     },
     faculty: {
-      kicker: "Faculty",
+      kicker: "Team",
       accent: "Faculty",
-      title: "and Support Team",
+      title: "& Support Staff",
       description:
-        "A coordinated team of teachers, mentors, and support staff ensuring quality delivery and consistent learner support.",
+        "A dedicated team of expert educators and support professionals working together to ensure a seamless learning experience.",
       teamMembers: "Team Members",
       courseAssignments: "Course Assignments",
       loadError: "Failed to load faculty data from backend.",

@@ -393,54 +393,43 @@ function AboutHomeSection({ metrics, t }) {
   );
 }
 
-
-function memberInitials(name) {
-  return String(name || "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("");
-}
-
 function FacultyHomeSection({ faculty, isLoading, isError, t }) {
-  const totalAssignments = faculty.reduce(
-    (count, member) => count + (member.assignedBatches?.length || 0),
-    0
-  );
-
-
   return (
     <section id="faculty" className="container-page scroll-mt-24 pb-16 md:pb-24">
       {/* ── Section Header ── */}
-      <RevealSection>
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
-              <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
-              {t("home.faculty.kicker")}
-            </span>
-            <h2 className="mt-3 text-xl font-black tracking-tight text-slate-900 md:text-[30px]">
-              <span className="text-emerald-600">{t("home.faculty.accent")}</span>{" "}
-              {t("home.faculty.title")}
-            </h2>
-            <p className="mt-2 max-w-xl text-[13px] leading-6 text-slate-500 sm:text-base sm:leading-7">
-              {t("home.faculty.description")}
-            </p>
+      <RevealSection noStagger>
+        <RevealItem>
+          <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-8">
+            <div className="flex flex-col gap-3">
+              <span className="site-kicker">
+                <svg className="h-2 w-2 sm:h-2.5 sm:w-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
+                {t("home.faculty.kicker")}
+              </span>
+              <h2 className="text-[22px] font-black leading-[1.14] tracking-tight text-slate-900 sm:text-[25px] md:text-[30px] lg:text-[34px]">
+                <span className="text-emerald-600">{t("home.faculty.accent")}</span>{" "}
+                {t("home.faculty.title")}
+              </h2>
+              <p className="max-w-2xl text-[13px] leading-[1.65] text-slate-500 md:text-[14px] md:leading-7">
+                {t("home.faculty.description")}
+              </p>
+            </div>
+            {!isLoading && faculty.length > 0 && (
+              <div className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-slate-200/60 bg-white px-5 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.04)] backdrop-blur-sm self-start md:self-auto">
+                <span className="text-[28px] font-black leading-none text-slate-900">{faculty.length}</span>
+                <span className="text-[10px] font-black uppercase leading-tight tracking-[0.12em] text-slate-400">
+                  {t("home.faculty.teamMembers", "Team")}<br/>{t("home.faculty.active", "Members")}
+                </span>
+              </div>
+            )}
           </div>
-
-
-        </div>
+        </RevealItem>
       </RevealSection>
 
       {/* ── Cards ── */}
       {isLoading ? (
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="h-[180px] animate-pulse rounded-3xl border border-slate-200 bg-white/80"
-            />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="h-[188px] animate-pulse rounded-2xl border border-slate-200 bg-slate-100/80" />
           ))}
         </div>
       ) : isError ? (
@@ -448,68 +437,88 @@ function FacultyHomeSection({ faculty, isLoading, isError, t }) {
           {t("home.faculty.loadError")}
         </div>
       ) : faculty.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
           <svg className="h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <p className="mt-4 text-lg font-black text-slate-400">{t("home.faculty.empty")}</p>
+          <p className="mt-4 text-base font-black text-slate-400">{t("home.faculty.empty")}</p>
         </div>
       ) : (
-        <RevealSection className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <RevealSection className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {faculty.map((member, index) => {
-            const initials = member.fullName
-              ? member.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-              : "?";
-            const bgSeeds = ["#0f766e","#0369a1","#7c3aed","#b45309","#be185d","#047857"];
-            const avatarBg = bgSeeds[index % bgSeeds.length];
+            const avatarColors = ["#0f766e","#0369a1","#7c3aed","#b45309","#be185d","#047857"];
+            const avatarBg = avatarColors[index % avatarColors.length];
+            const courses = member.assignedBatches || [];
 
             return (
               <RevealItem key={member.id || index}>
-                <article className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.13)]">
+                <article className="group relative flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(15,23,42,0.09)]">
 
-                  {/* Top decorative strip */}
-                  <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 opacity-80 group-hover:opacity-100 transition-opacity" />
+                  {/* Thin left accent revealed on hover */}
+                  <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl bg-emerald-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
-                  <div className="flex flex-1 flex-col items-center p-5 text-center w-full">
-                    {/* Avatar */}
-                    <div className="relative mb-4 shrink-0">
+                  <div className="flex flex-1 flex-col gap-2.5 p-3 sm:p-4 md:p-5">
+
+                    {/* Avatar + name + role */}
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <Avatar
                         src={member.profilePhotoUrl}
                         name={member.fullName}
-                        className="h-14 w-14 rounded-full ring-4 ring-white shadow-md"
-                        fallbackClassName="text-white text-lg font-black"
+                        className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 shrink-0 rounded-full ring-2 sm:ring-[3px] ring-slate-50 shadow-sm"
+                        fallbackClassName="rounded-full text-white text-sm md:text-xl font-bold"
                         style={{ backgroundColor: avatarBg }}
                       />
-                      {/* Online dot */}
-                      <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-[11px] sm:text-[13px] font-bold leading-snug text-slate-900 md:text-[14px]">
+                          {member.fullName}
+                        </h3>
+                        <p className="mt-0.5 text-[9px] sm:text-[11px] font-semibold text-slate-500 md:text-[12px]">
+                          {member.role || "Teacher"}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Name */}
-                    <h3 className="line-clamp-2 text-sm font-black leading-tight text-slate-900 group-hover:text-emerald-700 transition-colors">
-                      {member.fullName}
-                    </h3>
+                    {/* Divider */}
+                    <div className="h-px bg-slate-100" />
 
-                    {/* Institution */}
-                    {member.varsity && (
-                      <p className="mt-2 text-[11px] font-bold text-emerald-600 leading-tight">
-                        {member.varsity}
-                      </p>
-                    )}
-
-                    {/* Experience */}
-                    {member.experience && (
-                      <span className="mt-2 inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                        {member.experience}
-                      </span>
-                    )}
-
-                    {/* Role badge */}
-                    <div className="mt-auto pt-4">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 transition group-hover:bg-emerald-100">
-                        <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
-                        {member.role || "Teacher"}
-                      </span>
+                    {/* Institution + experience */}
+                    <div className="space-y-1.5">
+                      {member.varsity && (
+                        <div className="flex min-w-0 items-start gap-2">
+                          <svg className="mt-[1px] h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                          </svg>
+                          <p className="min-w-0 text-[10px] sm:text-[11px] md:text-[12px] font-semibold leading-[1.4] text-slate-700">{member.varsity}</p>
+                        </div>
+                      )}
+                      {member.experience && (
+                        <div className="flex min-w-0 items-start gap-2">
+                          <svg className="mt-[1px] h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <p className="min-w-0 text-[10px] sm:text-[11px] md:text-[12px] font-semibold leading-[1.4] text-slate-700">{member.experience}</p>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Course chips */}
+                    {courses.length > 0 && (
+                      <div className="mt-auto flex flex-wrap gap-1 md:gap-1.5 pt-0.5">
+                        {courses.slice(0, 2).map((batch) => (
+                          <span
+                            key={batch.id}
+                            className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-[8.5px] sm:text-[9px] font-medium text-slate-500 md:text-[10px] md:px-2 md:py-1 md:font-semibold"
+                          >
+                            {batch.name}
+                          </span>
+                        ))}
+                        {courses.length > 2 && (
+                          <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-[8.5px] sm:text-[9px] font-medium text-slate-400 md:text-[10px] md:px-2 md:py-1 md:font-semibold">
+                            +{courses.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </article>
               </RevealItem>
