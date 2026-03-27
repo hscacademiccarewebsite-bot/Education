@@ -2,7 +2,7 @@ const USER_ROLES = ["admin", "teacher", "moderator", "student"];
 
 const BATCH_STATUSES = ["upcoming", "active", "archived"];
 
-const ENROLLMENT_STATUSES = ["pending", "approved", "rejected"];
+const ENROLLMENT_STATUSES = ["pending", "approved", "rejected", "kicked_out"];
 
 const PAYMENT_STATUSES = ["due", "paid_online", "paid_offline", "waived"];
 

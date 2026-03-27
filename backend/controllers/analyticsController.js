@@ -850,6 +850,7 @@ const buildAdminAnalyticsPayload = async ({
       pending: enrollmentStatusMap.pending || 0,
       approved: enrollmentStatusMap.approved || 0,
       rejected: enrollmentStatusMap.rejected || 0,
+      kickedOut: enrollmentStatusMap.kicked_out || 0,
       recentLast30Days: recentEnrollmentsLast30Days,
       approvalRate:
         (enrollmentStatusMap.approved || 0) + (enrollmentStatusMap.rejected || 0) > 0

@@ -81,6 +81,15 @@ const enrollmentRequestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    kickedOutAt: {
+      type: Date,
+    },
+
+    kickoutReason: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

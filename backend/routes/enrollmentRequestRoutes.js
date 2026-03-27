@@ -29,4 +29,10 @@ router.patch(
   EnrollmentRequestController.reviewEnrollmentRequest
 );
 
+router.patch(
+  "/:enrollmentId/kickout",
+  AuthMiddleware.requireRoles("admin", "moderator"),
+  EnrollmentRequestController.kickOutEnrollment
+);
+
 module.exports = router;

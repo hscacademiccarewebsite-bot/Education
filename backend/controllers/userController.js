@@ -390,7 +390,10 @@ class UserController {
           .lean(),
         isStudentAccount
           ? PaymentRecord.find(paymentQuery)
-              .populate("batch", "name slug status monthlyFee currency")
+              .populate(
+                "batch",
+                "name slug status monthlyFee currency facebookGroupUrl startsAt endsAt"
+              )
               .populate("paidBy", "fullName role")
               .populate("enrollmentRequest", "status")
               .sort({ createdAt: -1 })
@@ -422,6 +425,8 @@ class UserController {
             acc.approved += 1;
           } else if (item.status === "rejected") {
             acc.rejected += 1;
+          } else if (item.status === "kicked_out") {
+            acc.kickedOut += 1;
           }
           return acc;
         },
@@ -430,6 +435,7 @@ class UserController {
           pending: 0,
           approved: 0,
           rejected: 0,
+          kickedOut: 0,
         }
       );
 
