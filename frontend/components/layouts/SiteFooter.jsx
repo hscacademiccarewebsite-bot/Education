@@ -129,7 +129,7 @@ export default function SiteFooter() {
                 {footerSiteName}
               </p>
               <p className="mt-5 text-sm leading-relaxed text-slate-400">
-                We will keep our promises 
+                We will keep our promises
               </p>
               {mounted && socialLinks.length ? (
                 <div className="mt-8 flex flex-wrap gap-4">
@@ -224,6 +224,7 @@ export default function SiteFooter() {
             </p>
             <p className="text-sm tracking-wide text-slate-500">
               {t("footer.developedBy")}{" "}
+
               <a
                 href="https://shuvochakma.vercel.app/"
                 target="_blank"
@@ -231,6 +232,17 @@ export default function SiteFooter() {
                 className="font-semibold text-emerald-500 transition hover:text-emerald-400"
               >
                 Shuvo Chakma
+              </a>
+
+              {" & "}
+
+              <a
+                href="https://chtdevelopers.vercel.app/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-emerald-500 transition hover:text-emerald-400"
+              >
+                CHT Developers
               </a>
             </p>
           </div>
