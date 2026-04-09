@@ -40,18 +40,18 @@ const en = {
   home: {
     hero: {
       kicker: "Since 2017",
-      accent: "We do not search for the talented,",
-      title: "we nurture and create them",
+      accent: "We do not search for The Talented",
+      title: "We nurture and create them",
       description:
         "Join our community of A+ achievers and students admitted to top universities like Dhaka University, Chittagong University, Rajshahi University, Khulna University, CUET and leading BSc & Diploma Nursing programs.",
       stats: [
         { value: "200+", label: "GPA 5 Achieved" },
-        { value: "150+", label: "Public Varsity + Nursing" },
+        { value: "150+", label: "Public Varsity & Nursing" },
         { value: "500+", label: "Active Members" },
       ],
       statsLabels: {
         gpa5: "GPA 5 Achieved",
-        publicAdmission: "Public Varsity + Nursing",
+        publicAdmission: "Public Varsity & Nursing",
         students: "Active Members",
       },
       previousSlide: "Previous slide",
@@ -63,7 +63,7 @@ const en = {
       accent: "Popular",
       title: "Courses",
       description:
-        "Explore active programs designed for strong academic outcomes and focused preparation.",
+        "Explore active programs designed for strong academic outcomes.",
       viewAll: "View All",
       viewAllMobile: "View All Courses",
       loadErrorTitle: "Failed to load homepage data from backend.",
