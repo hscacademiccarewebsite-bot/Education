@@ -59,7 +59,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
   const [current, setCurrent] = useState(0);
   const [progress, setProgress] = useState(0);
   const total = slides?.length || 0;
-  const slideDuration = 6500;
+  const slideDuration = 5000;
 
   useEffect(() => {
     if (total < 2) return;
@@ -104,7 +104,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="relative isolate overflow-hidden">
+            <div className="relative isolate overflow-hidden rounded-md aspect-[3/2] w-full">
               <AnimatePresence mode="wait">
                 {slides.map((slide, idx) => (
                   idx === current && slide.imageUrl ? (
@@ -114,25 +114,25 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="absolute inset-0 overflow-hidden"
+                      className="absolute inset-0 overflow-hidden rounded-md"
                     >
                       <img
                         src={slide.imageUrl}
                         alt={`${t("home.hero.slideAltPrefix")} ${idx + 1}`}
-                        className="absolute inset-0 h-full w-full object-contain"
+                        className="absolute inset-0 h-full w-full object-cover"
                         loading={idx === 0 ? "eager" : "lazy"}
                       />
                     </motion.div>
                   ) : null
                 ))}
               </AnimatePresence>
-              <div
+              {/* <div
                 className={`h-[255px] sm:h-[270px] lg:h-[430px] xl:h-[460px] ${
                   slides[current]?.imageUrl
                     ? ""
                     : "bg-gradient-to-br from-emerald-100 via-teal-50 to-slate-100"
                 }`}
-              />
+              /> */}
               {total > 1 && (
                 <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
                   <span className="text-emerald-700">{String(current + 1).padStart(2, "0")}</span>
@@ -204,7 +204,7 @@ function HomeHeroSlider({ slides, stats = [], t }) {
                       {cfg.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className={`text-[18px] font-black leading-none tracking-tight sm:text-[20px] ${cfg.valueCls}`}>
+                      <p className={`text-[25px] font-black leading-none tracking-tight sm:text-[20px] ${cfg.valueCls}`}>
                         {stat.value}
                       </p>
                       <p className="mt-0.5 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[11px]">
@@ -556,7 +556,7 @@ export default function HomePage() {
     },
     {
       value: apiStats?.publicAdmissionCount ? `${apiStats.publicAdmissionCount}+` : "—",
-      label: t("home.hero.statsLabels.publicAdmission", "Public Varsity + Nursing"),
+      label: t("home.hero.statsLabels.publicAdmission", "Public Varsity & Nursing"),
     },
     {
       value: apiStats?.studentCount ? `${apiStats.studentCount}+` : "—",
