@@ -264,7 +264,15 @@ export default function UsersPage() {
                           <td className="px-6 py-4">
                             <div className="relative max-w-[160px]">
                               <select
-                                value={user.academicStatus === "ex_student" ? "ex_student" : user.role}
+                                value={
+                                  user.academicStatus === "ex_student"
+                                    ? "ex_student"
+                                    : user.academicStatus === "student"
+                                    ? "student"
+                                    : user.academicStatus === "normal_user"
+                                    ? "user"
+                                    : user.role || "user"
+                                }
                                 onChange={(event) => handleRoleUpdate(user._id, event.target.value, user.role)}
                                 disabled={isRoleUpdating}
                                 className="h-9 w-full appearance-none rounded-lg border border-[#c1e6e5] bg-[#e0f7fa]/50 px-3 pr-8 text-[11px] font-black text-[#157f6d] outline-none transition-all hover:border-[#157f6d] hover:bg-[#e0f7fa] disabled:opacity-50"

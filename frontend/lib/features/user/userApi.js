@@ -57,7 +57,12 @@ export const userApi = baseApi.injectEndpoints({
         method: "PATCH",
         body: { role },
       }),
-      invalidatesTags: ["User", { type: "User", id: "LIST" }, { type: "User", id: "ACADEMIC_BATCHES" }],
+      invalidatesTags: (result, error, { userId }) => [
+        "User",
+        { type: "User", id: "LIST" },
+        { type: "User", id: "ACADEMIC_BATCHES" },
+        { type: "User", id: String(userId) },
+      ],
     }),
 
     updateGraduationStatus: builder.mutation({
@@ -107,6 +112,7 @@ export const userApi = baseApi.injectEndpoints({
 export const {
   useListUsersQuery,
   useGetUserDetailsQuery,
+  useLazyGetUserDetailsQuery,
   useGetPublicUserProfileQuery,
   useGetAcademicBatchesQuery,
   useUpdateUserRoleMutation,
