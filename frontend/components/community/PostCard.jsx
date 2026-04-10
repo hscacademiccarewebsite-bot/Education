@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
+import AcademicStatusTag from "@/components/AcademicStatusTag";
 import { useLikePostMutation, useDeletePostMutation } from "@/lib/features/community/communityApi";
 import CommentSection from "./CommentSection";
 import { useSelector } from "react-redux";
@@ -12,6 +13,7 @@ import { selectCurrentUserId } from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import PhotoViewer from "@/components/shared/PhotoViewer";
+import { getVisibleAcademicTag } from "@/lib/utils/roleUtils";
 
 const EVERYONE_MENTION_ID = "everyone";
 
@@ -221,6 +223,7 @@ export default function PostCard({ post, onEdit, compact = false }) {
   const galleryTileBaseClassName =
     "group relative w-full overflow-hidden bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#147b79]/30";
   const galleryImageClassName = "h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]";
+  const academicTag = getVisibleAcademicTag(post.author);
 
   return (
     <div ref={postRef} className={cardClassName}>
@@ -243,6 +246,7 @@ export default function PostCard({ post, onEdit, compact = false }) {
               {post.author?.fullName}
             </Link>
             {post.author?.role && <RoleBadge role={post.author.role} />}
+            <AcademicStatusTag status={academicTag} />
           </div>
 
           <div className={metaClassName}>

@@ -217,6 +217,8 @@ const en = {
     teacher: "Teacher",
     moderator: "Moderator",
     student: "Student",
+    normal_user: "User",
+    ex_student: "Ex Student",
   },
   community: {
     kicker: "Community",

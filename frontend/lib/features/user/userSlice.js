@@ -55,6 +55,8 @@ export const { clearCurrentUser } = userSlice.actions;
 
 export const selectCurrentUser = (state) => state.user.profile;
 export const selectCurrentUserRole = (state) => state.user.profile?.role;
+export const selectCurrentUserAcademicStatus = (state) => state.user.profile?.academicStatus;
+export const selectCurrentUserAcademicBatchLabel = (state) => state.user.profile?.academicBatchLabel;
 export const selectCurrentUserStatus = (state) => state.user.status;
 export const selectCurrentUserError = (state) => state.user.error;
 export const selectCurrentUserId = (state) => state.user.profile?._id;

@@ -53,6 +53,34 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    academicBatchYear: {
+      type: Number,
+      min: 2000,
+      max: 2100,
+      index: true,
+    },
+
+    academicBatchLabel: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+
+    isExStudent: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    graduatedAt: {
+      type: Date,
+    },
+
+    graduatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     // Teacher's university/varsity information
     varsity: {
       type: String,
@@ -97,5 +125,6 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 }, { unique: true, sparse: true });
 userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ academicBatchYear: 1, isExStudent: 1, isActive: 1 });
 
 module.exports = mongoose.model("User", userSchema);

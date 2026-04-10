@@ -13,8 +13,9 @@ import {
   useAssignBatchesToStaffMutation,
   useListUsersQuery,
   useUpdateUserRoleMutation,
+  useUpdateGraduationStatusMutation,
 } from "@/lib/features/user/userApi";
-import { ROLES } from "@/lib/utils/roleUtils";
+import { ROLES, ACADEMIC_STATUSES } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
@@ -29,7 +30,7 @@ function initialsFromName(name) {
 }
 
 export default function UsersPage() {
-  const [roleFilter, setRoleFilter] = useState("");
+  const [filterType, setFilterType] = useState(""); // Combined filter value
   const [searchTerm, setSearchTerm] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -41,17 +42,41 @@ export default function UsersPage() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const usersSkip = !isInitialized || !isAuthenticated;
 
+  // Parse filter type to determine if it's a role or academic status filter
+  const queryParams = useMemo(() => {
+    if (!filterType) return {};
+    if (filterType.startsWith("role:")) {
+      return { role: filterType.replace("role:", "") };
+    }
+    if (filterType.startsWith("academic:")) {
+      return { academicStatus: filterType.replace("academic:", "") };
+    }
+    return {};
+  }, [filterType]);
+
   const {
     data: usersData,
     isLoading,
     refetch: refetchUsers,
-  } = useListUsersQuery(roleFilter ? { role: roleFilter } : {}, {
+  } = useListUsersQuery(queryParams, {
     skip: usersSkip,
   });
   const [updateUserRole] = useUpdateUserRoleMutation();
+  const [updateGraduationStatus] = useUpdateGraduationStatusMutation();
 
   const users = usersData?.data || [];
   const roleOptions = useMemo(() => Object.values(ROLES), []);
+
+  // Combined filter options: roles + academic statuses
+  const filterOptions = useMemo(() => [
+    { type: "academic", value: ACADEMIC_STATUSES.NORMAL_USER, label: t("academicStatuses.normal_user", "User") },
+    { type: "academic", value: ACADEMIC_STATUSES.STUDENT, label: t("academicStatuses.student", "Student (Active)") },
+    { type: "academic", value: ACADEMIC_STATUSES.EX_STUDENT, label: t("academicStatuses.ex_student", "Ex-Student") },
+    { type: "role", value: ROLES.STUDENT, label: t("roles.student", "Student (Role)") },
+    { type: "role", value: ROLES.TEACHER, label: t("roles.teacher", "Teacher") },
+    { type: "role", value: ROLES.MODERATOR, label: t("roles.moderator", "Moderator") },
+    { type: "role", value: ROLES.ADMIN, label: t("roles.admin", "Admin") },
+  ], [t]);
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -64,15 +89,32 @@ export default function UsersPage() {
   }, [searchTerm, users]);
 
 
-  const handleRoleUpdate = async (userId, nextRole) => {
+  const handleRoleUpdate = async (userId, nextRole, currentRole) => {
     setMessage("");
     setError("");
     setRoleUpdatingUserId(userId);
 
     try {
-      await updateUserRole({ userId, role: nextRole }).unwrap();
-      setMessage(t("usersPage.messages.roleUpdated"));
-      showSuccess(t("usersPage.messages.roleUpdated"));
+      // Handle ex-student promotion via graduation status endpoint
+      if (nextRole === "ex_student") {
+        await updateGraduationStatus({ userId, isExStudent: true }).unwrap();
+        setMessage(t("usersPage.messages.markedExStudent", "User marked as ex-student"));
+        showSuccess(t("usersPage.messages.markedExStudent", "User marked as ex-student"));
+      } else if (nextRole === "user") {
+        // User means normal user with student role but not ex-student
+        if (currentRole !== "student") {
+          await updateUserRole({ userId, role: "student" }).unwrap();
+        }
+        // Revoke ex-student status if they were one
+        await updateGraduationStatus({ userId, isExStudent: false }).unwrap();
+        setMessage(t("usersPage.messages.setToUser", "User set to normal user"));
+        showSuccess(t("usersPage.messages.setToUser", "User set to normal user"));
+      } else {
+        // Regular role update
+        await updateUserRole({ userId, role: nextRole }).unwrap();
+        setMessage(t("usersPage.messages.roleUpdated"));
+        showSuccess(t("usersPage.messages.roleUpdated"));
+      }
     } catch (updateError) {
       const resolvedError = normalizeApiError(updateError, t("usersPage.messages.roleUpdateFailed"));
       setError(resolvedError);
@@ -113,16 +155,13 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-[1fr_240px]">
+            <div className="mt-8 grid gap-4 md:grid-cols-[1fr_280px]">
               <div className="relative group">
                 <input
                   type="search"
                   value={searchTerm}
                   onChange={(event) => {
                     setSearchTerm(event.target.value);
-                    if (event.target.value.trim() && roleFilter) {
-                      setRoleFilter("");
-                    }
                   }}
                   placeholder={t("usersPage.searchPlaceholder")}
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white/60 pl-11 pr-4 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50"
@@ -135,16 +174,29 @@ export default function UsersPage() {
               </div>
               <div className="relative">
                 <select
-                  value={roleFilter}
-                  onChange={(event) => setRoleFilter(event.target.value)}
+                  value={filterType}
+                  onChange={(event) => setFilterType(event.target.value)}
                   className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white/60 px-4 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50"
                 >
-                  <option value="">{t("usersPage.allRoles")}</option>
-                  {roleOptions.map((itemRole) => (
-                    <option key={itemRole} value={itemRole}>
-                      {t(`roles.${itemRole}`, itemRole)}
-                    </option>
-                  ))}
+                  <option value="">{t("usersPage.allTypes", "All Types")}</option>
+                  <optgroup label={t("usersPage.academicStatusGroup", "Academic Status")}>
+                    {filterOptions
+                      .filter((opt) => opt.type === "academic")
+                      .map((opt) => (
+                        <option key={`academic:${opt.value}`} value={`academic:${opt.value}`}>
+                          {opt.label}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label={t("usersPage.rolesGroup", "Roles")}>
+                    {filterOptions
+                      .filter((opt) => opt.type === "role")
+                      .map((opt) => (
+                        <option key={`role:${opt.value}`} value={`role:${opt.value}`}>
+                          {opt.label}
+                        </option>
+                      ))}
+                  </optgroup>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,22 +254,27 @@ export default function UsersPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex rounded-full border border-slate-200 px-3 py-0.5 text-[10px] font-bold text-slate-600">
-                              {t(`roles.${user.role}`, user.role)}
+                              {user.academicStatus === "normal_user"
+                                ? t("roles.user", "User")
+                                : user.academicStatus === "ex_student"
+                                ? t("roles.ex_student", "Ex-Student")
+                                : t(`roles.${user.role}`, user.role)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="relative max-w-[140px]">
+                            <div className="relative max-w-[160px]">
                               <select
-                                value={user.role}
-                                onChange={(event) => handleRoleUpdate(user._id, event.target.value)}
+                                value={user.academicStatus === "ex_student" ? "ex_student" : user.role}
+                                onChange={(event) => handleRoleUpdate(user._id, event.target.value, user.role)}
                                 disabled={isRoleUpdating}
                                 className="h-9 w-full appearance-none rounded-lg border border-[#c1e6e5] bg-[#e0f7fa]/50 px-3 pr-8 text-[11px] font-black text-[#157f6d] outline-none transition-all hover:border-[#157f6d] hover:bg-[#e0f7fa] disabled:opacity-50"
                               >
-                                {roleOptions.map((itemRole) => (
-                                  <option key={itemRole} value={itemRole}>
-                                    {t(`roles.${itemRole}`, itemRole)}
-                                  </option>
-                                ))}
+                                <option value="user">{t("roles.user", "User")}</option>
+                                <option value="student">{t("roles.student", "Student")}</option>
+                                <option value="ex_student">{t("roles.ex_student", "Ex-Student")}</option>
+                                <option value="teacher">{t("roles.teacher", "Teacher")}</option>
+                                <option value="moderator">{t("roles.moderator", "Moderator")}</option>
+                                <option value="admin">{t("roles.admin", "Admin")}</option>
                               </select>
                               <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#157f6d]">
                                 <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -216,6 +216,8 @@ const bn = {
     teacher: "শিক্ষক",
     moderator: "মডারেটর",
     student: "শিক্ষার্থী",
+    normal_user: "ব্যবহারকারী",
+    ex_student: "প্রাক্তন শিক্ষার্থী",
   },
   community: {
     kicker: "কমিউনিটি",

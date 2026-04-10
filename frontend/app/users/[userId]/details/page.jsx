@@ -22,13 +22,14 @@ import {
 } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
+import AcademicStatusTag from "@/components/AcademicStatusTag";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { ListSkeleton } from "@/components/loaders/AppLoader";
 import Avatar from "@/components/Avatar";
 import { useKickOutEnrollmentMutation } from "@/lib/features/enrollment/enrollmentApi";
 import { selectIsAuthenticated, selectIsAuthInitialized } from "@/lib/features/auth/authSlice";
 import { useGetUserDetailsQuery } from "@/lib/features/user/userApi";
-import { ROLES } from "@/lib/utils/roleUtils";
+import { ROLES, getUserDisplayRoleLabel, getVisibleAcademicTag } from "@/lib/utils/roleUtils";
 import { selectCurrentUser, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
@@ -408,6 +409,8 @@ export default function UserDetailsPage() {
   const profileName = user?.fullName || t("userDetails.messages.unnamedUser", "Unnamed User");
   const profileEmail = user?.email || t("userDetails.messages.noEmail", "No email");
   const facebookHref = resolveFacebookHref(user?.facebookProfileId);
+  const userDisplayRole = getUserDisplayRoleLabel(user, t);
+  const userAcademicTag = getVisibleAcademicTag(user);
 
   const handleKickOut = async (enrollment) => {
     const targetCourse =
@@ -513,10 +516,15 @@ export default function UserDetailsPage() {
                                 {profileName}
                               </h2>
                               {user?.role ? <RoleBadge role={user.role} /> : null}
+                              <AcademicStatusTag status={userAcademicTag} />
                             </div>
 
                             <p className="mt-1 break-words text-[12px] text-slate-600 md:text-[13px]">
                               {profileEmail}
+                            </p>
+                            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                              {userDisplayRole}
+                              {user?.academicBatchLabel ? ` • ${user.academicBatchLabel}` : ""}
                             </p>
 
                             <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -627,9 +635,19 @@ export default function UserDetailsPage() {
                       <div className="mt-2 space-y-1.5">
                         <div className="rounded-[14px] border border-slate-200 bg-white px-3 py-2">
                           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
-                            {t("userDetails.layout.role", "Role")}
+                            {t("userDetails.layout.currentStanding", "Current Standing")}
                           </p>
-                          <p className="mt-1 text-[12px] font-semibold text-slate-900 md:text-[13px]">{user.role || t("userDetails.misc.na", "N/A")}</p>
+                          <p className="mt-1 text-[12px] font-semibold text-slate-900 md:text-[13px]">
+                            {userDisplayRole || t("userDetails.misc.na", "N/A")}
+                          </p>
+                        </div>
+                        <div className="rounded-[14px] border border-slate-200 bg-white px-3 py-2">
+                          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
+                            {t("userDetails.layout.batch", "Academic Batch")}
+                          </p>
+                          <p className="mt-1 text-[12px] font-semibold text-slate-900 md:text-[13px]">
+                            {user?.academicBatchLabel || t("userDetails.misc.na", "N/A")}
+                          </p>
                         </div>
                         <div className="rounded-[14px] border border-slate-200 bg-white px-3 py-2">
                           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">

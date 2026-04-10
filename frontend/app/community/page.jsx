@@ -9,26 +9,27 @@ import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
 import Avatar from "@/components/Avatar";
 import {
+  selectCurrentUser,
   selectCurrentUserDisplayName,
   selectCurrentUserId,
   selectCurrentUserPhotoUrl,
-  selectCurrentUserRole,
 } from "@/lib/features/user/userSlice";
 import SharedNotesWidget from "@/components/community/SharedNotesWidget";
 import CommunityShortcuts from "@/components/community/CommunityShortcuts";
 import { communityApi } from "@/lib/features/community/communityApi";
 import { sharedNotesApi } from "@/lib/features/community/sharedNotesApi";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 
 export default function CommunityPage() {
   const [editingPost, setEditingPost] = useState(null);
   const { t } = useSiteLanguage();
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
+  const currentUser = useSelector(selectCurrentUser);
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const currentUserId = useSelector(selectCurrentUserId);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
-  const userRole = useSelector(selectCurrentUserRole);
 
   const prefetchCommunity = communityApi.usePrefetch("getPosts");
   const prefetchSharedNotes = sharedNotesApi.usePrefetch("getSharedNotes");
@@ -67,7 +68,9 @@ export default function CommunityPage() {
               <Avatar src={userPhotoUrl} name={userDisplayName} className="h-9 w-9 rounded-full" />
               <div className="flex flex-col">
                 <span className="font-bold text-[15px] text-slate-800 leading-tight">{userDisplayName}</span>
-                <span className="text-[12px] text-slate-500 font-medium capitalize">{t(`roles.${userRole}`, userRole)}</span>
+                <span className="text-[12px] text-slate-500 font-medium">
+                  {getUserDisplayRoleLabel(currentUser, t)}
+                </span>
               </div>
             </div>
             

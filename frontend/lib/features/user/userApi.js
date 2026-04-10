@@ -9,6 +9,9 @@ export const userApi = baseApi.injectEndpoints({
         if (params.role) {
           query.set("role", params.role);
         }
+        if (params.academicStatus) {
+          query.set("academicStatus", params.academicStatus);
+        }
         if (params.isActive !== undefined) {
           query.set("isActive", String(params.isActive));
         }
@@ -40,13 +43,47 @@ export const userApi = baseApi.injectEndpoints({
       providesTags: (_, __, userId) => [{ type: "User", id: `PUBLIC-${String(userId || "PROFILE")}` }],
     }),
 
+    getAcademicBatches: builder.query({
+      query: () => ({
+        url: "/users/academic-batches",
+        method: "GET",
+      }),
+      providesTags: [{ type: "User", id: "ACADEMIC_BATCHES" }],
+    }),
+
     updateUserRole: builder.mutation({
       query: ({ userId, role }) => ({
         url: `/users/${userId}/role`,
         method: "PATCH",
         body: { role },
       }),
-      invalidatesTags: [{ type: "User", id: "LIST" }],
+      invalidatesTags: ["User", { type: "User", id: "LIST" }, { type: "User", id: "ACADEMIC_BATCHES" }],
+    }),
+
+    updateGraduationStatus: builder.mutation({
+      query: ({ userId, isExStudent }) => ({
+        url: `/users/${userId}/graduation-status`,
+        method: "PATCH",
+        body: { isExStudent },
+      }),
+      invalidatesTags: [
+        "User",
+        { type: "User", id: "LIST" },
+        { type: "User", id: "ACADEMIC_BATCHES" },
+      ],
+    }),
+
+    updateBatchGraduationStatus: builder.mutation({
+      query: ({ batchYear, isExStudent }) => ({
+        url: `/users/academic-batches/${batchYear}/graduation-status`,
+        method: "PATCH",
+        body: { isExStudent },
+      }),
+      invalidatesTags: [
+        "User",
+        { type: "User", id: "LIST" },
+        { type: "User", id: "ACADEMIC_BATCHES" },
+      ],
     }),
 
     assignBatchesToStaff: builder.mutation({
@@ -71,7 +108,10 @@ export const {
   useListUsersQuery,
   useGetUserDetailsQuery,
   useGetPublicUserProfileQuery,
+  useGetAcademicBatchesQuery,
   useUpdateUserRoleMutation,
+  useUpdateGraduationStatusMutation,
+  useUpdateBatchGraduationStatusMutation,
   useAssignBatchesToStaffMutation,
   useSearchUsersQuery,
 } = userApi;

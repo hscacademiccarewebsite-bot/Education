@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
+import AcademicStatusTag from "@/components/AcademicStatusTag";
 import ImageUploadField from "@/components/uploads/ImageUploadField";
 import { selectToken } from "@/lib/features/auth/authSlice";
 import PhotoViewer from "@/components/shared/PhotoViewer";
@@ -27,6 +28,7 @@ import {
   revokeImageAssetPreview,
 } from "@/lib/utils/cloudinaryUpload";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel, getVisibleAcademicTag } from "@/lib/utils/roleUtils";
 
 const EVERYONE_MENTION_ID = "everyone";
 const EVERYONE_MENTION_NAME = "everyone";
@@ -181,6 +183,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
   const isTarget = String(comment._id) === String(targetCommentId);
   const itemRef = useRef(null);
   const optionsRef = useRef(null);
+  const authorTag = getVisibleAcademicTag(comment.author);
 
   const currentUserId = useSelector(selectCurrentUserId);
   const token = useSelector(selectToken);
@@ -464,6 +467,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
             >
               {comment.author?.fullName}
               {comment.author?.role && <RoleBadge role={comment.author.role} />}
+              <AcademicStatusTag status={authorTag} className="ml-1 align-middle" />
             </Link>
 
 
@@ -580,7 +584,7 @@ export default function CommentItem({ comment, replies = [], onReply, depth = 0 
                                 <span className="text-[11px] text-[#65676B] truncate capitalize">
                                   {user.isEveryone
                                     ? t("community.everyoneDescription", "Notify all eligible members")
-                                    : t(`roles.${user.role}`, user.role)}
+                                    : getUserDisplayRoleLabel(user, t)}
                                 </span>
                               </div>
                             </button>

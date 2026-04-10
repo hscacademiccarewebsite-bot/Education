@@ -5,6 +5,11 @@ const Notification = require("../model/notificationSchema");
 const User = require("../model/userSchema");
 const { canAccessBatch, getAccessibleBatchIdsForStaff, isAdmin, isValidObjectId } = require("../utils/batchAccess");
 const { normalizeCloudinaryAsset } = require("../utils/cloudinaryAsset");
+const {
+  buildAcademicBatchLabel,
+  enrichNestedUserField,
+  normalizeAcademicBatchYear,
+} = require("../utils/academicProfile");
 
 const parseBoolean = (value, fallbackValue = false) => {
   if (typeof value === "boolean") {
@@ -59,6 +64,7 @@ class EnrollmentRequestController {
         applicantFacebookId,
         applicantPhoto,
         applicantPhone,
+        academicBatchYear,
         note,
         facebookGroupJoinRequested,
       } = req.body;
@@ -91,6 +97,10 @@ class EnrollmentRequestController {
       ).trim();
       const resolvedPhone = String(applicantPhone || req.user.phone || "").trim();
       const resolvedPhoto = normalizeCloudinaryAsset(applicantPhoto || req.user.profilePhoto);
+      const resolvedAcademicBatchYear = normalizeAcademicBatchYear(
+        academicBatchYear ?? req.user.academicBatchYear
+      );
+      const resolvedAcademicBatchLabel = buildAcademicBatchLabel(resolvedAcademicBatchYear);
       const resolvedNote = String(note || "").trim();
       const resolvedJoinRequested = parseBoolean(facebookGroupJoinRequested, false);
 
@@ -112,6 +122,13 @@ class EnrollmentRequestController {
         return res.status(400).json({
           success: false,
           message: "Applicant photo is required.",
+        });
+      }
+
+      if (!resolvedAcademicBatchYear || !resolvedAcademicBatchLabel) {
+        return res.status(400).json({
+          success: false,
+          message: "Academic batch selection is required.",
         });
       }
 
@@ -154,6 +171,8 @@ class EnrollmentRequestController {
         existingRequest.applicantFacebookId = resolvedFacebookId;
         existingRequest.applicantPhoto = resolvedPhoto;
         existingRequest.applicantPhone = resolvedPhone;
+        existingRequest.academicBatchYear = resolvedAcademicBatchYear;
+        existingRequest.academicBatchLabel = resolvedAcademicBatchLabel;
         existingRequest.note = resolvedNote;
         existingRequest.facebookGroupJoinRequested = resolvedJoinRequested;
 
@@ -165,6 +184,10 @@ class EnrollmentRequestController {
         existingRequest.rejectionReason = undefined;
         existingRequest.kickedOutAt = undefined;
         existingRequest.kickoutReason = undefined;
+
+        req.user.academicBatchYear = resolvedAcademicBatchYear;
+        req.user.academicBatchLabel = resolvedAcademicBatchLabel;
+        await req.user.save();
 
         await existingRequest.save();
 
@@ -192,9 +215,15 @@ class EnrollmentRequestController {
         applicantFacebookId: resolvedFacebookId,
         applicantPhoto: resolvedPhoto,
         applicantPhone: resolvedPhone,
+        academicBatchYear: resolvedAcademicBatchYear,
+        academicBatchLabel: resolvedAcademicBatchLabel,
         note: resolvedNote,
         facebookGroupJoinRequested: resolvedJoinRequested,
       });
+
+      req.user.academicBatchYear = resolvedAcademicBatchYear;
+      req.user.academicBatchLabel = resolvedAcademicBatchLabel;
+      await req.user.save();
 
       try {
         await createAdminEnrollmentNotification({
@@ -316,7 +345,10 @@ class EnrollmentRequestController {
       }
 
       const requests = await EnrollmentRequest.find(query)
-        .populate("student", "fullName email phone profilePhoto facebookProfileId role")
+        .populate(
+          "student",
+          "fullName email phone profilePhoto facebookProfileId role academicBatchYear academicBatchLabel isExStudent"
+        )
         .populate(
           "batch",
           "name slug description monthlyFee currency status facebookGroupUrl banner thumbnail startsAt endsAt"
@@ -324,10 +356,12 @@ class EnrollmentRequestController {
         .populate("reviewedBy", "fullName role")
         .sort({ createdAt: -1 });
 
+      const enrichedRequests = await enrichNestedUserField(requests, "student");
+
       return res.status(200).json({
         success: true,
-        count: requests.length,
-        data: requests,
+        count: enrichedRequests.length,
+        data: enrichedRequests,
       });
     } catch (error) {
       return res.status(500).json({

@@ -11,6 +11,7 @@ const {
   uploadImageFromDataUri,
   deleteCloudinaryAssetByPublicId,
 } = require("../utils/cloudinaryAsset");
+const { enrichNestedUserField } = require("../utils/academicProfile");
 
 class BatchController {
   static async createBatch(req, res) {
@@ -337,14 +338,18 @@ class BatchController {
         batch: batchId,
         status: "approved",
       })
-        .populate("student", "fullName email phone facebookProfileId profilePhoto role isActive")
+        .populate(
+          "student",
+          "fullName email phone facebookProfileId profilePhoto role isActive academicBatchYear academicBatchLabel isExStudent"
+        )
         .populate("reviewedBy", "fullName role")
         .sort({ updatedAt: -1 });
+      const enrichedEnrollments = await enrichNestedUserField(approvedEnrollments, "student");
 
       return res.status(200).json({
         success: true,
-        count: approvedEnrollments.length,
-        data: approvedEnrollments,
+        count: enrichedEnrollments.length,
+        data: enrichedEnrollments,
       });
     } catch (error) {
       return res.status(500).json({

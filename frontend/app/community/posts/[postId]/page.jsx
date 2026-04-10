@@ -2,24 +2,26 @@
 
 import { useGetPostByIdQuery } from "@/lib/features/community/communityApi";
 import PostCard from "@/components/community/PostCard";
-import RoleBadge from "@/components/RoleBadge";
 import Avatar from "@/components/Avatar";
 import { useSelector } from "react-redux";
 import { 
+  selectCurrentUser,
   selectCurrentUserDisplayName, 
   selectCurrentUserPhotoUrl, 
-  selectCurrentUserRole 
 } from "@/lib/features/user/userSlice";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 
 export default function SinglePostPage() {
   const { postId } = useParams();
   const router = useRouter();
+  const { t } = useSiteLanguage();
   
+  const currentUser = useSelector(selectCurrentUser);
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
-  const userRole = useSelector(selectCurrentUserRole);
 
   const { data: postData, isLoading, isError } = useGetPostByIdQuery(postId);
 
@@ -47,7 +49,9 @@ export default function SinglePostPage() {
               <Avatar src={userPhotoUrl} name={userDisplayName} className="h-9 w-9 rounded-full" />
               <div className="flex flex-col">
                 <span className="font-bold text-[15px] text-slate-800 leading-tight">{userDisplayName}</span>
-                <span className="text-[12px] text-slate-500 font-medium capitalize">{userRole}</span>
+                <span className="text-[12px] text-slate-500 font-medium">
+                  {getUserDisplayRoleLabel(currentUser, t)}
+                </span>
               </div>
             </div>
             

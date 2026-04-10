@@ -11,6 +11,7 @@ import {
   selectIsAuthInitialized,
 } from "@/lib/features/auth/authSlice";
 import {
+  selectCurrentUser,
   selectCurrentUserDisplayName,
   selectCurrentUserPhotoUrl,
   selectCurrentUserRole,
@@ -20,6 +21,7 @@ import NotificationBell from "@/components/NotificationBell";
 import Avatar from "@/components/Avatar";
 import { useGetPublicSiteSettingsQuery } from "@/lib/features/home/homeApi";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 
 // ─── Nav link definitions ─────────────────────────────────────────────────────
 const NAV_LINKS = [
@@ -100,6 +102,7 @@ function Hamburger({ open }) {
 export default function Navbar() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isInitialized = useSelector(selectIsAuthInitialized);
+  const currentUser = useSelector(selectCurrentUser);
   const displayName = useSelector(selectCurrentUserDisplayName);
   const photoUrl = useSelector(selectCurrentUserPhotoUrl);
   const currentRole = useSelector(selectCurrentUserRole);
@@ -128,6 +131,7 @@ export default function Navbar() {
   const accountLabel = mounted
     ? (displayName || (isAuthenticated ? t("navbar.student", "Student") : ""))
     : "";
+  const accountRoleLabel = getUserDisplayRoleLabel(currentUser, t);
   const visibleNavLinks = NAV_LINKS.filter((item) => {
     if (!item.requiresAuth) return true;
     return isInitialized && isAuthenticated;
@@ -329,7 +333,7 @@ export default function Navbar() {
                         <RoleBadge role={currentRole} />
                       </div>
                       <div className="font-display text-[9px] font-bold uppercase tracking-wider text-[var(--page-teal)]">
-                        {currentRole || t("navbar.student", "Student")}
+                        {accountRoleLabel}
                       </div>
                     </div>
                     <svg
@@ -564,7 +568,7 @@ export default function Navbar() {
                     <RoleBadge role={currentRole} />
                   </div>
                   <p className="font-display text-[9px] font-bold uppercase tracking-wider text-[var(--page-teal)]">
-                    {currentRole || t("navbar.student", "Student")}
+                    {accountRoleLabel}
                   </p>
                 </div>
               </div>

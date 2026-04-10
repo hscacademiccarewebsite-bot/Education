@@ -7,6 +7,24 @@ router.post("/register", AuthMiddleware.requireAuth, UserController.registerUser
 router.get("/me", AuthMiddleware.requireAuth, UserController.getCurrentUser);
 router.get("/search", AuthMiddleware.requireAuth, UserController.searchUsers);
 router.patch("/me", AuthMiddleware.requireAuth, UserController.updateCurrentUser);
+router.get(
+  "/academic-batches",
+  AuthMiddleware.requireAuth,
+  AuthMiddleware.requireRoles("admin"),
+  UserController.listAcademicBatches
+);
+router.patch(
+  "/:userId/graduation-status",
+  AuthMiddleware.requireAuth,
+  AuthMiddleware.requireRoles("admin"),
+  UserController.updateGraduationStatus
+);
+router.patch(
+  "/academic-batches/:batchYear/graduation-status",
+  AuthMiddleware.requireAuth,
+  AuthMiddleware.requireRoles("admin"),
+  UserController.updateBatchGraduationStatus
+);
 router.get("/:userId/profile", AuthMiddleware.requireAuth, UserController.getPublicProfile);
 router.get(
   "/",

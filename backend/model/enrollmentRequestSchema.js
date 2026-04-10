@@ -41,6 +41,20 @@ const enrollmentRequestSchema = new mongoose.Schema(
       trim: true,
     },
 
+    academicBatchYear: {
+      type: Number,
+      min: 2000,
+      max: 2100,
+      required: true,
+      index: true,
+    },
+
+    academicBatchLabel: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     note: {
       type: String,
       trim: true,
@@ -99,5 +113,6 @@ const enrollmentRequestSchema = new mongoose.Schema(
 // One enrollment request per student per batch.
 enrollmentRequestSchema.index({ student: 1, batch: 1 }, { unique: true });
 enrollmentRequestSchema.index({ batch: 1, status: 1, createdAt: -1 });
+enrollmentRequestSchema.index({ academicBatchYear: 1, status: 1 });
 
 module.exports = mongoose.model("EnrollmentRequest", enrollmentRequestSchema);

@@ -19,6 +19,7 @@ import {
   resolveImageAssetForSubmit,
   revokeImageAssetPreview,
 } from "@/lib/utils/cloudinaryUpload";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 
 const EVERYONE_MENTION_ID = "everyone";
@@ -584,7 +585,7 @@ export default function CommentSection({ postId }) {
                           <span className="text-[12px] text-[#65676B] truncate capitalize">
                             {user.isEveryone
                               ? t("community.everyoneDescription", "Notify all eligible members")
-                              : t(`roles.${user.role}`, user.role)}
+                              : getUserDisplayRoleLabel(user, t)}
                           </span>
                         </div>
                       </button>

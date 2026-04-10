@@ -9,6 +9,21 @@ const {
   deleteCloudinaryAssetByPublicId,
 } = require("../utils/cloudinaryAsset");
 const { sendWelcomeEmail } = require("../utils/email");
+const {
+  buildAcademicBatchLabel,
+  enrichUserWithAcademicProfile,
+  enrichUsersWithAcademicProfile,
+  getAcademicBatchOptions,
+} = require("../utils/academicProfile");
+
+async function getStudentBatchIds(studentId) {
+  const userEnrollments = await EnrollmentRequest.find({
+    student: studentId,
+    status: "approved",
+  }).select("batch");
+
+  return userEnrollments.map((item) => String(item.batch));
+}
 
 class UserController {
   static async registerUser(req, res) {
@@ -111,7 +126,7 @@ class UserController {
         return res.status(200).json({
           success: true,
           message: "User synced successfully.",
-          data: existingUser,
+          data: await enrichUserWithAcademicProfile(existingUser),
         });
       }
 
@@ -128,7 +143,7 @@ class UserController {
       return res.status(201).json({
         success: true,
         message: "User registered successfully.",
-        data: createdUser,
+        data: await enrichUserWithAcademicProfile(createdUser),
       });
     } catch (error) {
       if (error?.code === 11000) {
@@ -150,7 +165,7 @@ class UserController {
     try {
       return res.status(200).json({
         success: true,
-        data: req.user,
+        data: await enrichUserWithAcademicProfile(req.user),
       });
     } catch (error) {
       return res.status(500).json({
@@ -235,7 +250,7 @@ class UserController {
       return res.status(200).json({
         success: true,
         message: "Profile updated successfully.",
-        data: req.user,
+        data: await enrichUserWithAcademicProfile(req.user),
       });
     } catch (error) {
       return res.status(500).json({
@@ -248,7 +263,7 @@ class UserController {
 
   static async listUsers(req, res) {
     try {
-      const { role, isActive, batchId } = req.query;
+      const { role, academicStatus, isActive, batchId } = req.query;
       const query = {};
 
       if (role) {
@@ -260,6 +275,31 @@ class UserController {
         }
 
         query.role = role;
+      }
+
+      // Academic status filter: normal_user, student, ex_student
+      if (academicStatus) {
+        const validStatuses = ["normal_user", "student", "ex_student"];
+        if (!validStatuses.includes(academicStatus)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid academic status filter.",
+          });
+        }
+
+        if (academicStatus === "ex_student") {
+          query.isExStudent = true;
+        } else if (academicStatus === "student") {
+          // Students have approved enrollments and are not ex-students
+          query.isExStudent = { $ne: true };
+          // We'll filter by approvedEnrollmentCount after fetching
+        } else {
+          // normal_user: not a student (no approved enrollments)
+          query.$or = [
+            { isExStudent: { $ne: true } },
+            { isExStudent: { $exists: false } },
+          ];
+        }
       }
 
       if (isActive !== undefined) {
@@ -277,7 +317,18 @@ class UserController {
         query.assignedBatches = batchId;
       }
 
-      const users = await User.find(query).sort({ createdAt: -1 });
+      let users = await User.find(query).sort({ createdAt: -1 }).lean();
+
+      // Enrich with academic profile
+      users = await enrichUsersWithAcademicProfile(users);
+
+      // Post-filter for academic status if needed (student, normal_user)
+      if (academicStatus === "student") {
+        users = users.filter((u) => u.academicStatus === "student");
+      } else if (academicStatus === "normal_user") {
+        users = users.filter((u) => u.academicStatus === "normal_user");
+      }
+
       return res.status(200).json({
         success: true,
         count: users.length,
@@ -327,7 +378,7 @@ class UserController {
       return res.status(200).json({
         success: true,
         message: "Role updated successfully.",
-        data: targetUser,
+        data: await enrichUserWithAcademicProfile(targetUser),
       });
     } catch (error) {
       return res.status(500).json({
@@ -511,10 +562,12 @@ class UserController {
         return latest;
       }, null);
 
+      const enrichedTargetUser = await enrichUserWithAcademicProfile(targetUser);
+
       return res.status(200).json({
         success: true,
         data: {
-          user: targetUser,
+          user: enrichedTargetUser,
           enrollmentRequests,
           payments,
           summary: {
@@ -529,6 +582,13 @@ class UserController {
               enabled: isStudentAccount,
               ...paymentSummary,
               lastPaidAt: latestPaidRecord?.paidAt || null,
+            },
+            academic: {
+              status: enrichedTargetUser?.academicStatus || "normal_user",
+              batchLabel: enrichedTargetUser?.academicBatchLabel || "",
+              batchYear: enrichedTargetUser?.academicBatchYear || null,
+              approvedEnrollmentCount: Number(enrichedTargetUser?.approvedEnrollmentCount || 0),
+              isExStudent: Boolean(enrichedTargetUser?.isExStudent),
             },
           },
         },
@@ -554,7 +614,9 @@ class UserController {
       }
 
       const targetUser = await User.findById(userId)
-        .select("_id fullName profilePhoto role school college createdAt isActive")
+        .select(
+          "_id fullName profilePhoto role school college createdAt isActive academicBatchYear academicBatchLabel isExStudent"
+        )
         .lean();
 
       if (!targetUser || !targetUser.isActive) {
@@ -585,7 +647,7 @@ class UserController {
       return res.status(200).json({
         success: true,
         data: {
-          user: targetUser,
+          user: await enrichUserWithAcademicProfile(targetUser),
           summary: {
             postsCount: accessiblePostsCount,
           },
@@ -648,12 +710,149 @@ class UserController {
       return res.status(200).json({
         success: true,
         message: "Batch assignments updated successfully.",
-        data: targetUser,
+        data: await enrichUserWithAcademicProfile(targetUser),
       });
     } catch (error) {
       return res.status(500).json({
         success: false,
         message: "Failed to assign batches.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async listAcademicBatches(req, res) {
+    try {
+      const users = await User.find({
+        role: "student",
+        isActive: true,
+      })
+        .select(
+          "_id fullName email phone profilePhoto academicBatchYear academicBatchLabel isExStudent createdAt"
+        )
+        .sort({ academicBatchYear: -1, fullName: 1 })
+        .lean();
+
+      const enrichedUsers = await enrichUsersWithAcademicProfile(users);
+      const grouped = enrichedUsers
+        .filter(
+          (user) =>
+            user.academicStatus === "student" ||
+            user.academicStatus === "ex_student"
+        )
+        .reduce((acc, user) => {
+          const normalizedLabel =
+            user.academicBatchLabel || buildAcademicBatchLabel(user.academicBatchYear) || "Unassigned";
+          const groupKey = user.academicBatchYear ? String(user.academicBatchYear) : "unassigned";
+
+          if (!acc.has(groupKey)) {
+            acc.set(groupKey, {
+              key: groupKey,
+              batchYear: user.academicBatchYear || null,
+              batchLabel: normalizedLabel,
+              totalMembers: 0,
+              studentCount: 0,
+              exStudentCount: 0,
+              members: [],
+            });
+          }
+
+          const group = acc.get(groupKey);
+          group.totalMembers += 1;
+          if (user.academicStatus === "student") {
+            group.studentCount += 1;
+          }
+          if (user.academicStatus === "ex_student") {
+            group.exStudentCount += 1;
+          }
+          group.members.push(user);
+
+          return acc;
+        }, new Map());
+
+      const items = [...grouped.values()]
+        .map((group) => ({
+          ...group,
+          members: [...group.members].sort((a, b) =>
+            String(a.fullName || "").localeCompare(String(b.fullName || ""))
+          ),
+        }))
+        .sort((a, b) => {
+          if (a.batchYear === null) return 1;
+          if (b.batchYear === null) return -1;
+          return b.batchYear - a.batchYear;
+        });
+
+      return res.status(200).json({
+        success: true,
+        count: items.length,
+        data: items,
+        meta: {
+          academicBatchOptions: getAcademicBatchOptions(),
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load academic batch groups.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async updateGraduationStatus(req, res) {
+    try {
+      const { userId } = req.params;
+      const { isExStudent } = req.body;
+
+      if (!isValidObjectId(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId.",
+        });
+      }
+
+      if (typeof isExStudent !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "isExStudent must be a boolean.",
+        });
+      }
+
+      const targetUser = await User.findById(userId);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      if (targetUser.role !== "student") {
+        return res.status(400).json({
+          success: false,
+          message: "Only student accounts can be marked as ex-student.",
+        });
+      }
+
+      targetUser.isExStudent = isExStudent;
+      targetUser.graduatedAt = isExStudent ? new Date() : undefined;
+      targetUser.graduatedBy = isExStudent ? req.user._id : undefined;
+      targetUser.academicBatchLabel =
+        buildAcademicBatchLabel(targetUser.academicBatchYear) || targetUser.academicBatchLabel || "";
+
+      await targetUser.save();
+
+      return res.status(200).json({
+        success: true,
+        message: isExStudent
+          ? "Student marked as ex-student successfully."
+          : "Ex-student status revoked successfully.",
+        data: await enrichUserWithAcademicProfile(targetUser),
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update graduation status.",
         error: error.message,
       });
     }
@@ -668,7 +867,9 @@ class UserController {
       if (!trimmed) {
         // Bare "@" — return 10 random active users
         users = await User.find({ isActive: true })
-          .select("_id fullName profilePhoto role")
+          .select(
+            "_id fullName profilePhoto role academicBatchYear academicBatchLabel isExStudent"
+          )
           .limit(10)
           .lean();
       } else {
@@ -676,19 +877,113 @@ class UserController {
           fullName: { $regex: trimmed, $options: "i" },
           isActive: true,
         })
-          .select("_id fullName profilePhoto role")
+          .select(
+            "_id fullName profilePhoto role academicBatchYear academicBatchLabel isExStudent"
+          )
           .limit(10)
           .lean();
       }
 
       return res.status(200).json({
         success: true,
-        data: users,
+        data: await enrichUsersWithAcademicProfile(users),
       });
     } catch (error) {
       return res.status(500).json({
         success: false,
         message: "Failed to search users.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async updateBatchGraduationStatus(req, res) {
+    try {
+      const { batchYear } = req.params;
+      const { isExStudent } = req.body;
+
+      if (!batchYear || !/^\d{4}$/.test(batchYear)) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid batchYear (YYYY format) is required.",
+        });
+      }
+
+      if (typeof isExStudent !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "isExStudent must be a boolean.",
+        });
+      }
+
+      const targetYear = parseInt(batchYear, 10);
+      const batchLabel = buildAcademicBatchLabel(targetYear);
+
+      // Find all students in this academic batch year who are currently active students
+      const query = {
+        role: "student",
+        academicBatchYear: targetYear,
+        isActive: true,
+      };
+
+      // If marking as graduated, only affect current students (not already ex-students)
+      // If revoking graduation, only affect ex-students
+      if (isExStudent) {
+        query.isExStudent = { $ne: true };
+      } else {
+        query.isExStudent = true;
+      }
+
+      const studentsToUpdate = await User.find(query).select("_id fullName isExStudent");
+
+      if (studentsToUpdate.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: isExStudent
+            ? "No active students found in this batch to graduate."
+            : "No ex-students found in this batch to revoke graduation.",
+          data: {
+            batchYear: targetYear,
+            batchLabel,
+            updatedCount: 0,
+            affectedStudents: [],
+          },
+        });
+      }
+
+      const studentIds = studentsToUpdate.map((s) => s._id);
+      const now = new Date();
+
+      // Bulk update all students in the batch
+      const updateResult = await User.updateMany(
+        { _id: { $in: studentIds } },
+        {
+          $set: {
+            isExStudent: isExStudent,
+            academicBatchLabel: batchLabel,
+            graduatedAt: isExStudent ? now : undefined,
+            graduatedBy: isExStudent ? req.user._id : undefined,
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: isExStudent
+          ? `${updateResult.modifiedCount} student(s) marked as graduated from ${batchLabel}.`
+          : `${updateResult.modifiedCount} ex-student(s) restored to active status in ${batchLabel}.`,
+        data: {
+          batchYear: targetYear,
+          batchLabel,
+          updatedCount: updateResult.modifiedCount,
+          isExStudent,
+          affectedStudentIds: studentIds.map((id) => String(id)),
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update batch graduation status.",
         error: error.message,
       });
     }

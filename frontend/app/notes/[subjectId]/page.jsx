@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -30,6 +30,10 @@ const initialNoteForm = {
   title: "",
   googleDriveLink: "",
 };
+
+function normalizeSearchValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
 function MessageBanner({ tone, children }) {
   const classes =
@@ -167,6 +171,7 @@ export default function NotesPage() {
   const subject = subjectData?.data;
   const notes = notesData?.data || [];
   const managementOpen = canManage && (showNoteForm || Boolean(editingNoteId));
+  const normalizedSearchTerm = normalizeSearchValue(searchTerm);
 
   const openCreatePanel = () => {
     setEditingNoteId("");
@@ -248,9 +253,22 @@ export default function NotesPage() {
     }
   };
 
-  const filteredNotes = notes.filter((note) =>
-    note.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredNotes = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return notes;
+    }
+
+    return notes.filter((note) => {
+      const searchableFields = [
+        note?.title,
+        note?.googleDriveLink,
+      ]
+        .map((value) => normalizeSearchValue(value))
+        .filter(Boolean);
+
+      return searchableFields.some((value) => value.includes(normalizedSearchTerm));
+    });
+  }, [notes, normalizedSearchTerm]);
 
   return (
     <RequireAuth>
@@ -325,8 +343,20 @@ export default function NotesPage() {
                       placeholder={t("notes.layout.search", "Search by title...")}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2.5 pl-11 pr-4 text-[12px] font-bold text-slate-950 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all sm:text-[13px]"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2.5 pl-11 pr-11 text-[12px] font-bold text-slate-950 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all sm:text-[13px]"
                     />
+                    {searchTerm ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
+                        aria-label={t("notes.actions.clearSearch", "Clear search")}
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ) : null}
                   </div>
                   {!notesLoading && (
                     <div className="flex items-center justify-between sm:justify-start">

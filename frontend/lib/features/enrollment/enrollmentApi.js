@@ -9,7 +9,7 @@ export const enrollmentApi = baseApi.injectEndpoints({
         method: "POST",
         body: payload,
       }),
-      invalidatesTags: [{ type: "Enrollment", id: "MY" }, { type: "Enrollment", id: "REVIEW" }],
+      invalidatesTags: ["User", { type: "Enrollment", id: "MY" }, { type: "Enrollment", id: "REVIEW" }],
     }),
 
     getMyEnrollmentRequests: builder.query({
@@ -45,6 +45,7 @@ export const enrollmentApi = baseApi.injectEndpoints({
         body: { status, rejectionReason },
       }),
       invalidatesTags: [
+        "User",
         { type: "Enrollment", id: "REVIEW" },
         { type: "Enrollment", id: "MY" },
         { type: "Payment", id: "MY" },
@@ -58,6 +59,7 @@ export const enrollmentApi = baseApi.injectEndpoints({
         body: { reason },
       }),
       invalidatesTags: [
+        "User",
         { type: "Enrollment", id: "REVIEW" },
         { type: "Enrollment", id: "MY" },
         { type: "Payment", id: "MY" },

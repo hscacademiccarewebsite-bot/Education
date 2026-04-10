@@ -31,6 +31,9 @@ import {
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
+import PageHero from "@/components/layouts/PageHero";
+import CourseCatalogCard from "@/components/course/CourseCatalogCard";
+import { CourseCardSkeleton } from "@/components/loaders/AppLoader";
 
 const REVIEW_FILTERS = ["pending", "approved", "rejected", "kicked_out"];
 
@@ -45,7 +48,7 @@ const STATUS_META = {
   approved: {
     key: "enrollmentsPage.status.approved",
     defaultLabel: "Approved",
-    pillClass: "bg-emerald-100 text-emerald-700",
+    pillClass: "bg-emerald-500 text-white",
     helperKey: "enrollmentsPage.status.helperApproved",
     defaultHelper: "Access granted",
   },
@@ -118,6 +121,18 @@ function resolveFacebookProfileUrl(rawValue) {
   return `https://facebook.com/${cleanValue}`;
 }
 
+function getAcademicBatchOptions(referenceDate = new Date()) {
+  const currentYear = referenceDate.getFullYear();
+
+  return Array.from({ length: 5 }, (_, index) => {
+    const year = currentYear - 2 + index;
+    return {
+      year,
+      label: `HSC ${String(year).slice(-2)}`,
+    };
+  });
+}
+
 export default function EnrollmentsPage() {
   const { t } = useSiteLanguage();
   const router = useRouter();
@@ -140,6 +155,7 @@ export default function EnrollmentsPage() {
     applicantName: "",
     applicantFacebookId: "",
     applicantPhone: "",
+    academicBatchYear: "",
     note: "",
     applicantPhoto: null,
     facebookGroupJoinRequested: false,
@@ -171,6 +187,7 @@ export default function EnrollmentsPage() {
       ),
     [coursesData]
   );
+  const academicBatchOptions = useMemo(() => getAcademicBatchOptions(), []);
 
   const myEnrollments = myData?.data || [];
   const approvedEnrollments = useMemo(
@@ -213,7 +230,10 @@ export default function EnrollmentsPage() {
     {
       label: t("enrollmentsPage.form.profileDetails", "Profile details"),
       done: Boolean(
-        form.applicantName.trim() && form.applicantFacebookId.trim() && form.applicantPhoto?.url
+        form.applicantName.trim() &&
+          form.applicantFacebookId.trim() &&
+          form.applicantPhoto?.url &&
+          form.academicBatchYear
       ),
     },
     {
@@ -246,6 +266,9 @@ export default function EnrollmentsPage() {
       applicantName: prev.applicantName || currentUser.fullName || "",
       applicantFacebookId: prev.applicantFacebookId || currentUser.facebookProfileId || "",
       applicantPhone: prev.applicantPhone || currentUser.phone || "",
+      academicBatchYear:
+        prev.academicBatchYear ||
+        (currentUser.academicBatchYear ? String(currentUser.academicBatchYear) : ""),
       applicantPhoto:
         prev.applicantPhoto ||
         (currentUser.profilePhoto?.url
@@ -255,7 +278,7 @@ export default function EnrollmentsPage() {
             }
           : null),
     }));
-  }, [currentUser, isStudentRole]);
+  }, [academicBatchOptions, currentUser, isStudentRole]);
 
   useEffect(() => {
     if (!isStudentRole) {
@@ -313,6 +336,16 @@ export default function EnrollmentsPage() {
       setUploadingApplicantPhoto(false);
       return;
     }
+    if (!form.academicBatchYear) {
+      const validationMessage = t(
+        "enrollmentsPage.messages.batchYearReq",
+        "Please select your current academic batch."
+      );
+      setError(validationMessage);
+      showError(validationMessage);
+      setUploadingApplicantPhoto(false);
+      return;
+    }
     if (pendingEnrollment) {
       const validationMessage = t("enrollmentsPage.messages.alreadyPending", "Your application is already pending for this batch.");
       setError(validationMessage);
@@ -357,6 +390,7 @@ export default function EnrollmentsPage() {
         applicantName: form.applicantName.trim(),
         applicantFacebookId: form.applicantFacebookId.trim(),
         applicantPhone: form.applicantPhone.trim(),
+        academicBatchYear: Number(form.academicBatchYear),
         applicantPhoto: {
           url: uploadedApplicantPhoto?.url || form.applicantPhoto.url,
           publicId: uploadedApplicantPhoto?.publicId || form.applicantPhoto.publicId || "",
@@ -423,102 +457,76 @@ export default function EnrollmentsPage() {
 
   return (
     <RequireAuth>
-      <section className="container-page py-8 md:py-10">
-        <RevealSection noStagger>
-        <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span className="site-kicker">{t("enrollmentsPage.layout.kicker", "Enrollment Desk")}</span>
-            <h1 className="site-title mt-3">{pageTitle}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-              {pageDescription}
-            </p>
-          </div>
-          {role ? <RoleBadge role={role} /> : null}
-        </div>
-        </RevealSection>
-
-        {isStudentRole ? (
-          showApprovedCoursesOnlyView ? (
-            <section className="rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 p-5 shadow-[0_12px_24px_rgba(15,23,42,0.08)] md:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 md:text-lg">Approved Courses</h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Only courses with approved enrollment are shown.
-                  </p>
-                </div>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-600">
-                  {t("enrollmentsPage.layout.numApproved", "{count} approved", { count: approvedCourseEntries.length })}
-                </span>
+      {isStudentRole && showApprovedCoursesOnlyView ? (
+        // Approved Courses View - Matches Courses Page Layout
+        <main className="site-shell min-h-screen pb-20">
+          <section className="container-page pt-8 pb-0 md:pt-10 md:pb-0">
+            <RevealSection noStagger>
+              <RevealItem>
+                <PageHero
+                  eyebrow={t("enrollmentsPage.hero.eyebrow", "My Learning")}
+                  titleAccent={t("enrollmentsPage.hero.accent", "Approved")}
+                  title={t("enrollmentsPage.hero.title", "Courses")}
+                  description={t("enrollmentsPage.hero.description", "Only courses with approved enrollment are shown here. Open course details to continue your study flow.")}
+                />
+              </RevealItem>
+            </RevealSection>
+          </section>
+          <div className="container-page mt-6">
+            {myDataLoading ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <CourseCardSkeleton key={i} />
+                ))}
               </div>
-
-              {myDataLoading ? (
-                <div className="mt-5">
-                  <ListSkeleton rows={3} />
-                </div>
-              ) : approvedCourseEntries.length === 0 ? (
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
-                  <p className="text-base font-extrabold text-slate-900">No approved course yet</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Browse courses and apply to get your first approval.
-                  </p>
-                  <Link href="/courses" className="site-button-primary mt-4 inline-flex px-4 py-2 text-[10px]">
+            ) : approvedCourseEntries.length === 0 ? (
+              <RevealSection noStagger>
+                <RevealItem className="flex flex-col items-center justify-center rounded-[5%] border border-slate-200 bg-white py-20 text-center shadow-[0_8px_20px_rgba(15,23,42,0.1)]">
+                  <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[5%] bg-slate-50 text-slate-300">
+                    <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-900">{t("enrollmentsPage.empty.title", "No approved courses yet")}</h3>
+                  <p className="mt-2 text-slate-500">{t("enrollmentsPage.empty.desc", "Browse courses and apply to get your first approval.")}</p>
+                  <Link href="/courses" className="site-button-primary mt-6 inline-flex px-6 py-2.5 text-xs">
                     Browse Courses
                   </Link>
-                </div>
-              ) : (
-                <RevealSection className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {approvedCourseEntries.map(({ batch: course, enrollment }, index) => (
-                    <RevealItem
-                      key={course?._id || index}
-                      className="overflow-hidden rounded-[clamp(8px,5%,12px)] border border-slate-200 bg-white p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
-                    >
-                      <div className="relative h-28 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                        {course?.banner?.url || course?.thumbnail?.url ? (
-                          <img
-                            src={course?.banner?.url || course?.thumbnail?.url}
-                            alt={course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
-                            Course Banner
-                          </div>
-                        )}
-                        <span className="absolute right-2.5 top-2.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-700">
-                          Approved
-                        </span>
-                      </div>
+                </RevealItem>
+              </RevealSection>
+            ) : (
+              <RevealSection className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {approvedCourseEntries.map(({ batch: course, enrollment }, index) => (
+                  <RevealItem key={course?._id || index}>
+                    <CourseCatalogCard
+                      course={course}
+                      index={index}
+                      showEnrollmentStatus={true}
+                      enrollmentStatus="approved"
+                    />
+                  </RevealItem>
+                ))}
+              </RevealSection>
+            )}
+          </div>
+        </main>
+      ) : (
+        // Application Form or Review View - Original Layout
+        <section className="container-page py-8 md:py-10">
+          <RevealSection noStagger>
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="site-kicker">{t("enrollmentsPage.layout.kicker", "Enrollment Desk")}</span>
+                <h1 className="site-title mt-3">{pageTitle}</h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+                  {pageDescription}
+                </p>
+              </div>
+              {role ? <RoleBadge role={role} /> : null}
+            </div>
+          </RevealSection>
 
-                      <div className="mt-3">
-                        <h3 className="line-clamp-1 text-sm font-extrabold text-slate-900">{course?.name || t("enrollmentsPage.layout.courseFallback", "Course")}</h3>
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">
-                          {course?.description || t("enrollmentsPage.layout.approvedForCourse", "Approved for this course.")}
-                        </p>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
-                        <p className="text-[11px] font-extrabold text-slate-900">
-                          {formatMoney(course?.monthlyFee, course?.currency || "BDT")}
-                        </p>
-                        <span className="text-[10px] text-slate-500">
-                          {formatDate(enrollment?.updatedAt || enrollment?.createdAt) || "Approved"}
-                        </span>
-                      </div>
-
-                      <Link
-                        href={`/courses/${course?._id}`}
-                        className="site-button-primary mt-3 h-9 w-full justify-center px-3 text-[10px]"
-                      >
-                        Open Course
-                      </Link>
-                    </RevealItem>
-                  ))}
-                </RevealSection>
-              )}
-            </section>
-          ) : (
+          {isStudentRole ? (
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <form
                 onSubmit={handleApply}
@@ -562,6 +570,12 @@ export default function EnrollmentsPage() {
                       <p className="mt-1 text-base font-extrabold text-slate-900">
                         {selectedBatch?.name || t("enrollmentsPage.messages.noBatchAvail", "No batch available")}
                       </p>
+                      {form.academicBatchYear ? (
+                        <p className="mt-1 text-xs font-semibold text-slate-600">
+                          {t("enrollmentsPage.form.academicBatch", "Current Academic Batch")}: HSC{" "}
+                          {String(form.academicBatchYear).slice(-2)}
+                        </p>
+                      ) : null}
                       {selectedBatchEnrollment ? (
                         <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
                           {t("enrollmentsPage.form.existingRequest", "Existing request:")}
@@ -625,6 +639,39 @@ export default function EnrollmentsPage() {
                       autoComplete="tel"
                     />
 
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3.5 py-3">
+                      <label
+                        htmlFor="academic-batch-year"
+                        className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500"
+                      >
+                        {t("enrollmentsPage.form.academicBatch", "Current Academic Batch")}
+                      </label>
+                      <select
+                        id="academic-batch-year"
+                        value={form.academicBatchYear}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            academicBatchYear: event.target.value,
+                          }))
+                        }
+                        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-50"
+                      >
+                        <option value="">{t("enrollmentsPage.form.selectAcademicBatch", "Select batch")}</option>
+                        {academicBatchOptions.map((option) => (
+                          <option key={option.year} value={option.year}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-slate-500">
+                        {t(
+                          "enrollmentsPage.form.academicBatchHint",
+                          "Choose your current HSC batch so admins can track student and graduate groups correctly."
+                        )}
+                      </p>
+                    </div>
+
                     <div className="md:col-span-2">
                       <FloatingTextarea
                         id="note"
@@ -681,6 +728,7 @@ export default function EnrollmentsPage() {
                           pendingEnrollment ||
                           approvedEnrollment ||
                           kickedOutEnrollment ||
+                          !form.academicBatchYear ||
                           !form.facebookGroupJoinRequested ||
                           !hasSelectedBatchGroupLink
                         }
@@ -758,8 +806,7 @@ export default function EnrollmentsPage() {
                 </section>
               </aside>
             </div>
-          )
-        ) : (
+          ) : (
           <section className="overflow-hidden rounded-[clamp(10px,5%,14px)] border border-slate-200 bg-white/95 shadow-[0_12px_24px_rgba(15,23,42,0.08)]">
             <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 md:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -826,6 +873,12 @@ export default function EnrollmentsPage() {
                             <p className="mt-0.5 text-sm text-slate-600">
                               Batch: {item.batch?.name || t("enrollmentsPage.layout.batchNA", "Batch N/A")}
                             </p>
+                            {(item.academicBatchLabel || item.student?.academicBatchLabel) ? (
+                              <p className="mt-1 text-xs font-semibold text-slate-600">
+                                {t("enrollmentsPage.form.academicBatch", "Current Academic Batch")}:{" "}
+                                {item.academicBatchLabel || item.student?.academicBatchLabel}
+                              </p>
+                            ) : null}
 
                             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600">
                               <span>{t("enrollmentsPage.layout.fbPrefix", "FB:")}</span>
@@ -921,7 +974,7 @@ export default function EnrollmentsPage() {
           </section>
         )}
       </section>
-
+      )}
       {popupNode}
     </RequireAuth>
   );

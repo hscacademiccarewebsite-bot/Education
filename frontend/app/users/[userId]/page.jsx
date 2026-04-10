@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import Avatar from "@/components/Avatar";
 import RoleBadge from "@/components/RoleBadge";
+import AcademicStatusTag from "@/components/AcademicStatusTag";
 import CreatePost from "@/components/community/CreatePost";
 import PostCard from "@/components/community/PostCard";
 import { PostSkeleton } from "@/components/community/CommunitySkeletons";
@@ -14,6 +15,7 @@ import { useGetPostsQuery } from "@/lib/features/community/communityApi";
 import { useGetPublicUserProfileQuery } from "@/lib/features/user/userApi";
 import { selectCurrentUserId, selectCurrentUserRole } from "@/lib/features/user/userSlice";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel, getVisibleAcademicTag } from "@/lib/utils/roleUtils";
 
 function formatMemberSince(dateValue, language, t) {
   if (!dateValue) return t("publicProfilePage.notAvailable", "N/A");
@@ -75,6 +77,7 @@ export default function PublicUserProfilePage() {
   const hasMore = pagination.page < pagination.pages;
   const isOwnProfile = String(currentUserId || "") === String(userId || "");
   const canOpenStaffDetails = ["admin", "teacher", "moderator"].includes(currentUserRole);
+  const academicTag = getVisibleAcademicTag(user);
 
   const detailErrorMessage = useMemo(() => {
     if (typeof error?.data?.message === "string") return error.data.message;
@@ -114,7 +117,14 @@ export default function PublicUserProfilePage() {
                               : user?.fullName || t("publicProfilePage.unknownUser", "Unknown User")}
                           </h1>
                           {user?.role ? <RoleBadge role={user.role} /> : null}
+                          <AcademicStatusTag status={academicTag} />
                         </div>
+                        {!profileLoading && user ? (
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            {getUserDisplayRoleLabel(user, t)}
+                            {user?.academicBatchLabel ? ` • ${user.academicBatchLabel}` : ""}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 

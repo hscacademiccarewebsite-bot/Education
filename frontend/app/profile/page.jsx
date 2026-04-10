@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import RoleBadge from "@/components/RoleBadge";
+import AcademicStatusTag from "@/components/AcademicStatusTag";
 import { CardSkeleton, InlineLoader, Skeleton } from "@/components/loaders/AppLoader";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
@@ -25,7 +26,12 @@ import { useGetEnrollmentRequestsForReviewQuery } from "@/lib/features/enrollmen
 import { useGetGlobalPaymentsQuery } from "@/lib/features/payment/paymentApi";
 import { useListUsersQuery } from "@/lib/features/user/userApi";
 import { useListBatchesQuery } from "@/lib/features/batch/batchApi";
-import { isAdmin, isStudent } from "@/lib/utils/roleUtils";
+import {
+  getUserDisplayRoleLabel,
+  getVisibleAcademicTag,
+  isAdmin,
+  isStudent,
+} from "@/lib/utils/roleUtils";
 import {
   cleanupUploadedImageAsset,
   isLocalImageAsset,
@@ -199,6 +205,7 @@ export default function ProfilePage() {
 
   const theme = ROLE_THEME[role] || ROLE_THEME.student;
   const facebookProfileUrl = resolveFacebookProfileUrl(currentUser?.facebookProfileId);
+  const currentUserTag = getVisibleAcademicTag(currentUser);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -502,7 +509,12 @@ export default function ProfilePage() {
                   <h2 className="mt-4 flex items-center justify-center gap-1.5 text-xl md:text-2xl font-black text-slate-900 [font-family:'Trebuchet_MS',sans-serif] tracking-tight">
                     <span>{displayName || t("profilePage.misc.loading", "Loading…")}</span>
                     <RoleBadge role={role} />
+                    <AcademicStatusTag status={currentUserTag} />
                   </h2>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {getUserDisplayRoleLabel(currentUser, t)}
+                    {currentUser?.academicBatchLabel ? ` • ${currentUser.academicBatchLabel}` : ""}
+                  </p>
                   <p className="mt-1 text-xs md:text-sm font-semibold text-slate-400/80 tracking-wide">{currentUser?.email || ""}</p>
                   {facebookProfileUrl ? (
                     <a

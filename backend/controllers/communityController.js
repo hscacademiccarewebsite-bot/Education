@@ -4,8 +4,11 @@ const Notification = require("../model/notificationSchema");
 const User = require("../model/userSchema");
 const EnrollmentRequest = require("../model/enrollmentRequestSchema");
 const { deleteCloudinaryAssetByPublicId } = require("../utils/cloudinaryAsset");
+const { enrichNestedUserField } = require("../utils/academicProfile");
 
 const EVERYONE_MENTION_ID = "everyone";
+const COMMUNITY_AUTHOR_SELECT =
+  "fullName profilePhoto role academicBatchYear academicBatchLabel isExStudent";
 
 // Helper to get batch IDs a student is approved for
 async function getStudentBatchIds(studentId) {
@@ -171,12 +174,13 @@ class CommunityController {
         everyoneMentioned: mentionMeta.hasEveryoneMention,
       });
 
-      const populatedPost = await post.populate("author", "fullName profilePhoto role");
+      const populatedPost = await post.populate("author", COMMUNITY_AUTHOR_SELECT);
+      const [enrichedPost] = await enrichNestedUserField([populatedPost], "author");
 
       res.status(201).json({
         success: true,
         message: "Post created successfully.",
-        data: populatedPost,
+        data: enrichedPost,
       });
     } catch (error) {
       console.error("[Create Post Error]:", error);
@@ -231,7 +235,7 @@ class CommunityController {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate("author", "fullName profilePhoto role");
+        .populate("author", COMMUNITY_AUTHOR_SELECT);
 
       const total = await CommunityPost.countDocuments(query);
 
@@ -245,10 +249,11 @@ class CommunityController {
         delete postObj.likes; // Don't send all like IDs to frontend
         return postObj;
       });
+      const enrichedPosts = await enrichNestedUserField(postsWithLikeStatus, "author");
 
       res.status(200).json({
         success: true,
-        data: postsWithLikeStatus,
+        data: enrichedPosts,
         pagination: {
           total,
           page,
@@ -373,7 +378,12 @@ class CommunityController {
       res.status(200).json({
         success: true,
         message: "Post updated successfully.",
-        data: await post.populate("author", "fullName profilePhoto role"),
+        data: (
+          await enrichNestedUserField(
+            [await post.populate("author", COMMUNITY_AUTHOR_SELECT)],
+            "author"
+          )
+        )[0],
       });
     } catch (error) {
       console.error("[Edit Post Error]:", error);
@@ -508,7 +518,8 @@ class CommunityController {
       post.commentsCount += 1;
       await post.save();
 
-      const populatedComment = await comment.populate("author", "fullName profilePhoto role");
+      const populatedComment = await comment.populate("author", COMMUNITY_AUTHOR_SELECT);
+      const [enrichedComment] = await enrichNestedUserField([populatedComment], "author");
 
       // Notification logic
       if (parentId) {
@@ -556,7 +567,7 @@ class CommunityController {
       res.status(201).json({
         success: true,
         message: "Comment added successfully.",
-        data: populatedComment,
+        data: enrichedComment,
       });
     } catch (error) {
       console.error("[Add Comment Error]:", error);
@@ -578,7 +589,7 @@ class CommunityController {
         .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
-        .populate("author", "fullName profilePhoto role");
+        .populate("author", COMMUNITY_AUTHOR_SELECT);
 
       const total = await CommunityComment.countDocuments({ post: postId });
 
@@ -591,10 +602,11 @@ class CommunityController {
         delete commentObj.likes;
         return commentObj;
       });
+      const enrichedComments = await enrichNestedUserField(commentsWithStatus, "author");
 
       res.status(200).json({
         success: true,
-        data: commentsWithStatus,
+        data: enrichedComments,
         pagination: {
           total,
           page,
@@ -717,7 +729,12 @@ class CommunityController {
       res.status(200).json({
         success: true,
         message: "Comment updated successfully.",
-        data: await comment.populate("author", "fullName profilePhoto role"),
+        data: (
+          await enrichNestedUserField(
+            [await comment.populate("author", COMMUNITY_AUTHOR_SELECT)],
+            "author"
+          )
+        )[0],
       });
     } catch (error) {
       console.error("[Edit Comment Error]:", error);
@@ -801,7 +818,7 @@ class CommunityController {
   static async getPostById(req, res) {
     try {
       const { postId } = req.params;
-      const post = await CommunityPost.findById(postId).populate("author", "fullName profilePhoto role");
+      const post = await CommunityPost.findById(postId).populate("author", COMMUNITY_AUTHOR_SELECT);
 
       if (!post) {
         return res.status(404).json({ success: false, message: "Post not found." });
@@ -824,10 +841,11 @@ class CommunityController {
       );
       postObj.likesCount = post.likes.length;
       delete postObj.likes;
+      const [enrichedPost] = await enrichNestedUserField([postObj], "author");
 
       res.status(200).json({
         success: true,
-        data: postObj,
+        data: enrichedPost,
       });
     } catch (error) {
       console.error("[Get Post By Id Error]:", error);

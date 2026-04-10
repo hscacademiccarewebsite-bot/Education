@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils/cloudinaryUpload";
 import { resizeImage } from "@/lib/utils/imageResizer";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 
 const EVERYONE_MENTION_ID = "everyone";
 const EVERYONE_MENTION_NAME = "everyone";
@@ -896,7 +897,7 @@ export default function CreatePost({
                                   <p className="truncate text-[11px] capitalize text-slate-500">
                                     {user.isEveryone
                                       ? t("community.everyoneDescription", "Notify all eligible members")
-                                      : t(`roles.${user.role}`, user.role)}
+                                      : getUserDisplayRoleLabel(user, t)}
                                   </p>
                                 </div>
                               </button>

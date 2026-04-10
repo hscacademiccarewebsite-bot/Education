@@ -9,9 +9,14 @@ import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "@/lib/features/auth/authSlice";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { selectCurrentUserDisplayName, selectCurrentUserPhotoUrl, selectCurrentUserRole } from "@/lib/features/user/userSlice";
+import {
+  selectCurrentUser,
+  selectCurrentUserDisplayName,
+  selectCurrentUserPhotoUrl,
+} from "@/lib/features/user/userSlice";
 import { useActionPopup } from "@/components/feedback/useActionPopup";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
+import { getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 
 export default function MyNotesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,9 +26,9 @@ export default function MyNotesPage() {
   const router = useRouter();
   const { showSuccess, showError, requestDeleteConfirmation } = useActionPopup();
 
+  const currentUser = useSelector(selectCurrentUser);
   const userDisplayName = useSelector(selectCurrentUserDisplayName);
   const userPhotoUrl = useSelector(selectCurrentUserPhotoUrl);
-  const userRole = useSelector(selectCurrentUserRole);
 
   const { data: notesData, isLoading, isError } = useGetSharedNotesQuery({ 
     page: 1, 
@@ -99,7 +104,9 @@ export default function MyNotesPage() {
                 <Avatar src={userPhotoUrl} name={userDisplayName} className="h-9 w-9 rounded-full" />
                 <div className="flex flex-col">
                   <span className="font-bold text-[15px] text-slate-800 leading-tight">{userDisplayName}</span>
-                  <span className="text-[12px] text-slate-500 font-medium capitalize">{t(`roles.${userRole}`, userRole)}</span>
+                  <span className="text-[12px] text-slate-500 font-medium">
+                    {getUserDisplayRoleLabel(currentUser, t)}
+                  </span>
                 </div>
               </div>
             </aside>

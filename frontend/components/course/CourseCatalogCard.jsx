@@ -16,6 +16,10 @@ const statusMeta = {
     labelKey: "courseCard.status.archived",
     pillClass: "bg-slate-200 text-slate-700",
   },
+  approved: {
+    labelKey: "courseCard.status.approved",
+    pillClass: "bg-emerald-500 text-white",
+  },
 };
 
 const coverFallbacks = [
@@ -43,6 +47,7 @@ export default function CourseCatalogCard({
   const actionCount = 1 + Number(showApplyAction) + Number(showModifyAction);
   const detailsLabel = t("courseCard.seeCourseDetails");
   const meta = statusMeta[course?.status] || statusMeta.archived;
+  const enrollmentMeta = statusMeta[enrollmentStatus] || null;
   const bannerUrl =
     course?.banner?.url || course?.thumbnail?.url || coverFallbacks[index % coverFallbacks.length];
 
@@ -56,9 +61,16 @@ export default function CourseCatalogCard({
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-900/20 to-transparent" />
-        <div className="absolute right-4 top-4">
+        <div className="absolute right-4 top-4 flex flex-col gap-2 items-end">
+          {showEnrollmentStatus && enrollmentMeta ? (
+            <span
+              className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider shadow-lg ${enrollmentMeta.pillClass}`}
+            >
+              {t(enrollmentMeta.labelKey)}
+            </span>
+          ) : null}
           <span
-            className={`rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-xl backdrop-blur-md ${meta.pillClass}`}
+            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider shadow-md backdrop-blur-sm ${meta.pillClass}`}
           >
             {t(meta.labelKey)}
           </span>
@@ -74,7 +86,7 @@ export default function CourseCatalogCard({
             <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-teal-700">
               <span>{t("courseCard.academicProgram")}</span>
             </div>
-            {showEnrollmentStatus && enrollmentStatus && enrollmentStatus !== "approved" ? (
+            {showEnrollmentStatus && enrollmentStatus && enrollmentStatus !== "approved" && !enrollmentMeta ? (
               <span className="rounded bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">
                 {t(`courseCard.enrollmentStatus.${enrollmentStatus}`, enrollmentStatus)}
               </span>

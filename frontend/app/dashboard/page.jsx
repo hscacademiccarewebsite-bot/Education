@@ -90,6 +90,15 @@ const ROLE_ACTIONS = {
       color: "indigo"
     },
     {
+      id: "admin-batch-management",
+      title: "Batch Management",
+      description: "Group students by HSC batch, review counts, and mark graduates as ex-students.",
+      href: "/dashboard/batch-management",
+      badge: "Batches",
+      icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M7.5 3.75v6m9-6v6M6.75 12h10.5a2.25 2.25 0 012.25 2.25v3A2.25 2.25 0 0117.25 19.5H6.75A2.25 2.25 0 014.5 17.25v-3A2.25 2.25 0 016.75 12zm1.5 3h.008v.008H8.25V15zm3.75 0h.008v.008H12V15zm3.75 0h.008v.008H15.75V15z" />,
+      color: "amber"
+    },
+    {
       id: "admin-payments",
       titleKey: "dashboard.actions.admin.payments.title",
       descriptionKey: "dashboard.actions.admin.payments.description",
