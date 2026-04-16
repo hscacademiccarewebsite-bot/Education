@@ -15,7 +15,7 @@ import {
   useUpdateUserRoleMutation,
   useUpdateGraduationStatusMutation,
 } from "@/lib/features/user/userApi";
-import { ROLES, ACADEMIC_STATUSES } from "@/lib/utils/roleUtils";
+import { ROLES, ACADEMIC_STATUSES, getUserDisplayRoleLabel } from "@/lib/utils/roleUtils";
 import { normalizeApiError } from "@/src/shared/lib/errors/normalizeApiError";
 import { useSiteLanguage } from "@/src/app/providers/LanguageProvider";
 import { RevealSection, RevealItem } from "@/components/motion/MotionReveal";
@@ -254,18 +254,16 @@ export default function UsersPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex rounded-full border border-slate-200 px-3 py-0.5 text-[10px] font-bold text-slate-600">
-                              {user.academicStatus === "normal_user"
-                                ? t("roles.user", "User")
-                                : user.academicStatus === "ex_student"
-                                ? t("roles.ex_student", "Ex-Student")
-                                : t(`roles.${user.role}`, user.role)}
+                              {getUserDisplayRoleLabel(user, t)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="relative max-w-[160px]">
                               <select
                                 value={
-                                  user.academicStatus === "ex_student"
+                                  [ROLES.ADMIN, ROLES.TEACHER, ROLES.MODERATOR].includes(user.role)
+                                    ? user.role
+                                    : user.academicStatus === "ex_student"
                                     ? "ex_student"
                                     : user.academicStatus === "student"
                                     ? "student"
